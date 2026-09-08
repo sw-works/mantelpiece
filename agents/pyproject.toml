@@ -6,6 +6,12 @@ requires-python = ">=3.12"
 license = "MIT"
 dependencies = []
 
+[project.optional-dependencies]
+runtime = [
+    "bedrock-agentcore>=0.1",
+    "strands-agents>=1.0",
+]
+
 [dependency-groups]
 dev = ["pytest>=8", "ruff>=0.6"]
 
