@@ -1,0 +1,288 @@
+//! In-memory backends for tests and local runs.
+
+use async_trait::async_trait;
+use memorylane_core::confirmation::ConfirmationToken;
+use memorylane_core::contributor::Contributor;
+use memorylane_core::device_code::DeviceCode;
+use memorylane_core::events::{Event, EventKind};
+use memorylane_core::ids::{ContributorId, HouseholdId, MediaId, TripId};
+use memorylane_core::media::MediaItem;
+use memorylane_core::trip::Trip;
+use memorylane_core::trip_code::TripCode;
+use std::collections::{BTreeMap, HashMap};
+use std::sync::Mutex;
+use time::OffsetDateTime;
+
+use crate::blobs::{Blobs, CompletedPart};
+use crate::storage::{Result, Storage};
+
+#[derive(Debug, Default)]
+struct Tables {
+    device_codes: HashMap<String, DeviceCode>,
+    trip_codes: HashMap<String, TripCode>,
+    contributors: HashMap<(HouseholdId, ContributorId), Contributor>,
+    media: HashMap<(HouseholdId, MediaId), MediaItem>,
+    trips: HashMap<(HouseholdId, TripId), Trip>,
+    events: BTreeMap<(HouseholdId, u64), Event>,
+    seq: HashMap<HouseholdId, u64>,
+    confirmations: HashMap<String, ConfirmationToken>,
+}
+
+#[derive(Debug, Default)]
+pub struct MemoryStorage {
+    tables: Mutex<Tables>,
+}
+
+impl MemoryStorage {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+#[async_trait]
+impl Storage for MemoryStorage {
+    async fn put_device_code(&self, code: &DeviceCode) -> Result<()> {
+        self.tables
+            .lock()
+            .unwrap()
+            .device_codes
+            .insert(code.code.clone(), code.clone());
+        Ok(())
+    }
+    async fn get_device_code(&self, code: &str) -> Result<Option<DeviceCode>> {
+        Ok(self.tables.lock().unwrap().device_codes.get(code).cloned())
+    }
+
+    async fn put_trip_code(&self, code: &TripCode) -> Result<()> {
+        self.tables
+            .lock()
+            .unwrap()
+            .trip_codes
+            .insert(code.code.clone(), code.clone());
+        Ok(())
+    }
+    async fn get_trip_code(&self, code: &str) -> Result<Option<TripCode>> {
+        Ok(self.tables.lock().unwrap().trip_codes.get(code).cloned())
+    }
+    async fn list_trip_codes(&self, household: &HouseholdId) -> Result<Vec<TripCode>> {
+        let t = self.tables.lock().unwrap();
+        Ok(t.trip_codes
+            .values()
+            .filter(|c| &c.household == household)
+            .cloned()
+            .collect())
+    }
+
+    async fn put_contributor(&self, c: &Contributor) -> Result<()> {
+        self.tables
+            .lock()
+            .unwrap()
+            .contributors
+            .insert((c.household.clone(), c.id.clone()), c.clone());
+        Ok(())
+    }
+    async fn get_contributor(
+        &self,
+        household: &HouseholdId,
+        id: &ContributorId,
+    ) -> Result<Option<Contributor>> {
+        Ok(self
+            .tables
+            .lock()
+            .unwrap()
+            .contributors
+            .get(&(household.clone(), id.clone()))
+            .cloned())
+    }
+    async fn list_contributors(&self, household: &HouseholdId) -> Result<Vec<Contributor>> {
+        let t = self.tables.lock().unwrap();
+        let mut v: Vec<Contributor> = t
+            .contributors
+            .values()
+            .filter(|c| &c.household == household)
+            .cloned()
+            .collect();
+        v.sort_by_key(|c| c.joined_at);
+        Ok(v)
+    }
+
+    async fn put_media(&self, m: &MediaItem) -> Result<()> {
+        self.tables
+            .lock()
+            .unwrap()
+            .media
+            .insert((m.household.clone(), m.id.clone()), m.clone());
+        Ok(())
+    }
+    async fn get_media(&self, household: &HouseholdId, id: &MediaId) -> Result<Option<MediaItem>> {
+        Ok(self
+            .tables
+            .lock()
+            .unwrap()
+            .media
+            .get(&(household.clone(), id.clone()))
+            .cloned())
+    }
+    async fn find_media_by_sha256(
+        &self,
+        household: &HouseholdId,
+        sha256: &str,
+    ) -> Result<Option<MediaItem>> {
+        let t = self.tables.lock().unwrap();
+        Ok(t.media
+            .values()
+            .find(|m| &m.household == household && m.sha256 == sha256)
+            .cloned())
+    }
+    async fn list_media_by_contributor(
+        &self,
+        household: &HouseholdId,
+        contributor: &ContributorId,
+    ) -> Result<Vec<MediaItem>> {
+        let t = self.tables.lock().unwrap();
+        Ok(t.media
+            .values()
+            .filter(|m| &m.household == household && &m.contributor == contributor)
+            .cloned()
+            .collect())
+    }
+    async fn delete_media(&self, household: &HouseholdId, id: &MediaId) -> Result<()> {
+        self.tables
+            .lock()
+            .unwrap()
+            .media
+            .remove(&(household.clone(), id.clone()));
+        Ok(())
+    }
+
+    async fn put_trip(&self, trip: &Trip) -> Result<()> {
+        self.tables
+            .lock()
+            .unwrap()
+            .trips
+            .insert((trip.household.clone(), trip.id.clone()), trip.clone());
+        Ok(())
+    }
+    async fn get_trip(&self, household: &HouseholdId, id: &TripId) -> Result<Option<Trip>> {
+        Ok(self
+            .tables
+            .lock()
+            .unwrap()
+            .trips
+            .get(&(household.clone(), id.clone()))
+            .cloned())
+    }
+    async fn list_trips(&self, household: &HouseholdId) -> Result<Vec<Trip>> {
+        let t = self.tables.lock().unwrap();
+        let mut v: Vec<Trip> = t
+            .trips
+            .values()
+            .filter(|t| &t.household == household)
+            .cloned()
+            .collect();
+        v.sort_by_key(|t| std::cmp::Reverse(t.start));
+        Ok(v)
+    }
+
+    async fn append_event(
+        &self,
+        household: &HouseholdId,
+        at: OffsetDateTime,
+        kind: EventKind,
+    ) -> Result<Event> {
+        let mut t = self.tables.lock().unwrap();
+        let seq = t.seq.entry(household.clone()).or_default();
+        *seq += 1;
+        let event = Event {
+            household: household.clone(),
+            seq: *seq,
+            at,
+            kind,
+        };
+        t.events
+            .insert((household.clone(), event.seq), event.clone());
+        Ok(event)
+    }
+    async fn events_since(
+        &self,
+        household: &HouseholdId,
+        since: u64,
+        limit: usize,
+    ) -> Result<Vec<Event>> {
+        let t = self.tables.lock().unwrap();
+        Ok(t.events
+            .range((household.clone(), since + 1)..(household.clone(), u64::MAX))
+            .map(|(_, e)| e.clone())
+            .take(limit)
+            .collect())
+    }
+
+    async fn put_confirmation(&self, token: &ConfirmationToken) -> Result<()> {
+        self.tables
+            .lock()
+            .unwrap()
+            .confirmations
+            .insert(token.token.clone(), token.clone());
+        Ok(())
+    }
+    async fn get_confirmation(&self, token: &str) -> Result<Option<ConfirmationToken>> {
+        Ok(self
+            .tables
+            .lock()
+            .unwrap()
+            .confirmations
+            .get(token)
+            .cloned())
+    }
+}
+
+/// Records every call so tests can assert on S3 interactions.
+#[derive(Debug, Default)]
+pub struct MemoryBlobs {
+    pub log: Mutex<Vec<String>>,
+}
+
+#[async_trait]
+impl Blobs for MemoryBlobs {
+    async fn create_multipart(&self, key: &str, content_type: &str) -> Result<String> {
+        self.log
+            .lock()
+            .unwrap()
+            .push(format!("create {key} {content_type}"));
+        Ok(format!("upload-{}", key.len()))
+    }
+    async fn presign_part(&self, key: &str, upload_id: &str, part_number: i32) -> Result<String> {
+        Ok(format!(
+            "https://blobs.test/{key}?uploadId={upload_id}&partNumber={part_number}"
+        ))
+    }
+    async fn complete_multipart(
+        &self,
+        key: &str,
+        upload_id: &str,
+        parts: &[CompletedPart],
+    ) -> Result<()> {
+        self.log
+            .lock()
+            .unwrap()
+            .push(format!("complete {key} {upload_id} {}", parts.len()));
+        Ok(())
+    }
+    async fn abort_multipart(&self, key: &str, upload_id: &str) -> Result<()> {
+        self.log
+            .lock()
+            .unwrap()
+            .push(format!("abort {key} {upload_id}"));
+        Ok(())
+    }
+    async fn presign_get(&self, key: &str) -> Result<String> {
+        Ok(format!("https://blobs.test/{key}"))
+    }
+    async fn delete(&self, keys: &[String]) -> Result<()> {
+        self.log
+            .lock()
+            .unwrap()
+            .push(format!("delete {}", keys.join(",")));
+        Ok(())
+    }
+}
