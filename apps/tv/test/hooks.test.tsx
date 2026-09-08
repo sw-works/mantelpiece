@@ -1,0 +1,65 @@
+import { act, renderHook, waitFor } from "@testing-library/react-native";
+import { useDeviceSignIn } from "../src/hooks/useDeviceSignIn";
+import { describe as describeEvent, reduce, useEvents } from "../src/hooks/useEvents";
+import { FakeApi } from "./fakeApi";
+
+const noSleep = async () => undefined;
+
+describe("useDeviceSignIn", () => {
+  it("shows the code while pending, then resolves the approval", async () => {
+    const api = new FakeApi();
+    api.polls = [{ state: "pending" }, { state: "pending" }, { state: "approved", household: "h", token: "tv-token" }];
+    // Gate the retry sleep so the pending state is observable before approval lands.
+    const gates: Array<() => void> = [];
+    const sleep = () => new Promise<void>((r) => gates.push(r));
+    const { result } = await renderHook(() => useDeviceSignIn({ api, deviceId: "tv-1", sleep }));
+    await waitFor(() => expect(result.current.phase).toBe("waiting"));
+    if (result.current.phase === "waiting") expect(result.current.code).toBe("AB2C3D4E");
+    await waitFor(() => expect(gates.length).toBe(1));
+    await act(async () => gates.shift()!());
+    await waitFor(() => expect(gates.length).toBe(1));
+    await act(async () => gates.shift()!());
+    await waitFor(() => expect(result.current.phase).toBe("approved"));
+    if (result.current.phase === "approved") expect(result.current.token).toBe("tv-token");
+    expect(api.calls.filter((c) => c.startsWith("poll"))).toHaveLength(3);
+  });
+
+  it("reports expiry and restarts with a fresh code", async () => {
+    const api = new FakeApi();
+    api.polls = [{ state: "expired" }, { state: "approved", household: "h", token: "t" }];
+    const { result } = await renderHook(() => useDeviceSignIn({ api, deviceId: "tv-1", sleep: noSleep }));
+    await waitFor(() => expect(result.current.phase).toBe("error"));
+    await act(async () => result.current.restart());
+    await waitFor(() => expect(result.current.phase).toBe("approved"));
+    expect(api.calls.filter((c) => c.startsWith("issue"))).toHaveLength(2);
+  });
+});
+
+describe("events feed", () => {
+  it("describes events for the ticker", () => {
+    expect(describeEvent({ seq: 1, at: "", type: "contribution.received", display_name: "Maya", count: 42 })).toBe("Maya added 42 photos");
+    expect(describeEvent({ seq: 1, at: "", type: "unknown.thing" })).toBeNull();
+  });
+
+  it("reduces pages into recent, ticker and trips version", () => {
+    const s0 = { since: 0, recent: [], ticker: null, tripsVersion: 0 };
+    const s1 = reduce(s0, [{ seq: 1, at: "", type: "upload.progress", done: 1, total: 3 }], 1);
+    expect(s1).toMatchObject({ since: 1, ticker: "Uploading 1 of 3", tripsVersion: 0 });
+    const s2 = reduce(s1, [{ seq: 2, at: "", type: "trip.detected", trip: "t", new_media: 9 }], 2);
+    expect(s2.tripsVersion).toBe(1);
+    expect(reduce(s2, [], 2)).toBe(s2);
+  });
+
+  it("long-polls and advances since", async () => {
+    const api = new FakeApi();
+    api.eventPages = [
+      { events: [{ seq: 1, at: "", type: "upload.progress", done: 1, total: 1 }], next: 1 },
+      { events: [{ seq: 2, at: "", type: "memory.ready", trip: "t" }], next: 2 },
+    ];
+    const { result, unmount } = await renderHook(() => useEvents(api, "tok", { sleep: noSleep }));
+    await waitFor(() => expect(result.current.since).toBe(2));
+    expect(result.current.ticker).toBe("Memory ready");
+    expect(api.calls.slice(0, 3)).toEqual(["events 0", "events 1", "events 2"]);
+    await unmount();
+  });
+});
