@@ -14,6 +14,9 @@ Tracks: Fire TV (primary), Alexa+ (secondary). Mini-challenges: AWS Builder, Ope
 
 - [specs/architecture.md](specs/architecture.md): architecture, required features, workflows, open questions
 - [specs/hackathon.md](specs/hackathon.md): entry strategy, rules, timeline, demo plan, judge access
+- [docs/diagrams/](docs/diagrams/): architecture diagrams as SVG source
+
+![Topology](docs/diagrams/01-topology.svg)
 
 ## Layout
 

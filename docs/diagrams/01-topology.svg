@@ -1,0 +1,119 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1460 880" width="1460" height="880" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12" role="img" aria-label="MemoryLane · Topology — one QR, one hosted backend, one governed tool surface">
+<defs>
+  <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#24292f"/></marker>
+  <marker id="arrow-muted" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#8c959f"/></marker>
+  <marker id="arrow-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#cf222e"/></marker>
+</defs>
+<rect width="1460" height="880" fill="#ffffff"/>
+<text x="24" y="34" font-size="20" font-weight="600" fill="#24292f">MemoryLane · Topology — one QR, one hosted backend, one governed tool surface</text>
+<text x="24" y="54" font-size="12" fill="#57606a">Phones upload straight to S3; ingest is deterministic Rust until keepers reach a model; agents reach data only through the Gateway, and irreversible tools only with a token the remote minted.</text>
+<rect x="494" y="360" width="708" height="130" rx="10" fill="#fafbfc" stroke="#d0d7de" stroke-dasharray="6 4"/>
+<text x="506" y="378" font-size="11" font-weight="600" fill="#57606a" letter-spacing="0.06em">STEP FUNCTIONS · INGEST</text>
+<rect x="730" y="566" width="472" height="130" rx="10" fill="#fafbfc" stroke="#d0d7de" stroke-dasharray="6 4"/>
+<text x="742" y="584" font-size="11" font-weight="600" fill="#57606a" letter-spacing="0.06em">AGENTCORE</text>
+<path d="M140,160 L140,204 L258,204 L258,248" fill="none" stroke="#24292f" stroke-width="1.5"  marker-end="url(#arrow)"/>
+<path d="M376,160 L376,204 L258,204 L258,248" fill="none" stroke="#24292f" stroke-width="1.5"  marker-end="url(#arrow)"/>
+<path d="M476,128 L510,128" fill="none" stroke="#24292f" stroke-width="1.5"  marker-end="url(#arrow)"/>
+<rect x="461.1" y="165" width="65.80000000000001" height="18" rx="3" fill="#ffffff" fill-opacity="0.92"/>
+<text x="494" y="177" text-anchor="middle" font-size="10.5" fill="#24292f">PUT parts</text>
+<path d="M258,314 L258,358 L140,358 L140,402" fill="none" stroke="#24292f" stroke-width="1.5"  marker-end="url(#arrow)"/>
+<path d="M612,160 L612,404" fill="none" stroke="#24292f" stroke-width="1.5"  marker-end="url(#arrow)"/>
+<rect x="620.9" y="191" width="202.20000000000002" height="18" rx="3" fill="#ffffff" fill-opacity="0.92"/>
+<text x="722" y="203" text-anchor="middle" font-size="10.5" fill="#24292f">Object Created → Signal machine</text>
+<path d="M476,298 L808,298 L808,404" fill="none" stroke="#8c959f" stroke-width="1.5"  marker-end="url(#arrow-muted)"/>
+<rect x="640.9" y="275" width="202.20000000000002" height="18" rx="3" fill="#ffffff" fill-opacity="0.92"/>
+<text x="742" y="287" text-anchor="middle" font-size="10.5" fill="#8c959f">batch complete → StartExecution</text>
+<path d="M712,436 L746,436" fill="none" stroke="#8c959f" stroke-width="1.5"  marker-end="url(#arrow-muted)"/>
+<rect x="703.3" y="387" width="53.4" height="18" rx="3" fill="#ffffff" fill-opacity="0.92"/>
+<text x="730" y="399" text-anchor="middle" font-size="10.5" fill="#8c959f">signals</text>
+<path d="M948,436 L982,436" fill="none" stroke="#24292f" stroke-width="1.5"  marker-end="url(#arrow)"/>
+<path d="M1184,436 L1218,436" fill="none" stroke="#24292f" stroke-width="1.5"  marker-end="url(#arrow)"/>
+<path d="M512,436 L242,436" fill="none" stroke="#8c959f" stroke-width="1.5"  marker-end="url(#arrow-muted)"/>
+<rect x="243.89999999999998" y="415" width="264.20000000000005" height="18" rx="3" fill="#ffffff" fill-opacity="0.92"/>
+<text x="376" y="427" text-anchor="middle" font-size="10.5" fill="#8c959f">media · groups · trips (signal, organize)</text>
+<path d="M778,468 L778,516 L446,516 L446,610" fill="none" stroke="#24292f" stroke-width="1.5"  marker-end="url(#arrow)"/>
+<rect x="372.3" y="495" width="239.4" height="18" rx="3" fill="#ffffff" fill-opacity="0.92"/>
+<text x="492" y="507" text-anchor="middle" font-size="10.5" fill="#24292f">trip.detected · contribution.received</text>
+<path d="M466,610 L466,548 L1084,548 L1084,610" fill="none" stroke="#24292f" stroke-width="1.5"  marker-end="url(#arrow)"/>
+<rect x="677.3" y="525" width="301.40000000000003" height="18" rx="3" fill="#ffffff" fill-opacity="0.92"/>
+<text x="828" y="537" text-anchor="middle" font-size="10.5" fill="#24292f">EventBridge rule invokes the agent (W1, W4, W6)</text>
+<path d="M984,642 L950,642" fill="none" stroke="#24292f" stroke-width="1.5"  marker-end="url(#arrow)"/>
+<rect x="933.1" y="679" width="65.80000000000001" height="18" rx="3" fill="#ffffff" fill-opacity="0.92"/>
+<text x="966" y="691" text-anchor="middle" font-size="10.5" fill="#24292f">MCP tools</text>
+<path d="M1220,622 L1192,622 L1192,586 L908,586 L908,610" fill="none" stroke="#8c959f" stroke-width="1.5"  marker-end="url(#arrow-muted)"/>
+<path d="M928,674 L928,744 L20,744 L20,282 L40,282" fill="none" stroke="#8c959f" stroke-width="1.5"  marker-end="url(#arrow-muted)"/>
+<rect x="251.2" y="749" width="369.6" height="18" rx="3" fill="#ffffff" fill-opacity="0.92"/>
+<text x="436" y="761" text-anchor="middle" font-size="10.5" fill="#8c959f">Lambda targets: the same API Lambda, no OpenAPI, no tunnel</text>
+<path d="M140,674 L140,714 L848,714 L848,674" fill="none" stroke="#cf222e" stroke-width="1.5"  marker-end="url(#arrow-red)"/>
+<rect x="332.5" y="719" width="599" height="18" rx="3" fill="#ffffff" fill-opacity="0.92"/>
+<text x="632" y="731" text-anchor="middle" font-size="10.5" fill="#cf222e">apply_dedup · delete_media · share_album · remove_contributor: without the token, Policy denies</text>
+<rect x="40" y="96" width="200" height="64" rx="6" fill="#f6f8fa" stroke="#57606a" stroke-width="1.5" />
+<text x="140" y="120.0" text-anchor="middle" font-size="12.0" font-weight="600" fill="#24292f">Fire TV app</text>
+<text x="140" y="134.0" text-anchor="middle" font-size="10.0" fill="#57606a" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">RN for Vega · fetch only</text>
+<text x="140" y="146.0" text-anchor="middle" font-size="10.0" fill="#57606a" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">long-poll /events</text>
+<rect x="276" y="96" width="200" height="64" rx="6" fill="#f6f8fa" stroke="#57606a" stroke-width="1.5" />
+<text x="376" y="120.0" text-anchor="middle" font-size="12.0" font-weight="600" fill="#24292f">Phone uploader</text>
+<text x="376" y="134.0" text-anchor="middle" font-size="10.0" fill="#57606a" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">PWA · joins by trip code</text>
+<text x="376" y="146.0" text-anchor="middle" font-size="10.0" fill="#57606a" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">resumable multipart</text>
+<rect x="512" y="96" width="200" height="64" rx="4" fill="#ffffff" stroke="#57606a" stroke-width="1.5" stroke-dasharray="5 3"/>
+<text x="612" y="122.1" text-anchor="middle" font-size="12.0" font-weight="600" fill="#24292f">S3 originals</text>
+<text x="612" y="136.1" text-anchor="middle" font-size="8.2" fill="#57606a" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">originals/{household}/{contributor}/…</text>
+<text x="612" y="146.0" text-anchor="middle" font-size="8.2" fill="#57606a" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">renditions/…</text>
+<rect x="40" y="250" width="436" height="64" rx="6" fill="#f6f8fa" stroke="#57606a" stroke-width="1.5" />
+<text x="258" y="274.0" text-anchor="middle" font-size="12.0" font-weight="600" fill="#24292f">Backend API</text>
+<text x="258" y="288.0" text-anchor="middle" font-size="10.0" fill="#57606a" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">API Gateway + Lambda (Rust)</text>
+<text x="258" y="300.0" text-anchor="middle" font-size="10.0" fill="#57606a" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">device code · trip codes · uploads · events · confirmations</text>
+<rect x="40" y="404" width="200" height="64" rx="4" fill="#ffffff" stroke="#57606a" stroke-width="1.5" stroke-dasharray="5 3"/>
+<text x="140" y="428.0" text-anchor="middle" font-size="12.0" font-weight="600" fill="#24292f">DynamoDB</text>
+<text x="140" y="442.0" text-anchor="middle" font-size="10.0" fill="#57606a" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">single table, pk = household</text>
+<text x="140" y="454.0" text-anchor="middle" font-size="10.0" fill="#57606a" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">media · trips · codes · feed</text>
+<rect x="512" y="404" width="200" height="64" rx="6" fill="#f6f8fa" stroke="#57606a" stroke-width="1.5" />
+<text x="612" y="428.0" text-anchor="middle" font-size="12.0" font-weight="600" fill="#24292f">signal</text>
+<text x="612" y="442.0" text-anchor="middle" font-size="10.0" fill="#57606a" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">sha256 · EXIF · pHash</text>
+<text x="612" y="454.0" text-anchor="middle" font-size="10.0" fill="#57606a" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">sharpness · renditions</text>
+<rect x="748" y="404" width="200" height="64" rx="6" fill="#f6f8fa" stroke="#57606a" stroke-width="1.5" />
+<text x="848" y="428.0" text-anchor="middle" font-size="12.0" font-weight="600" fill="#24292f">organize</text>
+<text x="848" y="442.0" text-anchor="middle" font-size="10.0" fill="#57606a" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">bursts · keepers · clocks</text>
+<text x="848" y="454.0" text-anchor="middle" font-size="10.0" fill="#57606a" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">trips · routes · highlights</text>
+<rect x="984" y="404" width="200" height="64" rx="6" fill="#f6f8fa" stroke="#57606a" stroke-width="1.5" />
+<text x="1084" y="428.0" text-anchor="middle" font-size="12.0" font-weight="600" fill="#24292f">enrich</text>
+<text x="1084" y="442.0" text-anchor="middle" font-size="10.0" fill="#57606a" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">keepers only</text>
+<text x="1084" y="454.0" text-anchor="middle" font-size="10.0" fill="#57606a" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">rest of burst inherits</text>
+<rect x="1220" y="404" width="200" height="64" rx="6" fill="#eef2ff" stroke="#4c5fd5" stroke-width="1.5" />
+<text x="1320" y="434.0" text-anchor="middle" font-size="12.0" font-weight="600" fill="#24292f">Rekognition</text>
+<text x="1320" y="448.0" text-anchor="middle" font-size="10.0" fill="#57606a" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">labels · faces · smiles</text>
+<rect x="40" y="610" width="200" height="64" rx="6" fill="#fff8e6" stroke="#b08500" stroke-width="1.5"/>
+<text x="140" y="634.2" text-anchor="middle" font-size="12.0" font-weight="600" fill="#24292f">Review Changes</text>
+<text x="140" y="648.2" text-anchor="middle" font-size="9.8" fill="#57606a" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">TV modal, confirm on the remote</text>
+<text x="140" y="660.0" text-anchor="middle" font-size="9.8" fill="#57606a" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">mints a single-use token</text>
+<rect x="276" y="610" width="200" height="64" rx="4" fill="#ffffff" stroke="#57606a" stroke-width="1.5" stroke-dasharray="5 3"/>
+<text x="376" y="634.0" text-anchor="middle" font-size="12.0" font-weight="600" fill="#24292f">EventBridge bus</text>
+<text x="376" y="648.0" text-anchor="middle" font-size="10.0" fill="#57606a" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">trip.detected</text>
+<text x="376" y="660.0" text-anchor="middle" font-size="10.0" fill="#57606a" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">contribution.received</text>
+<rect x="748" y="610" width="200" height="64" rx="6" fill="#fff0f0" stroke="#cf222e" stroke-width="1.5" />
+<text x="848" y="634.0" text-anchor="middle" font-size="12.0" font-weight="600" fill="#24292f">Gateway + Policy</text>
+<text x="848" y="648.0" text-anchor="middle" font-size="10.0" fill="#57606a" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">Identity (Cognito) · Cedar</text>
+<text x="848" y="660.0" text-anchor="middle" font-size="10.0" fill="#57606a" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">Lambda targets = the API</text>
+<rect x="984" y="610" width="200" height="64" rx="6" fill="#eef2ff" stroke="#4c5fd5" stroke-width="1.5" />
+<text x="1084" y="634.0" text-anchor="middle" font-size="12.0" font-weight="600" fill="#24292f">Concierge</text>
+<text x="1084" y="648.0" text-anchor="middle" font-size="10.0" fill="#57606a" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">Runtime · Strands · Memory</text>
+<text x="1084" y="660.0" text-anchor="middle" font-size="10.0" fill="#57606a" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">Claude on Bedrock · W1–W6</text>
+<rect x="1220" y="610" width="200" height="64" rx="6" fill="#f3f4f6" stroke="#8c959f" stroke-width="1.5" stroke-dasharray="2 3"/>
+<text x="1320" y="634.0" text-anchor="middle" font-size="12.0" font-weight="600" fill="#24292f">Alexa+</text>
+<text x="1320" y="648.0" text-anchor="middle" font-size="10.0" fill="#57606a" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">MCP add-on</text>
+<text x="1320" y="660.0" text-anchor="middle" font-size="10.0" fill="#57606a" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">same Gateway endpoint</text>
+<rect x="24" y="845" width="18" height="12" rx="3" fill="#f6f8fa" stroke="#57606a" />
+<text x="48" y="855" font-size="11" fill="#57606a">deterministic code</text>
+<rect x="191.2" y="845" width="18" height="12" rx="3" fill="#eef2ff" stroke="#4c5fd5" />
+<text x="215.2" y="855" font-size="11" fill="#57606a">LLM node</text>
+<rect x="294.4" y="845" width="18" height="12" rx="3" fill="#fff8e6" stroke="#b08500" />
+<text x="318.4" y="855" font-size="11" fill="#57606a">human decision</text>
+<rect x="436" y="845" width="18" height="12" rx="3" fill="#fff0f0" stroke="#cf222e" />
+<text x="460" y="855" font-size="11" fill="#57606a">security service</text>
+<rect x="590.4" y="845" width="18" height="12" rx="3" fill="#ffffff" stroke="#57606a" stroke-dasharray="5 3"/>
+<text x="614.4" y="855" font-size="11" fill="#57606a">store / queue</text>
+<rect x="725.5999999999999" y="845" width="18" height="12" rx="3" fill="#f3f4f6" stroke="#8c959f" stroke-dasharray="2 3"/>
+<text x="749.5999999999999" y="855" font-size="11" fill="#57606a">external system</text>
+<text x="1436" y="816" text-anchor="end" font-size="10.5" fill="#57606a">Ingest runs per object (signal) and per household after a batch (organize, enrich keepers, organize again); non-keepers never reach a model.</text>
+<text x="1436" y="830" text-anchor="end" font-size="10.5" fill="#57606a">The Gateway's Cedar policy requires a confirmation token minted by the TV on apply_dedup, delete_media, share_album, remove_contributor; agents cannot mint one.</text>
+</svg>
