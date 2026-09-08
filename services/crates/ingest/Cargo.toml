@@ -1,0 +1,20 @@
+[package]
+name = "memorylane-ingest"
+description = "Pure-compute ingest steps: checksum, EXIF, perceptual hash, quality signals, burst grouping, renditions"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+memorylane-core.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+time.workspace = true
+sha2.workspace = true
+hex.workspace = true
+image.workspace = true
+kamadak-exif.workspace = true
+
+[lints]
+workspace = true
