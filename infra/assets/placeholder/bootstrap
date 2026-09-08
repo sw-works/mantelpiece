@@ -1,0 +1,3 @@
+#!/bin/sh
+echo "placeholder bootstrap: build the Rust Lambdas with make build-lambdas"
+exit 1
