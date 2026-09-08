@@ -42,7 +42,8 @@ pub async fn url(app: &App, req: &Req, id: &str) -> Result<Resp, ApiError> {
 
 fn contributor_id(caller: &Caller) -> &str {
     match caller {
-        Caller::Owner { household, .. } | Caller::Contributor(Session::Tv { household, .. }) => {
+        Caller::Owner { household, .. }
+        | Caller::Contributor(Session::Tv { household, .. } | Session::Phone { household, .. }) => {
             household.as_str()
         }
         Caller::Contributor(Session::Upload { contributor, .. }) => contributor.as_str(),

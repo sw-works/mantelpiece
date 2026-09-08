@@ -9,7 +9,7 @@ use serde_json::json;
 use crate::app::App;
 use crate::error::ApiError;
 use crate::req::{Req, Resp};
-use crate::tokens::{Claims, Session, TV_TTL};
+use crate::tokens::{Claims, Session, PHONE_TTL, TV_TTL};
 
 #[derive(Deserialize)]
 struct IssueBody {
@@ -81,7 +81,15 @@ pub async fn approve(app: &App, req: &Req) -> Result<Resp, ApiError> {
             .put_contributor(&Contributor::owner(household.clone(), name, now))
             .await?;
     }
-    Resp::ok(json!({ "approved": true, "household": household }))
+    // The phone continues straight to the uploader with its own owner session.
+    let claims = Claims {
+        session: Session::Phone {
+            household: household.clone(),
+            subject: jwt.sub.clone(),
+        },
+        exp: now + PHONE_TTL,
+    };
+    Resp::ok(json!({ "approved": true, "household": household, "token": app.signer.sign(&claims) }))
 }
 
 /// TV. Holds up to `poll_hold`, then answers pending. Approval is handed over once as a

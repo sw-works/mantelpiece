@@ -8,6 +8,7 @@ pub mod app;
 pub mod error;
 pub mod handlers;
 pub mod req;
+pub mod starter;
 pub mod tokens;
 
 pub use app::App;

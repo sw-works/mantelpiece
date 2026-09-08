@@ -41,6 +41,7 @@ pub type Clock = Arc<dyn Fn() -> OffsetDateTime + Send + Sync>;
 pub struct App {
     pub storage: Arc<dyn Storage>,
     pub blobs: Arc<dyn Blobs>,
+    pub starter: Arc<dyn crate::starter::Starter>,
     pub signer: Signer,
     pub config: Config,
     pub clock: Clock,
@@ -98,7 +99,8 @@ impl App {
             (Method::Get, ["device", "poll"]) => handlers::device::poll(self, req).await,
 
             (Method::Get, ["me"]) => handlers::session::me(self, req).await,
-            (Method::Post, ["join"]) => handlers::codes::join(self, req).await,
+            // `/join/amazon` sits behind the Cognito JWT authorizer; `/join` is open for guests.
+            (Method::Post, ["join"] | ["join", "amazon"]) => handlers::codes::join(self, req).await,
 
             (Method::Get, ["codes"]) => handlers::codes::list(self, req).await,
             (Method::Post, ["household", "code"]) => {
@@ -159,7 +161,9 @@ impl App {
     pub fn caller(&self, req: &Req) -> Result<Caller, ApiError> {
         if let Some(session) = self.session(req)? {
             return Ok(match session {
-                Session::Tv { household, subject } => Caller::Owner { household, subject },
+                Session::Tv { household, subject } | Session::Phone { household, subject } => {
+                    Caller::Owner { household, subject }
+                }
                 upload @ Session::Upload { .. } => Caller::Contributor(upload),
             });
         }

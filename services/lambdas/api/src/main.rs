@@ -4,6 +4,7 @@
 use lambda_http::{run, service_fn, Body, Error, Request, RequestExt, Response};
 use memorylane_api::app::{App, Config};
 use memorylane_api::req::{Jwt, Method, Req};
+use memorylane_api::starter::SfnStarter;
 use memorylane_api::tokens::Signer;
 use memorylane_store::dynamo::DynamoStorage;
 use memorylane_store::s3::S3Blobs;
@@ -73,6 +74,10 @@ async fn main() -> Result<(), Error> {
     let app = Arc::new(App {
         storage: Arc::new(DynamoStorage::from_config(&aws, env("TABLE_NAME")?)),
         blobs: Arc::new(S3Blobs::from_config(&aws, env("MEDIA_BUCKET")?)),
+        starter: Arc::new(SfnStarter::from_config(
+            &aws,
+            env("ORGANIZE_STATE_MACHINE_ARN")?,
+        )),
         signer: Signer::new(env("TOKEN_SECRET")?),
         config: Config {
             link_base: env("LINK_BASE")?,

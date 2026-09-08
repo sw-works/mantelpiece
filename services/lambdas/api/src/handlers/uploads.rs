@@ -36,7 +36,7 @@ fn contributor_of(caller: &Caller) -> Result<ContributorId, ApiError> {
     match caller {
         Caller::Owner { household, .. } => Ok(ContributorId::new(household.as_str())),
         Caller::Contributor(Session::Upload { contributor, .. }) => Ok(contributor.clone()),
-        Caller::Contributor(Session::Tv { .. }) => {
+        Caller::Contributor(Session::Tv { .. } | Session::Phone { .. }) => {
             Err(ApiError::forbidden("TV sessions cannot upload"))
         }
     }
@@ -167,6 +167,9 @@ pub async fn complete(app: &App, req: &Req) -> Result<Resp, ApiError> {
     app.storage.put_media(&media).await?;
 
     if let (Some(done), Some(total)) = (body.batch_done, body.batch_total) {
+        if done >= total {
+            app.starter.start_organize(caller.household()).await?;
+        }
         let contributor = contributor_of(&caller)?;
         app.storage
             .append_event(

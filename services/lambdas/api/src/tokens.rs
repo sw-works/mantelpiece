@@ -18,12 +18,19 @@ type HmacSha256 = Hmac<Sha256>;
 
 pub const TV_TTL: Duration = Duration::days(90);
 pub const UPLOAD_TTL: Duration = Duration::days(30);
+pub const PHONE_TTL: Duration = Duration::days(30);
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Session {
     /// The signed-in TV. Acts as the household owner.
     Tv {
+        household: HouseholdId,
+        subject: String,
+    },
+    /// The owner's phone after approving a device code. Also acts as the owner, so the
+    /// uploader page needs no Cognito JWT on later calls.
+    Phone {
         household: HouseholdId,
         subject: String,
     },
@@ -39,7 +46,9 @@ pub enum Session {
 impl Session {
     pub fn household(&self) -> &HouseholdId {
         match self {
-            Self::Tv { household, .. } | Self::Upload { household, .. } => household,
+            Self::Tv { household, .. }
+            | Self::Phone { household, .. }
+            | Self::Upload { household, .. } => household,
         }
     }
 }

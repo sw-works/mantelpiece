@@ -29,7 +29,7 @@ pub async fn me(app: &App, req: &Req) -> Result<Resp, ApiError> {
                 "code": code,
             }))
         }
-        Caller::Contributor(Session::Tv { .. }) => {
+        Caller::Contributor(Session::Tv { .. } | Session::Phone { .. }) => {
             Err(ApiError::internal("unreachable session shape"))
         }
     }

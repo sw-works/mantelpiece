@@ -4,6 +4,7 @@
 
 use memorylane_api::app::{App, Config};
 use memorylane_api::req::{Jwt, Method, Req, Resp};
+use memorylane_api::starter::MemoryStarter;
 use memorylane_api::tokens::Signer;
 use memorylane_core::ids::{HouseholdId, TripId};
 use memorylane_core::trip::{Route, Trip};
@@ -19,17 +20,20 @@ struct Harness {
     app: App,
     storage: Arc<MemoryStorage>,
     blobs: Arc<MemoryBlobs>,
+    starter: Arc<MemoryStarter>,
     now: Arc<Mutex<OffsetDateTime>>,
 }
 
 fn harness() -> Harness {
     let storage = Arc::new(MemoryStorage::new());
     let blobs = Arc::new(MemoryBlobs::default());
+    let starter = Arc::new(MemoryStarter::default());
     let now = Arc::new(Mutex::new(datetime!(2026-09-08 10:00:00 UTC)));
     let clock_now = now.clone();
     let app = App {
         storage: storage.clone(),
         blobs: blobs.clone(),
+        starter: starter.clone(),
         signer: Signer::new("test-secret"),
         config: Config {
             poll_hold: Duration::ZERO,
@@ -42,6 +46,7 @@ fn harness() -> Harness {
         app,
         storage,
         blobs,
+        starter,
         now,
     }
 }
@@ -190,6 +195,9 @@ async fn device_code_sign_in_flow() {
         .await;
     assert_eq!(approved.status, 200, "{}", approved.body);
     assert_eq!(approved.body["household"], "amzn-owner");
+    let phone = approved.body["token"].as_str().unwrap().to_owned();
+    let me = h.bearer(Method::Get, "/me", None, &phone).await;
+    assert_eq!(me.body["role"], "owner");
 
     let done = h.call(Method::Get, &poll_path, None, None, None).await;
     assert_eq!(done.body["state"], "approved");
@@ -292,7 +300,7 @@ async fn guest_joins_by_code_and_code_lifecycle() {
     let joined = h
         .call(
             Method::Post,
-            "/join",
+            "/join/amazon",
             Some(json!({ "code": code })),
             None,
             Some(friend.clone()),
@@ -489,6 +497,10 @@ async fn upload_flow_with_progress_events_and_dedup() {
         .unwrap()
         .iter()
         .any(|l| l.starts_with("complete originals/")));
+    assert!(
+        h.starter.started.lock().unwrap().is_empty(),
+        "batch not finished yet"
+    );
 
     // TV sees the progress event; the guest may not read the household feed.
     let events = h.owner(Method::Get, "/events?since=0", None).await;
@@ -693,4 +705,23 @@ async fn auth_and_routing_edges() {
     );
     let no_body = h.call(Method::Post, "/device/code", None, None, None).await;
     assert_eq!(no_body.status, 400);
+}
+
+#[tokio::test]
+async fn finishing_a_batch_starts_organize() {
+    let h = harness();
+    let (token, _) = h.guest("Maya").await;
+    let init = h.upload(&token, "a.jpg", 10, &sha(9)).await;
+    let body = json!({
+        "media_id": init.body["media_id"], "upload_id": init.body["upload_id"],
+        "parts": [{"part_number": 1, "etag": "a"}], "batch_done": 3, "batch_total": 3
+    });
+    let done = h
+        .bearer(Method::Post, "/uploads/complete", Some(body), &token)
+        .await;
+    assert_eq!(done.status, 200, "{}", done.body);
+    assert_eq!(
+        h.starter.started.lock().unwrap().as_slice(),
+        &[HouseholdId::new("amzn-owner")]
+    );
 }

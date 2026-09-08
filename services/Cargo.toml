@@ -33,6 +33,7 @@ aws-config = { version = "1", features = ["behavior-version-latest"] }
 aws-sdk-dynamodb = "1"
 aws-sdk-s3 = "1"
 aws-sdk-eventbridge = "1"
+aws-sdk-sfn = "1"
 aws-sdk-rekognition = "1"
 aws-sdk-bedrockruntime = "1"
 aws-sdk-s3vectors = "1"
