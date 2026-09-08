@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1360 520" width="1360" height="520" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12" role="img" aria-label="W3 · Household Patterns — the ambient set learns from pin and hide, with no model in the loop">
+<defs>
+  <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#24292f"/></marker>
+  <marker id="arrow-muted" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#8c959f"/></marker>
+  <marker id="arrow-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#cf222e"/></marker>
+</defs>
+<rect width="1360" height="520" fill="#ffffff"/>
+<text x="24" y="34" font-size="20" font-weight="600" fill="#24292f">W3 · Household Patterns — the ambient set learns from pin and hide, with no model in the loop</text>
+<text x="24" y="54" font-size="12" fill="#57606a">Nightly. Feedback becomes tag weights in AgentCore Memory; the favourite tag drives search; the rationale is stored next to the playlist.</text>
+<path d="M230,132 L256,132" fill="none" stroke="#24292f" stroke-width="1.5"  marker-end="url(#arrow)"/>
+<path d="M448,132 L474,132" fill="none" stroke="#24292f" stroke-width="1.5"  marker-end="url(#arrow)"/>
+<path d="M666,132 L692,132" fill="none" stroke="#24292f" stroke-width="1.5"  marker-end="url(#arrow)"/>
+<path d="M884,132 L910,132" fill="none" stroke="#24292f" stroke-width="1.5"  marker-end="url(#arrow)"/>
+<path d="M1102,132 L1128,132" fill="none" stroke="#24292f" stroke-width="1.5"  marker-end="url(#arrow)"/>
+<rect x="1101.7" y="81" width="28.6" height="18" rx="3" fill="#ffffff" fill-opacity="0.92"/>
+<text x="1116" y="93" text-anchor="middle" font-size="10.5" fill="#24292f">yes</text>
+<path d="M1007,164 L1007,218" fill="none" stroke="#24292f" stroke-width="1.5"  marker-end="url(#arrow)"/>
+<rect x="888.6" y="185" width="96.8" height="18" rx="3" fill="#ffffff" fill-opacity="0.92"/>
+<text x="937" y="197" text-anchor="middle" font-size="10.5" fill="#24292f">no weights yet</text>
+<path d="M1225,164 L1225,218" fill="none" stroke="#24292f" stroke-width="1.5"  marker-end="url(#arrow)"/>
+<rect x="1304.6" y="185" width="34.8" height="18" rx="3" fill="#ffffff" fill-opacity="0.92"/>
+<text x="1322" y="197" text-anchor="middle" font-size="10.5" fill="#24292f">hits</text>
+<path d="M1144,164 L1144,190 L1072,190 L1072,220" fill="none" stroke="#8c959f" stroke-width="1.5"  marker-end="url(#arrow-muted)"/>
+<rect x="1061.2" y="169" width="121.60000000000001" height="18" rx="3" fill="#ffffff" fill-opacity="0.92"/>
+<text x="1122" y="181" text-anchor="middle" font-size="10.5" fill="#8c959f">no hits: fall back</text>
+<path d="M1102,252 L1128,252" fill="none" stroke="#24292f" stroke-width="1.5"  marker-end="url(#arrow)"/>
+<path d="M1225,284 L1225,338" fill="none" stroke="#24292f" stroke-width="1.5"  marker-end="url(#arrow)"/>
+<path d="M1130,372 L1104,372" fill="none" stroke="#24292f" stroke-width="1.5"  marker-end="url(#arrow)"/>
+<rect x="40" y="100" width="190" height="64" rx="6" fill="#f3f4f6" stroke="#8c959f" stroke-width="1.5" stroke-dasharray="2 3"/>
+<text x="135" y="125.2" text-anchor="middle" font-size="12.0" font-weight="600" fill="#24292f">nightly + feedback</text>
+<text x="135" y="139.2" text-anchor="middle" font-size="9.0" fill="#57606a" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">EventBridge schedule</text>
+<text x="135" y="150.0" text-anchor="middle" font-size="9.0" fill="#57606a" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">pin / hide events since last run</text>
+<rect x="258" y="100" width="190" height="64" rx="4" fill="#ffffff" stroke="#57606a" stroke-width="1.5" stroke-dasharray="5 3"/>
+<text x="353" y="124.0" text-anchor="middle" font-size="12.0" font-weight="600" fill="#24292f">read_memory</text>
+<text x="353" y="138.0" text-anchor="middle" font-size="10.0" fill="#57606a" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">AgentCore Memory</text>
+<text x="353" y="150.0" text-anchor="middle" font-size="10.0" fill="#57606a" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">liked_tags</text>
+<rect x="476" y="100" width="190" height="64" rx="6" fill="#f6f8fa" stroke="#57606a" stroke-width="1.5" />
+<text x="571" y="124.0" text-anchor="middle" font-size="12.0" font-weight="600" fill="#24292f">fold feedback</text>
+<text x="571" y="138.0" text-anchor="middle" font-size="10.0" fill="#57606a" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">pin +1 · hide −1</text>
+<text x="571" y="150.0" text-anchor="middle" font-size="10.0" fill="#57606a" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">per scene tag</text>
+<rect x="694" y="100" width="190" height="64" rx="4" fill="#ffffff" stroke="#57606a" stroke-width="1.5" stroke-dasharray="5 3"/>
+<text x="789" y="130.0" text-anchor="middle" font-size="12.0" font-weight="600" fill="#24292f">write liked_tags</text>
+<text x="789" y="144.0" text-anchor="middle" font-size="10.0" fill="#57606a" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">long-term, per household</text>
+<rect x="912" y="100" width="190" height="64" rx="6" fill="#f6f8fa" stroke="#57606a" stroke-width="1.5" />
+<text x="1007" y="130.0" text-anchor="middle" font-size="12.0" font-weight="600" fill="#24292f">favourite tag?</text>
+<text x="1007" y="144.0" text-anchor="middle" font-size="10.0" fill="#57606a" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">argmax over weights</text>
+<rect x="1130" y="100" width="190" height="64" rx="6" fill="#f6f8fa" stroke="#57606a" stroke-width="1.5" />
+<text x="1225" y="130.0" text-anchor="middle" font-size="12.0" font-weight="600" fill="#24292f">search_media</text>
+<text x="1225" y="144.0" text-anchor="middle" font-size="10.0" fill="#57606a" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">query = favourite tag</text>
+<rect x="912" y="220" width="190" height="64" rx="6" fill="#f6f8fa" stroke="#57606a" stroke-width="1.5" />
+<text x="1007" y="244.0" text-anchor="middle" font-size="12.0" font-weight="600" fill="#24292f">recent highlights</text>
+<text x="1007" y="258.0" text-anchor="middle" font-size="10.0" fill="#57606a" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">list_trips → highlights[:4]</text>
+<text x="1007" y="270.0" text-anchor="middle" font-size="10.0" fill="#57606a" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">per trip</text>
+<rect x="1130" y="220" width="190" height="64" rx="6" fill="#f6f8fa" stroke="#57606a" stroke-width="1.5" />
+<text x="1225" y="244.0" text-anchor="middle" font-size="12.0" font-weight="600" fill="#24292f">create_playlist</text>
+<text x="1225" y="258.0" text-anchor="middle" font-size="10.0" fill="#57606a" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">"Ambient"</text>
+<text x="1225" y="270.0" text-anchor="middle" font-size="10.0" fill="#57606a" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">source = rationale</text>
+<rect x="1130" y="340" width="190" height="64" rx="4" fill="#ffffff" stroke="#57606a" stroke-width="1.5" stroke-dasharray="5 3"/>
+<text x="1225" y="370.0" text-anchor="middle" font-size="12.0" font-weight="600" fill="#24292f">write ambient_rationale</text>
+<text x="1225" y="384.0" text-anchor="middle" font-size="9.9" fill="#57606a" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">so Ask can explain the choice</text>
+<rect x="912" y="340" width="190" height="64" rx="32" fill="#e6f4ea" stroke="#1a7f37" stroke-width="1.5" />
+<text x="1007" y="370.0" text-anchor="middle" font-size="12.0" font-weight="600" fill="#24292f">Ambient screen</text>
+<text x="1007" y="384.0" text-anchor="middle" font-size="10.0" fill="#57606a" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">idle slideshow</text>
+<rect x="24" y="485" width="18" height="12" rx="3" fill="#f6f8fa" stroke="#57606a" />
+<text x="48" y="495" font-size="11" fill="#57606a">deterministic code</text>
+<rect x="191.2" y="485" width="18" height="12" rx="3" fill="#ffffff" stroke="#57606a" stroke-dasharray="5 3"/>
+<text x="215.2" y="495" font-size="11" fill="#57606a">store / queue</text>
+<rect x="326.4" y="485" width="18" height="12" rx="3" fill="#f3f4f6" stroke="#8c959f" stroke-dasharray="2 3"/>
+<text x="350.4" y="495" font-size="11" fill="#57606a">external system</text>
+<rect x="474.4" y="485" width="18" height="12" rx="3" fill="#e6f4ea" stroke="#1a7f37" />
+<text x="498.4" y="495" font-size="11" fill="#57606a">terminal / outcome</text>
+<text x="1336" y="470" text-anchor="end" font-size="10.5" fill="#57606a">Why no model: the judgement here is a running tally; a model would add cost and a reason to distrust the result. Memory carries the state between nights.</text>
+</svg>

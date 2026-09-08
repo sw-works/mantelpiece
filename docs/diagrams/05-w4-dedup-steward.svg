@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1360 500" width="1360" height="500" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12" role="img" aria-label="W4 · Dedup Steward — the agent proposes, the remote decides, the policy enforces">
+<defs>
+  <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#24292f"/></marker>
+  <marker id="arrow-muted" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#8c959f"/></marker>
+  <marker id="arrow-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#cf222e"/></marker>
+</defs>
+<rect width="1360" height="500" fill="#ffffff"/>
+<text x="24" y="34" font-size="20" font-weight="600" fill="#24292f">W4 · Dedup Steward — the agent proposes, the remote decides, the policy enforces</text>
+<text x="24" y="54" font-size="12" fill="#57606a">Nothing is deleted without a single-use token that only the TV's Review Changes modal can mint.</text>
+<path d="M230,132 L256,132" fill="none" stroke="#24292f" stroke-width="1.5"  marker-end="url(#arrow)"/>
+<path d="M353,164 L353,218" fill="none" stroke="#8c959f" stroke-width="1.5"  marker-end="url(#arrow-muted)"/>
+<rect x="364.1" y="185" width="65.80000000000001" height="18" rx="3" fill="#ffffff" fill-opacity="0.92"/>
+<text x="397" y="197" text-anchor="middle" font-size="10.5" fill="#8c959f">no groups</text>
+<path d="M448,132 L474,132" fill="none" stroke="#24292f" stroke-width="1.5"  marker-end="url(#arrow)"/>
+<rect x="438.4" y="81" width="47.2" height="18" rx="3" fill="#ffffff" fill-opacity="0.92"/>
+<text x="462" y="93" text-anchor="middle" font-size="10.5" fill="#24292f">groups</text>
+<path d="M666,132 L692,132" fill="none" stroke="#24292f" stroke-width="1.5"  marker-end="url(#arrow)"/>
+<rect x="619.2" y="167" width="121.60000000000001" height="18" rx="3" fill="#ffffff" fill-opacity="0.92"/>
+<text x="680" y="179" text-anchor="middle" font-size="10.5" fill="#24292f">TV opens the modal</text>
+<path d="M789,164 L789,218" fill="none" stroke="#cf222e" stroke-width="1.5"  marker-end="url(#arrow-red)"/>
+<rect x="797.3" y="185" width="115.4" height="18" rx="3" fill="#ffffff" fill-opacity="0.92"/>
+<text x="855" y="197" text-anchor="middle" font-size="10.5" fill="#cf222e">cancel or timeout</text>
+<path d="M884,132 L910,132" fill="none" stroke="#24292f" stroke-width="1.5"  marker-end="url(#arrow)"/>
+<rect x="877.5" y="81" width="41" height="18" rx="3" fill="#ffffff" fill-opacity="0.92"/>
+<text x="898" y="93" text-anchor="middle" font-size="10.5" fill="#24292f">token</text>
+<path d="M1102,132 L1128,132" fill="none" stroke="#24292f" stroke-width="1.5"  marker-end="url(#arrow)"/>
+<rect x="1089.3" y="81" width="53.4" height="18" rx="3" fill="#ffffff" fill-opacity="0.92"/>
+<text x="1116" y="93" text-anchor="middle" font-size="10.5" fill="#24292f">allowed</text>
+<path d="M1225,164 L1225,218" fill="none" stroke="#24292f" stroke-width="1.5"  marker-end="url(#arrow)"/>
+<rect x="40" y="100" width="190" height="64" rx="6" fill="#f3f4f6" stroke="#8c959f" stroke-width="1.5" stroke-dasharray="2 3"/>
+<text x="135" y="130.0" text-anchor="middle" font-size="12.0" font-weight="600" fill="#24292f">dedup.proposal</text>
+<text x="135" y="144.0" text-anchor="middle" font-size="10.0" fill="#57606a" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">from organize, after a batch</text>
+<rect x="258" y="100" width="190" height="64" rx="6" fill="#f6f8fa" stroke="#57606a" stroke-width="1.5" />
+<text x="353" y="124.0" text-anchor="middle" font-size="12.0" font-weight="600" fill="#24292f">list_duplicates</text>
+<text x="353" y="138.0" text-anchor="middle" font-size="10.0" fill="#57606a" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">burst groups with keepers</text>
+<text x="353" y="150.0" text-anchor="middle" font-size="10.0" fill="#57606a" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">removable = members − 1</text>
+<rect x="258" y="220" width="190" height="64" rx="32" fill="#e6f4ea" stroke="#1a7f37" stroke-width="1.5" />
+<text x="353" y="250.0" text-anchor="middle" font-size="12.0" font-weight="600" fill="#24292f">nothing to do</text>
+<text x="353" y="264.0" text-anchor="middle" font-size="10.0" fill="#57606a" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">removable = 0</text>
+<rect x="476" y="100" width="190" height="64" rx="4" fill="#ffffff" stroke="#57606a" stroke-width="1.5" stroke-dasharray="5 3"/>
+<text x="571" y="130.0" text-anchor="middle" font-size="12.0" font-weight="600" fill="#24292f">dedup.proposal → feed</text>
+<text x="571" y="144.0" text-anchor="middle" font-size="10.0" fill="#57606a" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">groups, removable count</text>
+<rect x="694" y="100" width="190" height="64" rx="6" fill="#fff8e6" stroke="#b08500" stroke-width="1.5"/>
+<text x="789" y="124.0" text-anchor="middle" font-size="12.0" font-weight="600" fill="#24292f">Review Changes</text>
+<text x="789" y="138.0" text-anchor="middle" font-size="10.0" fill="#57606a" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">before/after counts, samples</text>
+<text x="789" y="150.0" text-anchor="middle" font-size="10.0" fill="#57606a" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">confirm on the remote</text>
+<rect x="694" y="220" width="190" height="64" rx="32" fill="#fff0f0" stroke="#cf222e" stroke-width="1.5" />
+<text x="789" y="250.0" text-anchor="middle" font-size="12.0" font-weight="600" fill="#24292f">proposed, not applied</text>
+<text x="789" y="264.0" text-anchor="middle" font-size="10.0" fill="#57606a" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">no token; groups stay</text>
+<rect x="912" y="100" width="190" height="64" rx="6" fill="#fff0f0" stroke="#cf222e" stroke-width="1.5" />
+<text x="1007" y="124.0" text-anchor="middle" font-size="12.0" font-weight="600" fill="#24292f">Gateway Policy</text>
+<text x="1007" y="138.0" text-anchor="middle" font-size="10.0" fill="#57606a" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">Cedar: apply_dedup needs</text>
+<text x="1007" y="150.0" text-anchor="middle" font-size="10.0" fill="#57606a" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">a valid confirmation token</text>
+<rect x="1130" y="100" width="190" height="64" rx="6" fill="#f6f8fa" stroke="#57606a" stroke-width="1.5" />
+<text x="1225" y="124.0" text-anchor="middle" font-size="12.0" font-weight="600" fill="#24292f">apply_dedup</text>
+<text x="1225" y="138.0" text-anchor="middle" font-size="10.0" fill="#57606a" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">token redeemed once</text>
+<text x="1225" y="150.0" text-anchor="middle" font-size="10.0" fill="#57606a" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">non-keepers removed</text>
+<rect x="1130" y="220" width="190" height="64" rx="32" fill="#e6f4ea" stroke="#1a7f37" stroke-width="1.5" />
+<text x="1225" y="256.0" text-anchor="middle" font-size="12.0" font-weight="600" fill="#24292f">removed N, keepers stay</text>
+<rect x="24" y="465" width="18" height="12" rx="3" fill="#f6f8fa" stroke="#57606a" />
+<text x="48" y="475" font-size="11" fill="#57606a">deterministic code</text>
+<rect x="191.2" y="465" width="18" height="12" rx="3" fill="#fff8e6" stroke="#b08500" />
+<text x="215.2" y="475" font-size="11" fill="#57606a">human decision</text>
+<rect x="332.8" y="465" width="18" height="12" rx="3" fill="#fff0f0" stroke="#cf222e" />
+<text x="356.8" y="475" font-size="11" fill="#57606a">security service</text>
+<rect x="487.20000000000005" y="465" width="18" height="12" rx="3" fill="#ffffff" stroke="#57606a" stroke-dasharray="5 3"/>
+<text x="511.20000000000005" y="475" font-size="11" fill="#57606a">store / queue</text>
+<rect x="622.4000000000001" y="465" width="18" height="12" rx="3" fill="#f3f4f6" stroke="#8c959f" stroke-dasharray="2 3"/>
+<text x="646.4000000000001" y="475" font-size="11" fill="#57606a">external system</text>
+<rect x="770.4000000000001" y="465" width="18" height="12" rx="3" fill="#fff0f0" stroke="#cf222e" />
+<text x="794.4000000000001" y="475" font-size="11" fill="#57606a">blocked / failed</text>
+<rect x="924.8000000000001" y="465" width="18" height="12" rx="3" fill="#e6f4ea" stroke="#1a7f37" />
+<text x="948.8000000000001" y="475" font-size="11" fill="#57606a">terminal / outcome</text>
+<text x="1336" y="450" text-anchor="end" font-size="10.5" fill="#57606a">Why a token and not a flag: an agent can set confirm=true; it cannot produce a value the TV signed five minutes ago for exactly these group ids (F-504).</text>
+</svg>
