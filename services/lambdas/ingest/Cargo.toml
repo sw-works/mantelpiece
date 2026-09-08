@@ -1,0 +1,39 @@
+[package]
+name = "memorylane-ingest-lambda"
+description = "Step Functions task handlers: per-file signals and renditions, model enrichment, per-household organisation into trips"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[lib]
+name = "memorylane_ingest_lambda"
+path = "src/lib.rs"
+
+[[bin]]
+name = "ingest"
+path = "src/main.rs"
+
+[dependencies]
+memorylane-core.workspace = true
+memorylane-ingest.workspace = true
+memorylane-trips.workspace = true
+memorylane-store.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+time.workspace = true
+tokio.workspace = true
+async-trait.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+lambda_runtime.workspace = true
+aws-config.workspace = true
+aws-sdk-rekognition.workspace = true
+aws-sdk-eventbridge.workspace = true
+
+[dev-dependencies]
+image.workspace = true
+
+[lints]
+workspace = true
