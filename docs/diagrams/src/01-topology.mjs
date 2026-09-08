@@ -7,7 +7,7 @@ const R0 = 96, R1 = 250, R2 = 404, R3 = 610;
 const mid = (i) => X(i) + W / 2;
 
 export default () => diagram({
-  width: 1460, height: 880,
+  width: 1460, height: 900,
   title: "MemoryLane · Topology — one QR, one hosted backend, one governed tool surface",
   subtitle: "Phones upload straight to S3; ingest is deterministic Rust until keepers reach a model; agents reach data only through the Gateway, and irreversible tools only with a token the remote minted.",
   groups: [
@@ -27,11 +27,11 @@ export default () => diagram({
     node("review",   X(0), R3, W, H, "Review Changes",     { kind: "human", sub: "TV modal, confirm on the remote\nmints a single-use token" }),
     node("bus",      X(1), R3, W, H, "EventBridge bus",    { kind: "store", sub: "trip.detected\ncontribution.received" }),
     node("gateway",  X(3), R3, W, H, "Gateway + Policy",   { kind: "security", sub: "Identity (Cognito) · Cedar\nLambda targets = the API" }),
-    node("agent",    X(4), R3, W, H, "Concierge",          { kind: "llm", sub: "Runtime · Strands · Memory\nClaude on Bedrock · W1–W6" }),
+    node("agent",    X(4), R3, W, H, "Concierge",          { kind: "llm", sub: "Runtime · Strands · Memory\nClaude on Bedrock · Workflows #1–#6" }),
     node("alexa",    X(5), R3, W, H, "Alexa+",             { kind: "ext", sub: "MCP add-on\nsame Gateway endpoint" }),
   ],
   edges: [
-    { from: "tv", to: "api" },
+    { from: "tv", to: "api", label: "Ask, Share → Workflows #2, #5", at: [mid(0) + 40, R0 + H + 16] },
     { from: "phone", to: "api" },
     { from: "phone", to: "s3", label: "PUT parts", at: [X(1) + W + GAP / 2, R0 + H + 14] },
     { from: "api", to: "ddb" },
@@ -45,10 +45,10 @@ export default () => diagram({
     { from: "signal", to: "ddb", muted: true, label: "media · groups · trips (signal, organize)", at: [mid(1), R2 + H / 2 - 12] },
     { from: "organize", to: "bus", label: "trip.detected · contribution.received", at: [X(2) - 20, 504],
       points: [[X(3) + 30, R2 + H], [X(3) + 30, 516], [X(1) + W - 30, 516], [X(1) + W - 30, R3]] },
-    { from: "bus", to: "agent", label: "EventBridge rule invokes the agent (W1, W4, W6)", at: [mid(3) - 20, 534],
+    { from: "bus", to: "agent", label: "EventBridge rule invokes the agent: Workflows #1 Curator, #4 Dedup, #6 Merge", at: [mid(3) - 20, 534],
       points: [[X(1) + W - 10, R3], [X(1) + W - 10, 548], [mid(4), 548], [mid(4), R3]] },
     { from: "agent", to: "gateway", label: "MCP tools", at: [X(4) - GAP / 2, R3 + H + 14] },
-    { from: "alexa", to: "gateway", muted: true,
+    { from: "alexa", to: "gateway", muted: true, label: "Ask, Share → Workflows #2, #5", at: [X(5) - 10, R3 - 38],
       points: [[X(5), R3 + 12], [X(4) + W + 8, R3 + 12], [X(4) + W + 8, R3 - 24], [X(3) + W - 40, R3 - 24], [X(3) + W - 40, R3]] },
     { from: "gateway", to: "api", muted: true, label: "Lambda targets: the same API Lambda, no OpenAPI, no tunnel", at: [mid(1) + 60, R3 + H + 84],
       points: [[X(3) + W - 20, R3 + H], [X(3) + W - 20, R3 + H + 70], [20, R3 + H + 70], [20, R1 + H / 2], [X(0), R1 + H / 2]] },
@@ -58,6 +58,7 @@ export default () => diagram({
   legend: ["det", "llm", "human", "security", "store", "ext"],
   notes: [
     "Ingest runs per object (signal) and per household after a batch (organize, enrich keepers, organize again); non-keepers never reach a model.",
+    "Workflow #3 Household Patterns runs on a nightly schedule; the schedule rule is not in the stack yet.",
     "The Gateway's Cedar policy requires a confirmation token minted by the TV on apply_dedup, delete_media, share_album, remove_contributor; agents cannot mint one.",
   ],
 });

@@ -1,14 +1,14 @@
 import { diagram, node } from "./svg.mjs";
 import { W, GAP, H, X, R, mid, WIDTH } from "./_grid.mjs";
-// W5 Share / Export — workflows.py::share (reuses ask_archive). Drawn 2026-09-08.
+// Workflow #5 Share / Export — workflows.py::share (reuses ask_archive). Drawn 2026-09-08.
 export default () => diagram({
   width: WIDTH, height: 500,
-  title: "W5 · Share — \"send Kyoto highlights to grandma\" is W2 plus a confirmation",
+  title: "Workflow #5 · Share — \"send Kyoto highlights to grandma\" is Workflow #2 plus a confirmation",
   subtitle: "The request becomes a playlist by the Ask path; sharing it outside the household is irreversible, so it takes the same token gate as deletion.",
   nodes: [
     node("req",    X(0), R(0), W, H, "share request",     { kind: "ext", sub: "TV Ask or Alexa+" }),
     node("intent", X(1), R(0), W, H, "model.complete",    { kind: "llm", sub: "INTENT_SYSTEM → keywords" }),
-    node("search", X(2), R(0), W, H, "search_media",      { sub: "W2 path: playlist created" }),
+    node("search", X(2), R(0), W, H, "search_media",      { sub: "Workflow #2 path: playlist created" }),
     node("none",   X(2), R(1), W, H, "nothing to share",  { kind: "blocked", sub: "no playlist" }),
     node("review", X(3), R(0), W, H, "Review Changes",    { kind: "human", sub: "share_album <playlist>\nconfirm on the remote" }),
     node("kept",   X(3), R(1), W, H, "not shared",        { kind: "blocked", sub: "no token" }),

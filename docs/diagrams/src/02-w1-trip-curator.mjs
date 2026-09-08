@@ -1,9 +1,9 @@
 import { diagram, node } from "./svg.mjs";
 import { W, GAP, H, X, R, mid, WIDTH } from "./_grid.mjs";
-// W1 Trip Curator — agents/src/memorylane_agents/workflows.py::trip_curator, narrative.py. Drawn 2026-09-08.
+// Workflow #1 Trip Curator — agents/src/memorylane_agents/workflows.py::trip_curator, narrative.py. Drawn 2026-09-08.
 export default () => diagram({
   width: WIDTH, height: 500,
-  title: "W1 · Trip Curator — the story is checked against the metadata before it is saved",
+  title: "Workflow #1 · Trip Curator — the story is checked against the metadata before it is saved",
   subtitle: "One model call writes the narrative; deterministic code decides whether it may be shown. The playlist and the TV event happen either way.",
   nodes: [
     node("trig",  X(0), R(0), W, H, "trip.detected",    { kind: "ext", sub: "EventBridge rule → Runtime\nrouter.handle_event" }),

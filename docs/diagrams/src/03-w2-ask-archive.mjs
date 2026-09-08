@@ -1,9 +1,9 @@
 import { diagram, node } from "./svg.mjs";
 import { W, GAP, H, X, R, WIDTH } from "./_grid.mjs";
-// W2 Ask Your Archive — workflows.py::ask_archive, runtime.py::invoke (prompt payload). Drawn 2026-09-08.
+// Workflow #2 Ask Your Archive — workflows.py::ask_archive, runtime.py::invoke (prompt payload). Drawn 2026-09-08.
 export default () => diagram({
   width: WIDTH, height: 400,
-  title: "W2 · Ask Your Archive — the model only turns words into a query",
+  title: "Workflow #2 · Ask Your Archive — the model only turns words into a query",
   subtitle: "Retrieval and the playlist are deterministic; the same path serves the TV Ask screen and Alexa+.",
   nodes: [
     node("prompt", X(0), R(0), W, H, "prompt",          { kind: "ext", sub: "TV Ask screen or Alexa+\noptional trip scope" }),

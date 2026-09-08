@@ -1,9 +1,9 @@
 import { diagram, node } from "./svg.mjs";
 import { W, GAP, H, X, R, mid, WIDTH } from "./_grid.mjs";
-// W3 Household Patterns — workflows.py::household_patterns. Drawn 2026-09-08.
+// Workflow #3 Household Patterns — workflows.py::household_patterns. Drawn 2026-09-08.
 export default () => diagram({
   width: WIDTH, height: 520,
-  title: "W3 · Household Patterns — the ambient set learns from pin and hide, with no model in the loop",
+  title: "Workflow #3 · Household Patterns — the ambient set learns from pin and hide, with no model in the loop",
   subtitle: "Nightly. Feedback becomes tag weights in AgentCore Memory; the favourite tag drives search; the rationale is stored next to the playlist.",
   nodes: [
     node("trig",  X(0), R(0), W, H, "nightly + feedback", { kind: "ext", sub: "EventBridge schedule\npin / hide events since last run" }),

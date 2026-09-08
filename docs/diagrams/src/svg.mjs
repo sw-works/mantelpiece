@@ -14,7 +14,7 @@ export const KIND = {
   blocked:  { fill: "#fff0f0", stroke: "#cf222e", dash: "",     label: "blocked / failed" },
 };
 
-const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 export function diagram({ width, height, title, subtitle, nodes, edges, groups = [], legend = [], notes = [] }) {
   const byId = Object.fromEntries(nodes.map((n) => [n.id, n]));

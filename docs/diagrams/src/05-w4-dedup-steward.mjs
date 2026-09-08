@@ -1,9 +1,9 @@
 import { diagram, node } from "./svg.mjs";
 import { W, GAP, H, X, R, mid, WIDTH } from "./_grid.mjs";
-// W4 Dedup Steward — workflows.py::dedup_steward, core::confirmation, api handlers/confirmations.rs. Drawn 2026-09-08.
+// Workflow #4 Dedup Steward — workflows.py::dedup_steward, core::confirmation, api handlers/confirmations.rs. Drawn 2026-09-08.
 export default () => diagram({
   width: WIDTH, height: 500,
-  title: "W4 · Dedup Steward — the agent proposes, the remote decides, the policy enforces",
+  title: "Workflow #4 · Dedup Steward — the agent proposes, the remote decides, the policy enforces",
   subtitle: "Nothing is deleted without a single-use token that only the TV's Review Changes modal can mint.",
   nodes: [
     node("trig",   X(0), R(0), W, H, "dedup.proposal",      { kind: "ext", sub: "from organize, after a batch" }),
