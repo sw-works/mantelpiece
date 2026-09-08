@@ -4,12 +4,11 @@ use memorylane_core::ids::HouseholdId;
 use std::sync::Arc;
 use time::{Duration, OffsetDateTime};
 
-use crate::blobs::Blobs;
 use crate::error::ApiError;
 use crate::handlers;
 use crate::req::{Method, Req, Resp};
-use crate::storage::Storage;
 use crate::tokens::{Claims, Session, Signer};
+use memorylane_store::{Blobs, Storage};
 
 #[derive(Clone, Debug)]
 pub struct Config {

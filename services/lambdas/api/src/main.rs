@@ -3,10 +3,10 @@
 
 use lambda_http::{run, service_fn, Body, Error, Request, RequestExt, Response};
 use memorylane_api::app::{App, Config};
-use memorylane_api::dynamo::DynamoStorage;
 use memorylane_api::req::{Jwt, Method, Req};
-use memorylane_api::s3::S3Blobs;
 use memorylane_api::tokens::Signer;
+use memorylane_store::dynamo::DynamoStorage;
+use memorylane_store::s3::S3Blobs;
 use std::sync::Arc;
 use time::{Duration, OffsetDateTime};
 
@@ -71,14 +71,8 @@ async fn main() -> Result<(), Error> {
 
     let aws = aws_config::load_from_env().await;
     let app = Arc::new(App {
-        storage: Arc::new(DynamoStorage::new(
-            aws_sdk_dynamodb::Client::new(&aws),
-            env("TABLE_NAME")?,
-        )),
-        blobs: Arc::new(S3Blobs::new(
-            aws_sdk_s3::Client::new(&aws),
-            env("MEDIA_BUCKET")?,
-        )),
+        storage: Arc::new(DynamoStorage::from_config(&aws, env("TABLE_NAME")?)),
+        blobs: Arc::new(S3Blobs::from_config(&aws, env("MEDIA_BUCKET")?)),
         signer: Signer::new(env("TOKEN_SECRET")?),
         config: Config {
             link_base: env("LINK_BASE")?,

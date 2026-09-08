@@ -1,3 +1,4 @@
+use memorylane_store::StorageError;
 use serde_json::json;
 use thiserror::Error;
 
@@ -44,7 +45,10 @@ impl ApiError {
 
 impl From<StorageError> for ApiError {
     fn from(e: StorageError) -> Self {
-        Self::internal(e.to_string())
+        match e {
+            StorageError::NotFound(m) => Self::not_found(m),
+            other => Self::internal(other.to_string()),
+        }
     }
 }
 
@@ -52,13 +56,4 @@ impl From<serde_json::Error> for ApiError {
     fn from(e: serde_json::Error) -> Self {
         Self::bad_request(format!("invalid json: {e}"))
     }
-}
-
-/// Backend failures. Every storage and blob backend maps onto this.
-#[derive(Debug, Error)]
-pub enum StorageError {
-    #[error("storage: {0}")]
-    Backend(String),
-    #[error("serialisation: {0}")]
-    Serde(String),
 }

@@ -8,8 +8,8 @@ use aws_sdk_s3::types::{
 };
 use aws_sdk_s3::Client;
 
-use crate::blobs::{Blobs, CompletedPart, Result, PRESIGN_TTL};
-use crate::error::StorageError;
+use crate::blobs::{Blobs, CompletedPart, PRESIGN_TTL};
+use crate::{Result, StorageError};
 
 #[derive(Debug, Clone)]
 pub struct S3Blobs {
@@ -29,6 +29,10 @@ fn presign() -> Result<PresigningConfig> {
 }
 
 impl S3Blobs {
+    pub fn from_config(config: &aws_config::SdkConfig, bucket: impl Into<String>) -> Self {
+        Self::new(Client::new(config), bucket)
+    }
+
     pub fn new(client: Client, bucket: impl Into<String>) -> Self {
         Self {
             client,
@@ -120,6 +124,32 @@ impl Blobs for S3Blobs {
             .await
             .map_err(backend)?;
         Ok(req.uri().to_string())
+    }
+
+    async fn get(&self, key: &str) -> Result<Vec<u8>> {
+        let out = self
+            .client
+            .get_object()
+            .bucket(&self.bucket)
+            .key(key)
+            .send()
+            .await
+            .map_err(backend)?;
+        let bytes = out.body.collect().await.map_err(backend)?;
+        Ok(bytes.into_bytes().to_vec())
+    }
+
+    async fn put(&self, key: &str, bytes: Vec<u8>, content_type: &str) -> Result<()> {
+        self.client
+            .put_object()
+            .bucket(&self.bucket)
+            .key(key)
+            .content_type(content_type)
+            .body(bytes.into())
+            .send()
+            .await
+            .map_err(backend)?;
+        Ok(())
     }
 
     async fn delete(&self, keys: &[String]) -> Result<()> {

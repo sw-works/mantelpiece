@@ -14,7 +14,8 @@ use std::sync::Mutex;
 use time::OffsetDateTime;
 
 use crate::blobs::{Blobs, CompletedPart};
-use crate::storage::{Result, Storage};
+use crate::storage::Storage;
+use crate::{Result, StorageError};
 
 #[derive(Debug, Default)]
 struct Tables {
@@ -122,6 +123,17 @@ impl Storage for MemoryStorage {
             .media
             .get(&(household.clone(), id.clone()))
             .cloned())
+    }
+    async fn list_media(&self, household: &HouseholdId) -> Result<Vec<MediaItem>> {
+        let t = self.tables.lock().unwrap();
+        let mut v: Vec<MediaItem> = t
+            .media
+            .values()
+            .filter(|m| &m.household == household)
+            .cloned()
+            .collect();
+        v.sort_by_key(|m| (m.uploaded_at, m.id.clone()));
+        Ok(v)
     }
     async fn find_media_by_sha256(
         &self,
@@ -240,6 +252,7 @@ impl Storage for MemoryStorage {
 #[derive(Debug, Default)]
 pub struct MemoryBlobs {
     pub log: Mutex<Vec<String>>,
+    pub objects: Mutex<HashMap<String, Vec<u8>>>,
 }
 
 #[async_trait]
@@ -278,11 +291,31 @@ impl Blobs for MemoryBlobs {
     async fn presign_get(&self, key: &str) -> Result<String> {
         Ok(format!("https://blobs.test/{key}"))
     }
+    async fn get(&self, key: &str) -> Result<Vec<u8>> {
+        self.objects
+            .lock()
+            .unwrap()
+            .get(key)
+            .cloned()
+            .ok_or_else(|| StorageError::NotFound(key.to_owned()))
+    }
+    async fn put(&self, key: &str, bytes: Vec<u8>, content_type: &str) -> Result<()> {
+        self.log
+            .lock()
+            .unwrap()
+            .push(format!("put {key} {content_type} {}", bytes.len()));
+        self.objects.lock().unwrap().insert(key.to_owned(), bytes);
+        Ok(())
+    }
     async fn delete(&self, keys: &[String]) -> Result<()> {
         self.log
             .lock()
             .unwrap()
             .push(format!("delete {}", keys.join(",")));
+        let mut objects = self.objects.lock().unwrap();
+        for k in keys {
+            objects.remove(k);
+        }
         Ok(())
     }
 }

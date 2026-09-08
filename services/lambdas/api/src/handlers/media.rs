@@ -36,7 +36,7 @@ pub async fn url(app: &App, req: &Req, id: &str) -> Result<Resp, ApiError> {
         ));
     }
     Resp::ok(
-        json!({ "url": app.blobs.presign_get(&key).await?, "expires_in": crate::blobs::PRESIGN_TTL.whole_seconds() }),
+        json!({ "url": app.blobs.presign_get(&key).await?, "expires_in": memorylane_store::blobs::PRESIGN_TTL.whole_seconds() }),
     )
 }
 

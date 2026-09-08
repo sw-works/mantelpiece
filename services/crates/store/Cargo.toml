@@ -1,0 +1,22 @@
+[package]
+name = "memorylane-store"
+description = "Storage and blob traits with DynamoDB, S3 and in-memory backends"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+memorylane-core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+time.workspace = true
+async-trait.workspace = true
+aws-config.workspace = true
+aws-sdk-dynamodb.workspace = true
+aws-sdk-s3.workspace = true
+serde_dynamo.workspace = true
+
+[lints]
+workspace = true

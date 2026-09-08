@@ -12,9 +12,7 @@ use memorylane_core::trip::Trip;
 use memorylane_core::trip_code::TripCode;
 use time::OffsetDateTime;
 
-use crate::error::StorageError;
-
-pub type Result<T> = std::result::Result<T, StorageError>;
+use crate::Result;
 
 #[async_trait]
 pub trait Storage: Send + Sync {
@@ -35,6 +33,7 @@ pub trait Storage: Send + Sync {
 
     async fn put_media(&self, media: &MediaItem) -> Result<()>;
     async fn get_media(&self, household: &HouseholdId, id: &MediaId) -> Result<Option<MediaItem>>;
+    async fn list_media(&self, household: &HouseholdId) -> Result<Vec<MediaItem>>;
     async fn find_media_by_sha256(
         &self,
         household: &HouseholdId,

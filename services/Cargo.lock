@@ -1744,17 +1744,15 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "aws-config",
- "aws-sdk-dynamodb",
- "aws-sdk-s3",
  "base64 0.22.1",
  "hex",
  "hmac 0.12.1",
  "http 1.5.0",
  "lambda_http",
  "memorylane-core",
+ "memorylane-store",
  "rand",
  "serde",
- "serde_dynamo",
  "serde_json",
  "sha2 0.10.9",
  "thiserror",
@@ -1786,6 +1784,22 @@ dependencies = [
  "memorylane-core",
  "serde",
  "sha2 0.10.9",
+ "thiserror",
+ "time",
+]
+
+[[package]]
+name = "memorylane-store"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "aws-config",
+ "aws-sdk-dynamodb",
+ "aws-sdk-s3",
+ "memorylane-core",
+ "serde",
+ "serde_dynamo",
+ "serde_json",
  "thiserror",
  "time",
 ]

@@ -19,8 +19,8 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 
-use crate::error::StorageError;
-use crate::storage::{Result, Storage};
+use crate::storage::Storage;
+use crate::{Result, StorageError};
 
 #[derive(Debug, Clone)]
 pub struct DynamoStorage {
@@ -46,6 +46,10 @@ fn backend<E: std::fmt::Debug>(e: E) -> StorageError {
 }
 
 impl DynamoStorage {
+    pub fn from_config(config: &aws_config::SdkConfig, table: impl Into<String>) -> Self {
+        Self::new(Client::new(config), table)
+    }
+
     pub fn new(client: Client, table: impl Into<String>) -> Self {
         Self {
             client,
@@ -233,6 +237,9 @@ impl Storage for DynamoStorage {
     }
     async fn get_media(&self, household: &HouseholdId, id: &MediaId) -> Result<Option<MediaItem>> {
         self.get(household_pk(household), format!("M#{id}")).await
+    }
+    async fn list_media(&self, household: &HouseholdId) -> Result<Vec<MediaItem>> {
+        self.query(household_pk(household), "M#", None, None).await
     }
     async fn find_media_by_sha256(
         &self,

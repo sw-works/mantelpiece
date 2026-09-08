@@ -7,10 +7,10 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 use crate::app::{App, Caller};
-use crate::blobs::CompletedPart;
 use crate::error::ApiError;
 use crate::req::{Req, Resp};
 use crate::tokens::Session;
+use memorylane_store::CompletedPart;
 
 #[derive(Deserialize)]
 struct InitBody {
