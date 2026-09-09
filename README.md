@@ -70,6 +70,10 @@ falls back to the plain file on Fire OS. Screens keep text inside the 1080p titl
 margin defined in `src/theme.ts`.
 
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
+
 ## License
 
 MIT, see [LICENSE](LICENSE).
