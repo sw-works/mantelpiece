@@ -21,7 +21,7 @@ export function Onboarding({
     onSignedIn({ token: state.token, household: state.household });
   }
   return (
-    <View style={{ flex: 1, backgroundColor: theme.bg, padding: 64, flexDirection: "row", gap: 64, alignItems: "center" }}>
+    <View style={{ flex: 1, backgroundColor: theme.bg, paddingHorizontal: theme.safe.x, paddingVertical: theme.safe.y, flexDirection: "row", gap: 64, alignItems: "center" }}>
       <View style={{ flex: 1, gap: theme.gap }}>
         <Text style={{ color: theme.fg, fontSize: theme.title, fontWeight: "700" }}>Sign in from your phone</Text>
         <Text style={{ color: theme.muted, fontSize: theme.body }}>

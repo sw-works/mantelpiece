@@ -40,7 +40,7 @@ export function ReviewChanges({
     }
   };
   return (
-    <View style={{ flex: 1, backgroundColor: theme.bg, padding: 64, gap: theme.gap, justifyContent: "center" }}>
+    <View style={{ flex: 1, backgroundColor: theme.bg, paddingHorizontal: theme.safe.x, paddingVertical: theme.safe.y, gap: theme.gap, justifyContent: "center" }}>
       <Text style={{ color: theme.fg, fontSize: theme.title, fontWeight: "700" }}>Review changes</Text>
       <Text style={{ color: theme.fg, fontSize: theme.body }}>{proposal.title}</Text>
       <Text testID="counts" style={{ color: theme.muted, fontSize: theme.body }}>

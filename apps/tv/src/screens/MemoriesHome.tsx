@@ -33,7 +33,7 @@ export function MemoriesHome({
   }, [api, token, tripsVersion]);
 
   return (
-    <View style={{ flex: 1, backgroundColor: theme.bg, padding: 64, gap: theme.gap }}>
+    <View style={{ flex: 1, backgroundColor: theme.bg, paddingHorizontal: theme.safe.x, paddingVertical: theme.safe.y, gap: theme.gap }}>
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
         <Text style={{ color: theme.fg, fontSize: theme.title, fontWeight: "700" }}>Memories</Text>
         <FocusButton label="Add photos" onPress={onInvite} testID="invite" />

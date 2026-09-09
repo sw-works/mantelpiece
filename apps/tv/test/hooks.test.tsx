@@ -1,6 +1,8 @@
 import { act, renderHook, waitFor } from "@testing-library/react-native";
+import { BackHandler } from "react-native";
 import { useDeviceSignIn } from "../src/hooks/useDeviceSignIn";
 import { describe as describeEvent, reduce, useEvents } from "../src/hooks/useEvents";
+import { useRemoteKeys } from "../src/hooks/useRemoteKeys";
 import { FakeApi } from "./fakeApi";
 
 const noSleep = async () => undefined;
@@ -61,5 +63,24 @@ describe("events feed", () => {
     expect(result.current.ticker).toBe("Memory ready");
     expect(api.calls.slice(0, 3)).toEqual(["events 0", "events 1", "events 2"]);
     await unmount();
+  });
+});
+
+describe("useRemoteKeys", () => {
+  it("consumes hardware Back only when a handler is given", async () => {
+    let pressed: (() => boolean | null | undefined) | null = null;
+    const remove = jest.fn();
+    jest.spyOn(BackHandler, "addEventListener").mockImplementation((_name, handler) => {
+      pressed = handler as () => boolean;
+      return { remove };
+    });
+    const onBack = jest.fn();
+    const { rerender, unmount } = await renderHook((props: { onBack?: () => void }) => useRemoteKeys(props), { initialProps: { onBack } });
+    expect(pressed!()).toBe(true);
+    expect(onBack).toHaveBeenCalledTimes(1);
+    await rerender({});
+    expect(pressed!()).toBe(false);
+    await unmount();
+    expect(remove).toHaveBeenCalled();
   });
 });

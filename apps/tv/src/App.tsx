@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { View } from "react-native";
 import { TvApi } from "./api/client";
 import { Ticker } from "./components/Ticker";
 import { useEvents } from "./hooks/useEvents";
+import { useRemoteKeys } from "./hooks/useRemoteKeys";
 import { Invite } from "./screens/Invite";
 import { MemoriesHome } from "./screens/MemoriesHome";
 import { Onboarding } from "./screens/Onboarding";
@@ -27,6 +28,17 @@ export function App({ apiBase, api: injectedApi, sessionStore }: AppProps) {
   const [session, setSession] = useState<{ token: string; household: string } | null | undefined>(undefined);
   const [route, setRoute] = useState<Route>({ name: "home" });
   const feed = useEvents(api, session?.token ?? null);
+
+  // Hardware Back mirrors the on-screen Back buttons. On the home screen it is left to the
+  // platform, which exits the app.
+  const goBack = useCallback(() => {
+    setRoute((r) => {
+      if (r.name === "trip") return { name: "home" };
+      if (r.name === "invite") return r.tripId ? { name: "trip", id: r.tripId } : { name: "home" };
+      return r;
+    });
+  }, []);
+  useRemoteKeys({ onBack: route.name === "home" ? undefined : goBack });
 
   useEffect(() => {
     store.load().then((s) => setSession(s ? { token: s.token, household: s.household } : null));

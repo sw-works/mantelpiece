@@ -12,4 +12,10 @@ export const theme = {
   title: 44,
   body: 26,
   small: 20,
+  /**
+   * TV safe zone at 1920x1080. Screens keep text inside the 5% title-safe margin;
+   * interactive elements may reach the 3.5% action-safe margin.
+   */
+  safe: { x: 90, y: 54 },
+  actionSafe: { x: 67, y: 38 },
 } as const;

@@ -32,7 +32,7 @@ export function Invite({
   }, [api, token, tripId]);
 
   return (
-    <View style={{ flex: 1, backgroundColor: theme.bg, padding: 64, flexDirection: "row", gap: 64, alignItems: "center" }}>
+    <View style={{ flex: 1, backgroundColor: theme.bg, paddingHorizontal: theme.safe.x, paddingVertical: theme.safe.y, flexDirection: "row", gap: 64, alignItems: "center" }}>
       <View style={{ flex: 1, gap: theme.gap }}>
         <Text style={{ color: theme.fg, fontSize: theme.title, fontWeight: "700" }}>
           {tripId ? "Everyone on the trip: scan this" : "Add photos from your phone"}

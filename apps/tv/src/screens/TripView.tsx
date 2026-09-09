@@ -35,7 +35,7 @@ export function TripView({
   if (!trip) return <View style={{ flex: 1, backgroundColor: theme.bg }} />;
   const current = trip.days[day];
   return (
-    <View style={{ flex: 1, backgroundColor: theme.bg, padding: 64, gap: theme.gap }}>
+    <View style={{ flex: 1, backgroundColor: theme.bg, paddingHorizontal: theme.safe.x, paddingVertical: theme.safe.y, gap: theme.gap }}>
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
         <Text style={{ color: theme.fg, fontSize: theme.title, fontWeight: "700" }}>{trip.name}</Text>
         <View style={{ flexDirection: "row", gap: 16 }}>
