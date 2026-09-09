@@ -6,7 +6,10 @@
   "scripts": {
     "test": "jest",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "start": "react-native start",
+    "build:vega": "react-native build-kepler --build-type Release",
+    "build:vega:debug": "react-native build-kepler --build-type Debug"
   },
   "dependencies": {
     "qrcode": "^1.5.4",
@@ -25,6 +28,14 @@
     "jest": "^30.5.1",
     "react-test-renderer": "19.2.8",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.70.0"
+    "typescript-eslint": "^8.70.0",
+    "@react-native/metro-config": "0.87.1"
+  },
+  "kepler": {
+    "projectType": "application",
+    "appName": "MemoryLane",
+    "targets": [
+      "tv"
+    ]
   }
 }

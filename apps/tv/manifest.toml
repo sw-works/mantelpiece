@@ -1,0 +1,37 @@
+# Vega OS package manifest. Read by `react-native build-kepler`; ignored by the Fire OS build.
+# Component id must match the "name" in app.json. Only network access is requested: the app
+# is fetch-only with no media playback, DRM, or audio surfaces.
+schema-version = 1
+
+[package]
+title = "MemoryLane"
+version = "0.1.0"
+id = "com.hanyu.memorylane"
+
+[components]
+[[components.interactive]]
+id = "com.hanyu.memorylane.main"
+runtime-module = "/com.amazon.kepler.keplerscript.runtime.loader_2@IKeplerScript_2_0"
+launch-type = "singleton"
+categories = ["com.amazon.category.main"]
+
+[processes]
+[[processes.group]]
+component-ids = ["com.hanyu.memorylane.main"]
+
+# Optional capabilities.
+[wants]
+[[wants.service]]
+id = "com.amazon.inputmethod.service" # on-screen keyboard for the Ask prompt
+
+[[wants.service]]
+id = "com.amazon.network.service"
+
+# Required capabilities.
+[needs]
+[[needs.privilege]]
+id = "com.amazon.network.privilege.net-info"
+
+[offers]
+[[offers.interaction]]
+id = "com.hanyu.memorylane.main"

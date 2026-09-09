@@ -1,1 +1,5 @@
-{ "name": "MemoryLane", "displayName": "MemoryLane" }
+{
+  "//": "Reverse-DNS name is required by the Vega packager and must match components.interactive.id in manifest.toml",
+  "name": "com.hanyu.memorylane.main",
+  "displayName": "MemoryLane"
+}

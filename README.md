@@ -45,7 +45,30 @@ make deploy      # cdk deploy (needs AWS credentials and Login with Amazon clien
 
 Everything under `make test` runs without AWS. The DynamoDB, S3, Step Functions,
 Rekognition, EventBridge and AgentCore Gateway backends are compile-checked only until the
-stack is deployed. Vega packaging of `apps/tv` waits on the Kepler CLI spike (week 1).
+stack is deployed.
+
+### Fire TV app
+
+Requires the [Amazon Vega SDK](https://developer.amazon.com/docs/vega/0.21/install-vega-sdk.html)
+with `KEPLER_SDK_HOME` set, and `@amazon-devices/kepler-cli-platform` installed from the
+SDK's registry (not on public npm, so it is not in `package.json`). The Vega SDK pins its
+own React Native version; if it differs from the one in `apps/tv/package.json`, the app
+moves to a `packages/tv-ui` plus per-platform app layout. Not yet verified: the packaging
+below waits on the week 1 spike.
+
+```
+cd apps/tv
+pnpm start                 # Metro
+pnpm build:vega:debug      # react-native build-kepler, installs on a Vega Virtual Device
+pnpm build:vega            # release .vpkg
+```
+
+`apps/tv/manifest.toml` declares the Vega package: one interactive component and network
+access only. Platform-specific code goes in `.kepler.ts` files next to the default
+implementation (see `src/hooks/useRemoteKeys.kepler.ts`); Metro picks them on Vega and
+falls back to the plain file on Fire OS. Screens keep text inside the 1080p title-safe
+margin defined in `src/theme.ts`.
+
 
 ## License
 
