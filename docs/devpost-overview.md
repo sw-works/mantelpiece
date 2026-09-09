@@ -22,7 +22,9 @@ Mini-challenges: AWS Builder, Open Source.
 Install MemoryLane on a Fire TV and it shows a code and a QR. Scan it with your phone,
 sign in with your Amazon account, and pick photos from your camera roll. Everyone on the
 trip scans the same QR from their own phone and their photos land in the same trip,
-credited to them. The TV shows uploads arriving live.
+credited to them. The TV shows uploads arriving live. The same code works on another Fire TV:
+grandma opens "Join a trip", types it, and the trip appears on her screen the evening it
+happens, with everyone's photos and her reactions flowing back to yours.
 
 The backend groups burst shots and picks the keeper, scores every photo, aligns the clocks
 of different phones from overlapping GPS, splits the trip into days, draws the route, and

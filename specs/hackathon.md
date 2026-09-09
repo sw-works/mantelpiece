@@ -4,12 +4,12 @@ Status: Draft for hackathon execution
 Target: Build, Ship, Shape: Amazon Developer Hackathon (Devpost)
 Submission deadline: 2026-10-23 12:00 PT
 Judging: 2026-11-09 to 2026-11-20
-Companion: `architecture.md` (design, requirements, workflows, open questions)
+Companion: `architecture.md` (design, requirements, workflows, open questions), `decisions-2026-09-09.md` (Fire TV research log)
 Created: 2026-09-08
 
 ## 1. Entry Strategy
 
-- Primary track: **Fire TV** (Vega OS + Fire OS, one React Native codebase)
+- Primary track: **Fire TV** (Vega OS; Fire OS from the same `packages/tv-ui` code is a stretch, decision 2026-09-09)
 - Secondary track: **Alexa+** (same AgentCore Gateway MCP endpoint, separate submission)
 - Mini-challenge: **AWS Builder** (Bedrock + AgentCore Gateway, Runtime, Memory, Policy;
   service list in `architecture.md` section 7)
@@ -17,7 +17,9 @@ Created: 2026-09-08
   window)
 
 Alexa+ fallback: if preview access is not granted, the rules accept a simulated web
-experience. Ship a web chat backed by the Runtime agent through the same Gateway.
+experience. Ship a web chat backed by the Runtime agent through the same Gateway, with an Ask
+button on the phone page using the browser's speech recognition so voice still reaches the TV
+(`decisions-2026-09-09.md` section 7).
 
 ## 2. Rules That Shape the Plan
 
@@ -33,11 +35,11 @@ experience. Ship a web chat backed by the Runtime agent through the same Gateway
 
 | Week | Dates | Deliverable |
 |------|-------|-------------|
-| 1 | Sep 8 to 14 | CDK skeleton: Cognito+LWA, device-code Lambda, S3, DynamoDB, API, long-poll events. PWA uploader to S3 multipart. VVD + RN sample with fetch-only rule. Spike: native LWA and WebSocket on VVD, pass/fail only. Public repo, LICENSE. Apply Alexa+ preview. Friction log. |
+| 1 | Sep 8 to 14 | CDK skeleton: Cognito+LWA, device-code Lambda, S3, DynamoDB, API, long-poll events. PWA uploader to S3 multipart. Vega SDK 0.24 install; read its RN pin (0.83 or 0.72); split `apps/tv` into `packages/tv-ui` plus `apps/tv-vega`; hello-world on VVD, then MemoryLane. Spike, pass/fail only: native LWA, WebSocket, AsyncStorage, hardware Back on VVD. Add `[os.version]` to the manifest. Public repo, LICENSE. Apply Alexa+ preview. Friction log. |
 | 2 | Sep 15 to 21 | Ingest Step Functions with Distributed Map: Rust Lambda with libheif/turbojpeg for decode, EXIF, pHash, sharpness, renditions; burst grouping and keeper pick; Rekognition and Titan on keepers; ffmpeg layer for video posters. |
 | 3 | Sep 22 to 28 | Trip clustering, route build, Location static map, narrative via Bedrock. Trip codes, guest join, contributor attribution, cross-contributor dedup. Fire TV: onboarding QR, Invite QR, Memories home, Trip view. |
 | 4 | Sep 29 to Oct 5 | Gateway Lambda targets, Identity, Runtime agent, Memory. W1, W2. Fire TV Ask screen, Review Changes modal. Per-trip embedding cache. |
-| 5 | Oct 6 to 12 | W3, W4, W5, W6 clock alignment. Policy. Highlights, Ambient screens. Alexa+ simulator. |
+| 5 | Oct 6 to 12 | W3, W4, W5, W6 clock alignment. Policy. Highlights, Ambient screens. Join a trip from a second TV (F-162, F-411), per-household pin and hide (F-163). Alexa+ simulator. |
 | 6 | Oct 13 to 19 | Polish, Observability, video. Load a real multi-year archive. |
 | 7 | Oct 20 to 23 | Submission text, test credentials for judges, friction log, feature requests. Submit Oct 22. |
 
@@ -65,8 +67,9 @@ sign-in, AppSync Events over WebSocket). Defaults ship either way.
 5. 1:40 Ask: "show beach days from Portugal with the kids". Playlist plays.
 6. 2:05 Dedup Steward (W4) proposes keepers across two phones. Review Changes modal, confirm
    on the remote, Policy allows.
-7. 2:30 Alexa+ on Echo Show: "what did we do on day two in Kyoto". Same Gateway.
-8. 2:45 Close: architecture card, privacy position.
+7. 2:25 Second Fire TV in another home: "Join a trip", type the code, the Kyoto trip appears with everyone's photos and a reaction from grandma lands on the first TV's ticker (F-162, F-710).
+8. 2:40 Alexa+ on Echo Show: "what did we do on day two in Kyoto". Same Gateway.
+9. 2:50 Close: architecture card, privacy position.
 
 Observability traces of W1 and W4 go in the video.
 

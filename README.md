@@ -14,6 +14,7 @@ Tracks: Fire TV (primary), Alexa+ (secondary). Mini-challenges: AWS Builder, Ope
 
 - [specs/architecture.md](specs/architecture.md): architecture, required features, workflows, open questions
 - [specs/hackathon.md](specs/hackathon.md): entry strategy, rules, timeline, demo plan, judge access
+- [specs/decisions-2026-09-09.md](specs/decisions-2026-09-09.md): Fire TV research log: sample repo, Vega RN pin, Virtual Device, Builder Tools, voice
 - [docs/diagrams/](docs/diagrams/): architecture diagrams as SVG source
 
 ![Topology](docs/diagrams/01-topology.svg)
@@ -68,7 +69,6 @@ access only. Platform-specific code goes in `.kepler.ts` files next to the defau
 implementation (see `src/hooks/useRemoteKeys.kepler.ts`); Metro picks them on Vega and
 falls back to the plain file on Fire OS. Screens keep text inside the 1080p title-safe
 margin defined in `src/theme.ts`.
-
 
 ## Contributing
 

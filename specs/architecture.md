@@ -2,7 +2,7 @@
 
 Status: Draft for hackathon execution
 App name: MemoryLane
-Companion: `hackathon.md` (entry strategy, rules, timeline, demo plan)
+Companion: `hackathon.md` (entry strategy, rules, timeline, demo plan), `decisions-2026-09-09.md` (Fire TV research log)
 Goal: zero infrastructure for the user. Install one Fire TV app, upload from phone, done.
 Created: 2026-09-08
 
@@ -170,6 +170,18 @@ memory apps.
 | F-160 | Contribution activity streams to the TV live: "Maya added 42 photos from day 3" |
 | F-161 | Upload page works while still on the trip, offline-tolerant: queued uploads resume when the phone reconnects |
 
+Roles (decided 2026-09-09): **owner** (the household that created the trip), **co-editor**
+(a contributor with an Amazon account, promoted by the owner), **contributor** (Amazon
+account or guest, can add and remove their own photos, view, react), **member household**
+(another TV that joined the trip by code, view and react, personal pin and hide).
+
+| ID | Requirement |
+|----|-------------|
+| F-162 | **Join a trip from another TV (headline with F-151).** The trip code on the Invite QR also works on any other Fire TV running MemoryLane: "Join a trip" on the Memories home takes the code typed on the remote or scanned from the phone page while that TV's session is linked. The trip appears in that household's rows with live updates, narrative, route and highlights, credited contributors, reactions. Grandma's TV shows the Kyoto trip the evening it happens. Trip stays owned and stored by the creating household; the member household holds a membership record, no copy |
+| F-163 | Pin and hide are per household on shared trips: a member household's highlights differ from the owner's without changing the trip. Owner and co-editor edits (F-164) are shared |
+| F-164 | Co-editor role: owner promotes a contributor with an Amazon account from the TV. Co-editors can rename the trip, choose keepers, remove any photo, run dedup and cleanup on that trip, each through their own Review Changes modal (F-410) with a confirmation token bound to their identity; Cedar policy at the Gateway checks the role per tool call (F-504). Removing another contributor's photo notifies that contributor and is reversible for the grace period in F-158 |
+| F-165 | Guests (no Amazon account) never edit; the web view (F-159) never edits. Editing happens only on a TV with a signed-in owner or co-editor session |
+
 ### 4.3 Organization
 
 | ID | Requirement |
@@ -202,11 +214,12 @@ memory apps.
 | F-402 | Memories home: trips as rows, hero image from top-scored photo, "new memory" badge |
 | F-403 | Trip view: horizontal day timeline, route map, narrative, play slideshow |
 | F-404 | Highlights view with D-pad navigation and pin / hide |
-| F-405 | Ask: text or voice prompt, answer as card or playlist |
+| F-405 | Ask: text prompt on the TV, voice through Alexa+ or the phone page; answer as card or playlist |
 | F-406 | Ambient slideshow when idle, adapted to household preferences |
 | F-407 | Live status on TV: upload progress, memory ready, dedup proposal; works over plain HTTPS polling, WebSocket optional |
 | F-410 | Review Changes modal: any agent-proposed destructive action (dedup apply, delete, contributor removal) shows before/after counts and sample thumbnails; nothing applies until the user confirms on the remote |
-| F-408 | Runs on Vega OS and Fire OS from one codebase; passes Vega Virtual Device |
+| F-411 | Join a trip (F-162): code entry on the Memories home and a scan-from-phone path; joined trips show a "shared by <household>" badge and a Leave action |
+| F-408 | Runs on Vega OS; passes Vega Virtual Device. Fire OS from the same `packages/tv-ui` code is a stretch goal (decision 2026-09-09) |
 
 ### 4.6 Agents and Alexa+
 
@@ -219,12 +232,31 @@ memory apps.
 | F-505 | Alexa+ can call the same tools; answers render as voice and Echo Show visuals |
 | F-506 | Every agent run traceable end to end for debugging and demo |
 
+### 4.8 Memories (Google Photos parity, decided 2026-09-09)
+
+Everything here runs on data ingest already produces. Judging priorities covered: AI-enhanced
+viewing, family entertainment, computer vision. Full comparison, including what was skipped,
+in `decisions-2026-09-09.md` section 9.
+
+| ID | Requirement |
+|----|-------------|
+| F-701 | On this day: photos from the same month and day in earlier years, as a home row and as a W3 nightly playlist; Alexa+ answers "what were we doing this week three years ago" |
+| F-702 | Then and now: pairs of photos from the same geohash cell taken in different years, shown as a card |
+| F-703 | Best of month and best of year playlists from the F-204 score |
+| F-704 | People: opt-in per household; faces indexed into a per-household Rekognition collection, clustered by match, named from the phone page; people become a search and playlist filter and feed the F-204 score. Vectors only, deleted with the account (F-604). Pets are label search only, no identity |
+| F-705 | Quick cleanup: screenshots, documents, receipts and blurry shots detected from Rekognition text and labels plus F-107 sharpness, proposed as a W4-style Review Changes batch; nothing removed without the remote |
+| F-706 | Text in photos: Rekognition DetectText indexed for search and Ask ("that restaurant sign in Kyoto") |
+| F-707 | Map view: one Amazon Location static map with every trip pinned, as a TV screen |
+| F-708 | Ken Burns motion on stills in every slideshow; no video encoding, no video stack on the TV |
+| F-709 | Narrated memories: Polly reads the trip narrative during the slideshow; gated on the Vega audio spike (open question 10) |
+| F-710 | Reactions and comments from contributors on the F-159 read-only trip view (like, short comment per photo or day); they stream to the TV ticker ("Grandma loved day 3") and appear beside the photo in the trip view |
+
 ### 4.7 Sharing, Security, Operations
 
 | ID | Requirement |
 |----|-------------|
 | F-601 | Share an album or playlist by expiring link, optional email |
-| F-602 | Per-household data isolation across storage, index, memory, and tools; contributors see only trips they joined |
+| F-602 | Per-household data isolation across storage, index, memory, and tools; contributors and member households (F-162) see only trips they joined, and only that trip's data |
 | F-603 | Encryption at rest and in transit; no model training on user content |
 | F-604 | Delete account removes originals, renditions, embeddings, memory |
 | F-605 | Audit log for auth, share, delete, and agent tool calls |
@@ -246,12 +278,17 @@ Ambient, Settings. Plus:
   full-screen QR. Everyone in the room scans it. Their photos merge into this trip, credited
   to them, and the TV ticks up as they arrive. Same QR works later from the phone page, so
   people who left early can still contribute.
-- **Voice for Ask**: Fire OS via Android SpeechRecognizer. Vega microphone access from RN is
-  unverified (open question 7); text entry is the default on both.
+- **Voice for Ask**: not from the TV app. Vega exposes no microphone API to apps (open
+  question 7, closed 2026-09-09). Voice reaches the same MCP tools through Alexa+ (F-505) or
+  through an Ask button on the phone page using the browser's speech recognition. Text entry
+  is the default on the TV. "What's that statue in the background" needs the TV to publish a
+  now-showing record and a `describe_photo` tool answering from descriptions precomputed at
+  ingest; see `decisions-2026-09-09.md` section 7.
 - **No hub address, no network config screens, no typing on the remote.**
-- **Vega-first rule**: no native modules. Everything the TV app needs is `fetch`, timers, images
-  over HTTPS, and RN core components. Anything beyond that is an upgrade gated on the week 1
-  spike.
+- **Vega-first rule**: no native modules bundled by us. Everything the TV app needs is `fetch`,
+  timers, images over HTTPS, and RN core components. System-deployed `@amazon-devices/*` ports
+  (AsyncStorage, qrcode-svg) are allowed. Anything beyond that is an upgrade gated on the
+  week 1 spike.
 
 ## 6. Agentic Workflows
 
@@ -261,7 +298,7 @@ Ambient, Settings. Plus:
 | W2 | Ask Your Archive | TV or Alexa+ prompt | intent, vector search (S3 Vectors) + scene/trip filters, create playlist, TV plays |
 | W3 | Household Patterns | nightly EventBridge schedule + pin/hide feedback | read Memory, choose ambient set, create playlist, store rationale |
 | W4 | Dedup Steward | `dedup.proposal` | summarize groups, propose keepers, open Review Changes on TV, apply under Policy with the modal's confirmation token |
-| W5 | Share / Export | "send Kyoto highlights to grandma" | create shared album link (presigned, expiring), email via SES |
+| W5 | Share / Export | "send Kyoto highlights to grandma" | prefer F-162: if grandma's household is known, propose a trip join code for her TV; otherwise create shared album link (presigned, expiring), email via SES |
 | W6 | Trip Merge | `contribution.received` from a new contributor | align clocks against existing GPS, re-run dedup across contributors, re-cluster days, refresh narrative with contributor credits, push "Maya added day 3" to TV |
 
 Same "confirm before irreversible" pattern throughout. Cedar policy on `apply_dedup`,
@@ -280,10 +317,16 @@ avg 5 MB, Bedrock Claude narrative per trip cents. Demo account well under $100 
 
 ## 9. Open Questions (verify week 1)
 
-1. Native LWA sign-in from Vega RN app. Default is device code; this only decides whether the upgrade ships.
-2. WebSocket / AppSync Events from Vega RN runtime. Default is long-poll; same decision shape.
-3. Gateway MCP spec version vs Alexa+ 2025-11-25.
+Documentation findings of 2026-09-09 are in `decisions-2026-09-09.md` section 6; items marked
+"docs say" still need a device check.
+
+1. Native LWA sign-in from Vega RN app. Docs say `@amazon-devices/keplerscript-identity-lwa-lib` supports the auth-code grant with PKCE. Default is device code; this only decides whether the upgrade ships.
+2. WebSocket / AppSync Events from Vega RN runtime. Docs say WebSocket is supported on React Native for Vega 0.83. Default is long-poll; same decision shape.
+3. Gateway MCP spec version vs Alexa+ 2025-11-25, plus Alexa+ inbound auth: OAuth 2.1 with PKCE and a protected resource metadata document on the MCP endpoint, and a 500 ms round-trip budget per tool call.
 4. AgentCore Policy and S3 Vectors availability in the chosen region (us-east-1 or us-west-2).
 5. cargo-lambda arm64 static build of libheif and turbojpeg on Amazon Linux 2023; ffmpeg layer size under the 250 MB unzipped limit.
 6. Guest identity without an Amazon account: Cognito unauthenticated identities vs signed short-lived upload tokens bound to the trip code.
-7. Microphone / voice input from the Vega RN app for the Ask screen.
+7. Closed: no microphone API for Vega apps. Voice goes through Alexa+ or the phone page (section 5).
+8. React Native version for `apps/tv-vega`: 0.83 (SDK 0.24 early access) if the install grants it, else 0.72. Either way `apps/tv` at 0.87 splits into `packages/tv-ui` plus per-platform shells.
+9. Session persistence: docs say `@amazon-devices/react-native-async-storage__async-storage` is system-deployed. Confirm on VVD, then replace `MemorySessionStore`.
+10. Audio playback from the Vega app for F-709 narration without bundling a native module. The reference sample used the `@amazon-devices/react-native-w3cmedia` port; check whether it is system-deployed.
