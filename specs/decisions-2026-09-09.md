@@ -514,3 +514,34 @@ compile-checked only.
   gets the link mailed. The trip is matched by a shared word of four letters or more
   between the request and a trip name, so "send the Kyoto trip to grandma" finds
   "Kyoto, April 2026". `share` now returns a `ShareResult` instead of a bare link.
+
+## 24. Polish and cross-cutting (tasks T102 to T108)
+
+- Alexa+ OAuth (R6): a Cognito resource server `memorylane` with scope `tools`, a public
+  `AlexaPlus` app client (no secret, so PKCE is required on the code grant) and the
+  Gateway's allowed clients widened to it. The API serves RFC 8414 and RFC 9728 metadata
+  at `/.well-known/oauth-authorization-server` and `/.well-known/oauth-protected-resource`
+  from `OAUTH_ISSUER`, `OAUTH_DOMAIN` and `GATEWAY_URL`. The redirect URI is a placeholder
+  behind the `alexaCallbackUrls` prop; registration steps in `docs/alexa-plus.md` are
+  from the preview documentation, unverified.
+- Tracing (F-506): `memorylane_agents.tracing` opens one span per agent run
+  (`agent.<workflow>`, tagged household, workflow, trigger) and one per Gateway tool call
+  (`tool.<name>`, tagged tool and household). OpenTelemetry is used when importable, which
+  is what AgentCore Runtime injects; otherwise a recording tracer keeps the shape for
+  tests. Export to AgentCore Observability unverified.
+- Audit log (F-605, SC-006): written centrally in `App::handle` for sign-in approval,
+  account deletion, shares, confirmations, media delete, dedup, cleanup, purge, restore,
+  contributor removal, memberships, narration and the People switch, with actor, path,
+  outcome and the confirmation the request carried; a failed audit write never fails the
+  request. Anonymous requests (a guest joining) have no household partition and are not
+  logged. Stored as `AU#<unix>#<id>` with a one-year TTL, read by the owner at
+  `GET /audit`, newest first.
+- Diagram 08 draws the baseline delta over the built topology; drawn from the spec and
+  code, not from device runs.
+- T107 is partial: `make lint` and `make test` are green (Rust 28 API + 39 core + 23
+  ingest + 5 pipeline + 20 trips, jest 34, vitest 28 web + 14 infra, pytest 28). The
+  Virtual Device walkthrough, the deployed-stack scenarios and the SC-003 timing stay
+  blocked until the Vega SDK is installed and the stack is deployed. T035 stays blocked
+  for the same reason.
+- README and the Devpost overview say what shipped and what stayed unverified; the
+  friction log lives in `docs/friction-log.md`.

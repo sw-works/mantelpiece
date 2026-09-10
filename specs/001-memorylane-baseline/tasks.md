@@ -301,13 +301,13 @@ policy that every story builds on.
 
 ## Phase 15: Polish and cross-cutting
 
-- [ ] T102 [P] Add the Cognito resource server (`memorylane/tools` scope), OAuth 2.1 PKCE client, and the protected resource metadata document at `/.well-known/oauth-authorization-server` in `infra/lib/memorylane-stack.ts` and `services/lambdas/api/src/handlers/wellknown.rs` (research R6)
-- [ ] T103 [P] Register the Alexa+ MCP add-on with example phrases from contracts/tools.md; document steps in `docs/alexa-plus.md`
-- [ ] T104 [P] Ensure every agent run and Gateway tool call is traced in AgentCore Observability with household and workflow tags in `agents/src/memorylane_agents/runtime.py` (F-506)
-- [ ] T105 [P] Audit log entries for auth, share, delete and tool calls in `services/lambdas/api/src/app.rs` (F-605); test in `services/lambdas/api/tests/api.rs`
-- [ ] T106 [P] Add `docs/diagrams/src/08-planned-2026-09-09.mjs` showing the member TV, phone reactions and voice, the Alexa+ context path and the widened token gate; update `docs/diagrams/README.md`
-- [ ] T107 Run `make lint` and `make test`, then every scenario in `specs/001-memorylane-baseline/quickstart.md` on the Virtual Device and the deployed stack, timing the US4 scenario from last upload to `memory.ready` against the 15-minute target (SC-003); record outcomes in `specs/decisions-2026-09-09.md`
-- [ ] T108 [P] Update `README.md`, `docs/devpost-overview.md` and the friction log with what shipped and what stayed unverified
+- [X] T102 [P] Add the Cognito resource server (`memorylane/tools` scope), OAuth 2.1 PKCE client, and the protected resource metadata document at `/.well-known/oauth-authorization-server` in `infra/lib/memorylane-stack.ts` and `services/lambdas/api/src/handlers/wellknown.rs` (research R6)
+- [X] T103 [P] Register the Alexa+ MCP add-on with example phrases from contracts/tools.md; document steps in `docs/alexa-plus.md`
+- [X] T104 [P] Ensure every agent run and Gateway tool call is traced in AgentCore Observability with household and workflow tags in `agents/src/memorylane_agents/runtime.py` (F-506)
+- [X] T105 [P] Audit log entries for auth, share, delete and tool calls in `services/lambdas/api/src/app.rs` (F-605); test in `services/lambdas/api/tests/api.rs`
+- [X] T106 [P] Add `docs/diagrams/src/08-planned-2026-09-09.mjs` showing the member TV, phone reactions and voice, the Alexa+ context path and the widened token gate; update `docs/diagrams/README.md`
+- [ ] T107 (partial 2026-09-09: `make lint` and `make test` green; Virtual Device and deployed-stack scenarios blocked, no Vega SDK and no deploy) Run `make lint` and `make test`, then every scenario in `specs/001-memorylane-baseline/quickstart.md` on the Virtual Device and the deployed stack, timing the US4 scenario from last upload to `memory.ready` against the 15-minute target (SC-003); record outcomes in `specs/decisions-2026-09-09.md`
+- [X] T108 [P] Update `README.md`, `docs/devpost-overview.md` and the friction log with what shipped and what stayed unverified
 
 ---
 
