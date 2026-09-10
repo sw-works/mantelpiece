@@ -114,6 +114,10 @@ describe("MemoryLane stack", () => {
     template.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: "POST /device/approve", AuthorizationType: "JWT" });
     template.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: "POST /join/amazon", AuthorizationType: "JWT" });
     template.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: "ANY /{proxy+}", AuthorizationType: "NONE" });
+    // Guest sessions are bound to a browser install through this header (F-153).
+    template.hasResourceProperties("AWS::ApiGatewayV2::Api", {
+      CorsConfiguration: Match.objectLike({ AllowHeaders: Match.arrayWith(["x-device-id"]) }),
+    });
   });
 
   it("API Lambda may start the organize machine and the ingest Lambda may call the model backends", () => {

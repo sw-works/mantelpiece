@@ -9,6 +9,17 @@ import { labelFor, retryItem, runQueue, type QueueItem } from "../upload/queue.j
 import { IndexedDbResumeStore } from "../upload/store.js";
 
 const SESSION = "ml.upload.session";
+const DEVICE = "ml.device";
+
+/** A stable id for this browser; guest sessions are bound to it (F-153). */
+export function deviceIdOf(storage: Storage): string {
+  let id = storage.getItem(DEVICE);
+  if (!id) {
+    id = crypto.randomUUID();
+    storage.setItem(DEVICE, id);
+  }
+  return id;
+}
 
 interface Session {
   token: string;
@@ -18,7 +29,7 @@ interface Session {
 
 export async function main(root: HTMLElement, location: Location, storage: Storage): Promise<void> {
   const config = loadConfig();
-  const api = new Api(config.apiBase);
+  const api = new Api(config.apiBase, fetch, deviceIdOf(storage));
   const auth = { domain: config.cognitoDomain, clientId: config.cognitoClientId, redirectUri: `${location.origin}/callback` };
   const url = new URL(location.href);
 

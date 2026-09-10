@@ -22,6 +22,28 @@ export interface Joined {
   trip: string | null;
 }
 
+export interface TripDay {
+  index: number;
+  date: string;
+  media: string[];
+  title: string | null;
+  route: { inferred: boolean };
+}
+
+/** The read-only view of one trip (F-159). */
+export interface TripView {
+  id: string;
+  name: string;
+  start: string;
+  end: string;
+  days: TripDay[];
+  highlights: string[];
+  hero: string | null;
+  narrative: { text: string } | null;
+  contributor_names?: Record<string, string>;
+  media_credits?: Record<string, string>;
+}
+
 export class ApiError extends Error {
   constructor(
     readonly status: number,
@@ -35,6 +57,8 @@ export class Api {
   constructor(
     readonly base: string,
     private readonly fetchFn: typeof fetch = fetch,
+    /** Browser install id; guest sessions are bound to it (F-153). */
+    readonly deviceId?: string,
   ) {}
 
   private async call<T>(
@@ -47,6 +71,7 @@ export class Api {
     if (body !== undefined) headers["content-type"] = "application/json";
     if (auth?.bearer) headers["authorization"] = `Bearer ${auth.bearer}`;
     if (auth?.jwt) headers["authorization"] = `Bearer ${auth.jwt}`;
+    if (this.deviceId) headers["x-device-id"] = this.deviceId;
     const res = await this.fetchFn(`${this.base}${path}`, {
       method,
       headers,
@@ -63,7 +88,16 @@ export class Api {
   }
 
   joinAsGuest(code: string, displayName: string) {
-    return this.call<Joined>("POST", "/join", { code, display_name: displayName });
+    return this.call<Joined>("POST", "/join", { code, display_name: displayName, device_id: this.deviceId });
+  }
+
+  /** The read-only trip page: no session, just the trip code. */
+  viewTrip(code: string) {
+    return this.call<{ household_name: string | null; trip: TripView }>("GET", `/view?code=${encodeURIComponent(code)}`);
+  }
+
+  mediaUrlByCode(code: string, mediaId: string, rendition: "thumb" | "tv") {
+    return this.call<{ url: string }>("GET", `/media/${mediaId}/url?rendition=${rendition}&code=${encodeURIComponent(code)}`);
   }
 
   joinWithAmazon(code: string, jwt: string) {

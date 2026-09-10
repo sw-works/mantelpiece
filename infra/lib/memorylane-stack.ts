@@ -326,7 +326,7 @@ export class MemoryLaneStack extends Stack {
       corsPreflight: {
         allowOrigins: [props.uploadBase, props.linkBase],
         allowMethods: [apigw.CorsHttpMethod.GET, apigw.CorsHttpMethod.POST, apigw.CorsHttpMethod.DELETE],
-        allowHeaders: ["authorization", "content-type"],
+        allowHeaders: ["authorization", "content-type", "x-device-id"],
         maxAge: Duration.hours(1),
       },
     });
