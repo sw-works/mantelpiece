@@ -1,4 +1,4 @@
-from memorylane_agents.narrative import check_narrative, facts_for, prompt_for
+from memorylane_agents.narrative import check_narrative, facts_for, prompt_for, split_days
 from memorylane_agents.tools import Trip
 
 
@@ -30,3 +30,11 @@ def test_check_flags_invented_places_dates_and_people(kyoto: Trip) -> None:
     assert any("Grandma" in p for p in problems)
     assert any("Osaka Castle" in p for p in problems)
     assert not any("Kinkaku-ji" in p for p in problems)
+
+
+def test_split_days_prefers_paragraphs_then_deals_sentences() -> None:
+    assert split_days("One.\n\nTwo.\n\nThree.", 3) == ["One.", "Two.", "Three."]
+    assert split_days("A. B. C. D. E.", 2) == ["A. B. C.", "D. E."]
+    assert split_days("Only one.", 3) == ["Only one.", "", ""]
+    assert split_days("", 2) == ["", ""]
+    assert split_days("x", 0) == []

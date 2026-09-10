@@ -81,7 +81,18 @@ class Tools(Protocol):
     def get_trip(self, household: str, trip_id: str) -> Trip: ...
     def search_media(self, household: str, query: str, trip_id: str | None = None) -> list[str]: ...
     def create_playlist(self, household: str, name: str, media: list[str], source: str) -> str: ...
-    def save_narrative(self, household: str, trip_id: str, text: str, model_id: str) -> None: ...
+    def save_narrative(
+        self,
+        household: str,
+        trip_id: str,
+        text: str,
+        model_id: str,
+        stories: list[str] | None = None,
+    ) -> None: ...
+    def withhold_narrative(self, household: str, trip_id: str, model_id: str) -> None:
+        """Record that the story failed the fact check twice; the TV keeps "being written"."""
+        ...
+
     def list_duplicates(self, household: str, trip_id: str | None = None) -> list[DedupGroup]: ...
     def request_confirmation(self, household: str, action: dict[str, Any]) -> str | None:
         """Open Review Changes on the TV. Returns the token once the user confirms."""
@@ -143,9 +154,24 @@ class InMemoryTools:
         self.log.append(f"create_playlist {name!r} {len(media)}")
         return pid
 
-    def save_narrative(self, household: str, trip_id: str, text: str, model_id: str) -> None:
-        self.trips[trip_id].narrative = {"text": text, "model_id": model_id}
+    def save_narrative(
+        self,
+        household: str,
+        trip_id: str,
+        text: str,
+        model_id: str,
+        stories: list[str] | None = None,
+    ) -> None:
+        trip = self.trips[trip_id]
+        trip.narrative = {"text": text, "model_id": model_id, "check": "passed"}
+        if stories is not None:
+            for day, story in zip(trip.days, stories, strict=False):
+                day["story"] = story
         self.log.append(f"save_narrative {trip_id}")
+
+    def withhold_narrative(self, household: str, trip_id: str, model_id: str) -> None:
+        self.trips[trip_id].narrative = {"text": "", "model_id": model_id, "check": "withheld"}
+        self.log.append(f"withhold_narrative {trip_id}")
 
     def list_duplicates(self, household: str, trip_id: str | None = None) -> list[DedupGroup]:
         self.log.append(f"list_duplicates trip={trip_id}")

@@ -61,6 +61,27 @@ def prompt_for(trip: Trip) -> str:
     return "\n".join(lines)
 
 
+def split_days(text: str, days: int) -> list[str]:
+    """One paragraph per day for narration sync (F-709). Paragraphs separated by blank
+    lines win; otherwise sentences are dealt out evenly. Always returns ``days`` items."""
+    if days <= 0:
+        return []
+    paragraphs = [p.strip() for p in re.split(r"\n\s*\n", text.strip()) if p.strip()]
+    if len(paragraphs) == days:
+        return paragraphs
+    sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", text.strip()) if s.strip()]
+    if not sentences:
+        return [""] * days
+    out: list[str] = []
+    per, extra = divmod(len(sentences), days)
+    start = 0
+    for i in range(days):
+        take = per + (1 if i < extra else 0)
+        out.append(" ".join(sentences[start : start + take]))
+        start += take
+    return out
+
+
 _YEAR = re.compile(r"\b(19|20)\d{2}\b")
 _CAPITALISED = re.compile(r"\b[A-Z][a-zA-Z\-']+(?:\s+[A-Z][a-zA-Z\-']+)*\b")
 

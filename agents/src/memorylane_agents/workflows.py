@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from .model import Model
-from .narrative import SYSTEM, check_narrative, facts_for, prompt_for
+from .narrative import SYSTEM, check_narrative, facts_for, prompt_for, split_days
 from .tools import Tools, Trip
 
 HIGHLIGHTS_IN_PLAYLIST = 12
@@ -43,7 +43,12 @@ def trip_curator(tools: Tools, model: Model, household: str, trip_id: str) -> Cu
             break
     ok = not problems
     if ok:
-        tools.save_narrative(household, trip_id, text, model.model_id)
+        tools.save_narrative(
+            household, trip_id, text, model.model_id, stories=split_days(text, len(trip.days))
+        )
+    else:
+        # F-301: nothing invented reaches the screen; the TV keeps "being written".
+        tools.withhold_narrative(household, trip_id, model.model_id)
     playlist = tools.create_playlist(
         household,
         f"{trip.name} highlights",

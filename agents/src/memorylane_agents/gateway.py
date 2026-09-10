@@ -46,9 +46,31 @@ class GatewayTools:
             )
         )
 
-    def save_narrative(self, household: str, trip_id: str, text: str, model_id: str) -> None:
+    def save_narrative(
+        self,
+        household: str,
+        trip_id: str,
+        text: str,
+        model_id: str,
+        stories: list[str] | None = None,
+    ) -> None:
         self._call(
-            "save_narrative", household=household, trip_id=trip_id, text=text, model_id=model_id
+            "save_narrative",
+            household=household,
+            trip_id=trip_id,
+            text=text,
+            model_id=model_id,
+            stories=stories,
+        )
+
+    def withhold_narrative(self, household: str, trip_id: str, model_id: str) -> None:
+        self._call(
+            "save_narrative",
+            household=household,
+            trip_id=trip_id,
+            text="",
+            model_id=model_id,
+            withhold=True,
         )
 
     def list_duplicates(self, household: str, trip_id: str | None = None) -> list[DedupGroup]:

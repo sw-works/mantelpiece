@@ -14,7 +14,16 @@ def test_trip_curator_writes_story_playlist_and_events(tools: InMemoryTools) -> 
     model = ScriptedModel([GOOD])
     result = workflows.trip_curator(tools, model, "h", "kyoto")
     assert result.narrative_ok
-    assert tools.trips["kyoto"].narrative == {"text": GOOD, "model_id": "scripted"}
+    assert tools.trips["kyoto"].narrative == {
+        "text": GOOD,
+        "model_id": "scripted",
+        "check": "passed",
+    }
+    assert [d["story"] for d in tools.trips["kyoto"].days] == [
+        "Hanyu started at Kinkaku-ji.",
+        "Maya arrived for Fushimi Inari.",
+        "The last day was quiet.",
+    ]
     assert tools.playlists[result.playlist_id] == ["m2", "m4", "m6"]
     assert [e["type"] for e in tools.events] == ["memory.ready", "playlist.created"]
 
@@ -23,7 +32,12 @@ def test_trip_curator_retries_once_then_withholds_bad_story(tools: InMemoryTools
     model = ScriptedModel([BAD, BAD])
     result = workflows.trip_curator(tools, model, "h", "kyoto")
     assert not result.narrative_ok
-    assert tools.trips["kyoto"].narrative is None
+    assert tools.trips["kyoto"].narrative == {
+        "text": "",
+        "model_id": "scripted",
+        "check": "withheld",
+    }
+    assert "withhold_narrative kyoto" in tools.log
     assert "not in the list" in model.prompts[1][1]
     assert len(model.prompts) == 2
     assert result.problems
