@@ -137,6 +137,45 @@ pub async fn init(app: &App, req: &Req) -> Result<Resp, ApiError> {
     })
 }
 
+#[derive(Serialize)]
+struct Mine {
+    media_id: MediaId,
+    filename: String,
+    kind: MediaKind,
+    bytes: u64,
+    state: ProcessingState,
+    uploaded_at: String,
+    trip: Option<memorylane_core::ids::TripId>,
+}
+
+/// The caller's own uploads with their processing state (US2), newest first.
+pub async fn mine(app: &App, req: &Req) -> Result<Resp, ApiError> {
+    let caller = app.caller(req)?;
+    let contributor = contributor_of(&caller)?;
+    let mut media = app
+        .storage
+        .list_media_by_contributor(caller.household(), &contributor)
+        .await?;
+    media.sort_by_key(|m| std::cmp::Reverse((m.uploaded_at, m.id.clone())));
+    let rows: Vec<Mine> = media
+        .into_iter()
+        .filter(|m| !m.is_removed())
+        .map(|m| Mine {
+            media_id: m.id,
+            filename: m.original_filename,
+            kind: m.kind,
+            bytes: m.bytes,
+            state: m.state,
+            uploaded_at: m
+                .uploaded_at
+                .format(&time::format_description::well_known::Rfc3339)
+                .unwrap_or_default(),
+            trip: m.trip,
+        })
+        .collect();
+    Resp::ok(rows)
+}
+
 #[derive(Deserialize)]
 struct CompleteBody {
     media_id: MediaId,

@@ -294,6 +294,40 @@ async fn organize_groups_bursts_builds_trip_and_is_idempotent() {
         trip.id
     );
     assert_eq!(h.bus.published.lock().unwrap().len(), 1);
+    // F-106: a re-run over a completed batch writes no new records and no new events.
+    assert_eq!(
+        h.storage
+            .list_trips(&HouseholdId::new(H))
+            .await
+            .unwrap()
+            .len(),
+        1
+    );
+    assert_eq!(
+        h.storage
+            .list_media(&HouseholdId::new(H))
+            .await
+            .unwrap()
+            .len(),
+        6
+    );
+    assert_eq!(
+        h.storage
+            .events_since(&HouseholdId::new(H), 0, 10)
+            .await
+            .unwrap()
+            .len(),
+        1
+    );
+    let manifest = again["keepers_manifest"].as_str().unwrap();
+    assert!(
+        manifest.starts_with("manifests/house/keepers-"),
+        "{manifest}"
+    );
+    let listed: Vec<serde_json::Value> =
+        serde_json::from_slice(&h.blobs.get(manifest).await.unwrap()).unwrap();
+    assert_eq!(listed.len(), out["groups"].as_u64().unwrap() as usize);
+    assert_eq!(listed[0]["household"], H);
 
     // A new contributor's photos land in the same trip and announce themselves.
     let g = signalled("g", "ken", 2.0, kyoto, 0xAAAA_BBBB_CCCC_DDDD, 120.0);

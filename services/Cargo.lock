@@ -1995,6 +1995,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "memorylane-poster"
+version = "0.1.0"
+dependencies = [
+ "aws-config",
+ "image",
+ "lambda_runtime",
+ "memorylane-core",
+ "memorylane-ingest",
+ "memorylane-store",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "time",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "memorylane-store"
 version = "0.1.0"
 dependencies = [

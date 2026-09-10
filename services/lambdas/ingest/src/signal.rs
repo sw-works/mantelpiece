@@ -14,6 +14,8 @@ pub struct Output {
     pub media_id: MediaId,
     pub state: ProcessingState,
     pub reason: Option<String>,
+    /// True for videos: the signal state machine runs the poster-frame Lambda next.
+    pub poster: bool,
 }
 
 pub async fn run(ingest: &Ingest, key: &str) -> Result<Output> {
@@ -35,6 +37,7 @@ pub async fn run(ingest: &Ingest, key: &str) -> Result<Output> {
             media_id,
             state: ProcessingState::Failed,
             reason: Some("checksum mismatch".into()),
+            poster: false,
         });
     }
     media.bytes = bytes.len() as u64;
@@ -45,7 +48,7 @@ pub async fn run(ingest: &Ingest, key: &str) -> Result<Output> {
     media.orientation = meta.orientation;
 
     let reason = match media.kind {
-        MediaKind::Video => Some("video poster frames need the ffmpeg layer".to_owned()),
+        MediaKind::Video => Some("poster frame pending".to_owned()),
         MediaKind::Photo => match decode::decode(&bytes) {
             Ok(img) => {
                 let img = renditions::upright(img, media.orientation);
@@ -79,5 +82,6 @@ pub async fn run(ingest: &Ingest, key: &str) -> Result<Output> {
         media_id,
         state: media.state,
         reason,
+        poster: media.kind == MediaKind::Video,
     })
 }

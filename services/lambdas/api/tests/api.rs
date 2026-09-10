@@ -530,8 +530,23 @@ async fn upload_flow_with_progress_events_and_dedup() {
         403
     );
 
+    // Maya sees her own uploads with their state; Ken sees none of hers.
+    let mine = h.bearer(Method::Get, "/uploads/mine", None, &token).await;
+    assert_eq!(mine.status, 200, "{}", mine.body);
+    assert_eq!(mine.body.as_array().unwrap().len(), 1);
+    assert_eq!(mine.body[0]["media_id"], media_id);
+    assert_eq!(mine.body[0]["filename"], "IMG_0001.HEIC");
+    assert_eq!(mine.body[0]["state"], "uploaded");
+
     // Another guest cannot touch Maya's upload; Maya can remove her own.
     let (other, _) = h.guest("Ken").await;
+    assert!(h
+        .bearer(Method::Get, "/uploads/mine", None, &other)
+        .await
+        .body
+        .as_array()
+        .unwrap()
+        .is_empty());
     assert_eq!(
         h.bearer(Method::Delete, &format!("/media/{media_id}"), None, &other)
             .await

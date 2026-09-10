@@ -180,6 +180,7 @@ impl App {
             (Method::Post, ["uploads", "init"]) => handlers::uploads::init(self, req).await,
             (Method::Post, ["uploads", "complete"]) => handlers::uploads::complete(self, req).await,
             (Method::Post, ["uploads", "abort"]) => handlers::uploads::abort(self, req).await,
+            (Method::Get, ["uploads", "mine"]) => handlers::uploads::mine(self, req).await,
 
             (Method::Get, ["events"]) => handlers::events::list(self, req).await,
 

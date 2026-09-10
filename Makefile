@@ -28,7 +28,7 @@ fmt:
 # Rust Lambdas for arm64 via cargo-lambda (`cargo install cargo-lambda`). Output lands in
 # services/target/lambda/<name>/bootstrap, which the CDK stack packages.
 build-lambdas:
-	cd services && cargo lambda build --release --arm64 --bin api --bin ingest
+	cd services && cargo lambda build --release --arm64 --bin api --bin ingest --bin poster
 
 deploy: build-lambdas
 	cd infra && pnpm cdk deploy --require-approval never $(CDK_ARGS)

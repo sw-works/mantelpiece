@@ -1,0 +1,33 @@
+[package]
+name = "memorylane-poster"
+description = "Poster frames for uploaded videos: ffmpeg from a Lambda layer, then the same renditions photos get"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[lib]
+name = "memorylane_poster"
+path = "src/lib.rs"
+
+[[bin]]
+name = "poster"
+path = "src/main.rs"
+
+[dependencies]
+memorylane-core.workspace = true
+memorylane-ingest.workspace = true
+memorylane-store.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+time.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+lambda_runtime.workspace = true
+aws-config.workspace = true
+image.workspace = true
+
+[lints]
+workspace = true

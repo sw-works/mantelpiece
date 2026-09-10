@@ -23,10 +23,14 @@ pub struct Output {
     pub media: usize,
     pub groups: usize,
     pub keepers: Vec<MediaId>,
+    /// S3 key of a JSON array of `{household, media_id}` for the enrich Distributed Map
+    /// (F-108); keeps the state input small for large batches.
+    pub keepers_manifest: String,
     pub trips: Vec<TripId>,
     pub new_trips: usize,
 }
 
+#[allow(clippy::too_many_lines)]
 pub async fn run(ingest: &Ingest, household: &HouseholdId) -> Result<Output> {
     let mut media: Vec<MediaItem> = ingest
         .storage
@@ -130,10 +134,29 @@ pub async fn run(ingest: &Ingest, household: &HouseholdId) -> Result<Output> {
         ingest.storage.put_media(m).await?;
     }
 
+    let keepers: Vec<MediaId> = groups.iter().map(|g| g.keeper.clone()).collect();
+    let keepers_manifest = format!(
+        "manifests/{household}/keepers-{}.json",
+        now.unix_timestamp_nanos()
+    );
+    let manifest: Vec<serde_json::Value> = keepers
+        .iter()
+        .map(|k| serde_json::json!({ "household": household, "media_id": k }))
+        .collect();
+    ingest
+        .blobs
+        .put(
+            &keepers_manifest,
+            serde_json::to_vec(&manifest).expect("manifest serialises"),
+            "application/json",
+        )
+        .await?;
+
     Ok(Output {
         media: media.len(),
         groups: groups.len(),
-        keepers: groups.iter().map(|g| g.keeper.clone()).collect(),
+        keepers,
+        keepers_manifest,
         trips: trip_ids,
         new_trips,
     })
