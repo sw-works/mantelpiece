@@ -210,16 +210,16 @@ policy that every story builds on.
 
 **Independent Test**: two Virtual Devices in two households; the second joins by code, sees the trip with a "shared by" badge, pins without affecting the first, and a reaction lands on the first's ticker.
 
-- [ ] T073 [US7] Add `POST /memberships` (refuse own trip), `DELETE /memberships/{trip}`, and `shared_by` on `GET /trips` in `services/lambdas/api/src/handlers/memberships.rs`; emit `membership.joined`; test in `services/lambdas/api/tests/api.rs` (F-162)
-- [ ] T074 [US7] Filter the member household's feed to `contribution.received`, `memory.ready`, `reaction.received`, `media.removed` for joined trips in `services/lambdas/api/src/handlers/events.rs` (contracts/events.md)
-- [ ] T075 [P] [US7] Build `packages/tv-ui/src/screens/JoinTrip.tsx` (code entry grid, trip preview, Join) and add "Join a trip" to `packages/tv-ui/src/screens/MemoriesHome.tsx` with the badge and a Leave action (mockups: Join a trip and Memories home artboards); route in `packages/tv-ui/src/App.tsx`; tests in `packages/tv-ui/test/screens.test.tsx` (F-411)
-- [ ] T076 [P] [US7] Make `POST /media/{media}/pin` and `/hide` write to `pinned_by`/`hidden_by` per household and filter highlights per caller in `services/lambdas/api/src/handlers/media.rs` and `services/crates/trips/src/highlights.rs` (F-163)
-- [ ] T077 [US7] Add `POST /trips/{trip}/roles` and `PATCH /trips/{trip}` (rename) in `services/lambdas/api/src/handlers/trips.rs`; co-editor `delete_media` via `ConfirmedAction::RemoveMedia` with subject role check, notification event to the affected contributor; test in `services/lambdas/api/tests/api.rs` (F-164)
-- [ ] T078 [US7] Add a Promote to co-editor action on the contributor list in `packages/tv-ui/src/screens/TripView.tsx`
-- [ ] T079 [US7] Reject every write from guest sessions and from the read-only web view (no edit routes accept `Caller::Contributor` guests) in `services/lambdas/api/src/app.rs`; test in `services/lambdas/api/tests/api.rs` (F-165)
-- [ ] T080 [US7] Scan-from-phone path: `apps/web/src/pages/link.ts` accepts `?join=<code>` while the phone is linked to a TV session and calls `POST /memberships` for that household
+- [X] T073 [US7] Add `POST /memberships` (refuse own trip), `DELETE /memberships/{trip}`, and `shared_by` on `GET /trips` in `services/lambdas/api/src/handlers/memberships.rs`; emit `membership.joined`; test in `services/lambdas/api/tests/api.rs` (F-162)
+- [X] T074 [US7] Filter the member household's feed to `contribution.received`, `memory.ready`, `reaction.received`, `media.removed` for joined trips in `services/lambdas/api/src/handlers/events.rs` (contracts/events.md)
+- [X] T075 [P] [US7] Build `packages/tv-ui/src/screens/JoinTrip.tsx` (code entry grid, trip preview, Join) and add "Join a trip" to `packages/tv-ui/src/screens/MemoriesHome.tsx` with the badge and a Leave action (mockups: Join a trip and Memories home artboards); route in `packages/tv-ui/src/App.tsx`; tests in `packages/tv-ui/test/screens.test.tsx` (F-411)
+- [X] T076 [P] [US7] Make `POST /media/{media}/pin` and `/hide` write to `pinned_by`/`hidden_by` per household and filter highlights per caller in `services/lambdas/api/src/handlers/media.rs` and `services/crates/trips/src/highlights.rs` (F-163)
+- [X] T077 [US7] Add `POST /trips/{trip}/roles` and `PATCH /trips/{trip}` (rename) in `services/lambdas/api/src/handlers/trips.rs`; co-editor `delete_media` via `ConfirmedAction::RemoveMedia` with subject role check, notification event to the affected contributor; test in `services/lambdas/api/tests/api.rs` (F-164)
+- [X] T078 [US7] Add a Promote to co-editor action on the contributor list in `packages/tv-ui/src/screens/TripView.tsx`
+- [X] T079 [US7] Reject every write from guest sessions and from the read-only web view (no edit routes accept `Caller::Contributor` guests) in `services/lambdas/api/src/app.rs`; test in `services/lambdas/api/tests/api.rs` (F-165)
+- [X] T080 [US7] Scan-from-phone path: `apps/web/src/pages/link.ts` accepts `?join=<code>` while the phone is linked to a TV session and calls `POST /memberships` for that household
 
-**Checkpoint**: second-TV join demonstrable with two Virtual Devices
+**Checkpoint**: second-TV join demonstrable with two Virtual Devices (code complete 2026-09-09; the two-device run waits on T035)
 
 ---
 

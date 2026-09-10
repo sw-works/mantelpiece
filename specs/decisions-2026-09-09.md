@@ -392,3 +392,26 @@ compile-checked only.
   a "Show all", Keep everything and Apply; Memories home shows a Review changes button
   with a count from the feed. Other proposal kinds (share, remove contributor, co-editor
   removals) emit no feed event yet and rely on that button.
+
+## 18. US7 join from another TV (tasks T073 to T080)
+
+- `POST /memberships {code}` joins a trip-scoped code from another household's TV: the
+  member gets a pointer, the trip records the member, the owner's ticker says who joined.
+  Own trips and household codes are refused. `DELETE /memberships/{trip}` leaves.
+  `GET /trips` on the member's TV lists joined trips with `shared_by`, and
+  `GET /trips/{trip}` serves them through `trip_access`.
+- Feed fan-out at write time (`memorylane_store::feed::emit`): events about a trip that
+  members may see (contribution.received, memory.ready, reaction.received, media.removed)
+  are copied to each active member's feed, so a member TV's long-poll needs no second
+  cursor. Both Lambdas emit through it.
+- Pins and hides are per household (F-163): a member's choices go to `pinned_by` and
+  `hidden_by` on the owner's media record, shape only that member's highlights and days,
+  and never touch the owner's flags. Keeper changes on a joined trip are refused.
+- `POST /trips/{trip}/roles` promotes or demotes a contributor (a guest never becomes a
+  co-editor, F-165); `PATCH /trips/{trip}` renames for owner or co-editor;
+  `contributor_roles` rides on the trip view. A test walks every edit route with a guest
+  token and expects 403, and the session-free web view gets 401.
+- TV: Join a trip screen (code grid or on-screen keyboard, preview, Join), "Shared by"
+  badges with Leave on Memories home, Promote to co-editor on the trip's contributor
+  list, and no management actions on a joined trip. Phone: `link.html?join=<code>` makes
+  the phone's linked TV join.
