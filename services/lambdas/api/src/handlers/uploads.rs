@@ -218,17 +218,15 @@ pub async fn complete(app: &App, req: &Req) -> Result<Resp, ApiError> {
             app.starter.start_organize(caller.household()).await?;
         }
         let contributor = contributor_of(&caller)?;
-        app.storage
-            .append_event(
-                caller.household(),
-                app.now(),
-                EventKind::UploadProgress {
-                    contributor,
-                    done,
-                    total,
-                },
-            )
-            .await?;
+        app.emit(
+            caller.household(),
+            EventKind::UploadProgress {
+                contributor,
+                done,
+                total,
+            },
+        )
+        .await?;
     }
     Resp::ok(json!({ "media_id": media.id, "state": media.state }))
 }

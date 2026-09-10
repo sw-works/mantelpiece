@@ -126,17 +126,15 @@ pub async fn ask(app: &App, req: &Req) -> Result<Resp, ApiError> {
             .filter(|m| !m.is_removed());
         if let Some(media) = media {
             let card = describe(app, &household, &media).await?;
-            app.storage
-                .append_event(
-                    &household,
-                    now,
-                    EventKind::AnswerCard {
-                        question: question.clone(),
-                        answer: card["answer"].as_str().unwrap_or_default().to_owned(),
-                        media: Some(media.id.clone()),
-                    },
-                )
-                .await?;
+            app.emit(
+                &household,
+                EventKind::AnswerCard {
+                    question: question.clone(),
+                    answer: card["answer"].as_str().unwrap_or_default().to_owned(),
+                    media: Some(media.id.clone()),
+                },
+            )
+            .await?;
             return Resp::ok(
                 json!({ "mode": "describe", "tv": p.device_id, "question": question, "card": card }),
             );
@@ -159,16 +157,14 @@ pub async fn ask(app: &App, req: &Req) -> Result<Resp, ApiError> {
         created_at: now,
     };
     app.storage.put_playlist(&playlist).await?;
-    app.storage
-        .append_event(
-            &household,
-            now,
-            EventKind::PlaylistCreated {
-                playlist: playlist.id.clone(),
-                name: playlist.name.clone(),
-            },
-        )
-        .await?;
+    app.emit(
+        &household,
+        EventKind::PlaylistCreated {
+            playlist: playlist.id.clone(),
+            name: playlist.name.clone(),
+        },
+    )
+    .await?;
     let by: Vec<ContributorId> = hits.iter().map(|h| h.contributor.clone()).collect();
     Resp::ok(
         json!({ "mode": "search", "question": question, "playlist": playlist.id, "count": hits.len(), "contributors": by }),

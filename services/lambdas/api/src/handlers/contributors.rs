@@ -67,15 +67,13 @@ pub async fn remove(app: &App, req: &Req, id: &str) -> Result<Resp, ApiError> {
         detached.push(m.id);
     }
     if !detached.is_empty() {
-        app.storage
-            .append_event(
-                &household,
-                now,
-                EventKind::MediaRemoved {
-                    media: detached.clone(),
-                },
-            )
-            .await?;
+        app.emit(
+            &household,
+            EventKind::MediaRemoved {
+                media: detached.clone(),
+            },
+        )
+        .await?;
     }
     Resp::ok(json!({
         "removed": c.id,

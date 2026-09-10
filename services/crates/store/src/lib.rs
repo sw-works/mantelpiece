@@ -8,6 +8,7 @@ pub mod blobs;
 pub mod bus;
 pub mod dynamo;
 pub mod faces;
+pub mod feed;
 pub mod maps;
 pub mod memory;
 pub mod s3;

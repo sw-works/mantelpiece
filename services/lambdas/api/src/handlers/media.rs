@@ -124,24 +124,46 @@ pub async fn delete(app: &App, req: &Req, id: &str) -> Result<Resp, ApiError> {
     media.remove(app.now());
     app.storage.put_media(&media).await?;
     cascade(app, caller.household(), &media).await?;
-    app.storage
-        .append_event(
-            caller.household(),
-            app.now(),
-            EventKind::MediaRemoved { media: vec![id] },
-        )
-        .await?;
+    app.emit(
+        caller.household(),
+        EventKind::MediaRemoved { media: vec![id] },
+    )
+    .await?;
     Resp::no_content()
 }
 
+/// A media item the viewing household can see: its own, or on a trip it joined. Returns
+/// the owning household alongside.
+async fn visible_media(
+    app: &App,
+    viewer: &HouseholdId,
+    id: &MediaId,
+) -> Result<Option<(HouseholdId, MediaItem)>, ApiError> {
+    if let Some(m) = app.storage.get_media(viewer, id).await? {
+        return Ok(Some((viewer.clone(), m)));
+    }
+    for membership in app.storage.list_memberships(viewer).await? {
+        if !membership.is_active() {
+            continue;
+        }
+        if let Some(m) = app
+            .storage
+            .get_media(&membership.owner_household, id)
+            .await?
+        {
+            if m.trip.as_ref() == Some(&membership.trip) {
+                return Ok(Some((membership.owner_household.clone(), m)));
+            }
+        }
+    }
+    Ok(None)
+}
+
+/// Pin or hide (F-209, F-163). The owner's flags shape the trip for everyone; a member
+/// household's choices apply to its own view only.
 pub async fn set_flag(app: &App, req: &Req, id: &str, flag: &str) -> Result<Resp, ApiError> {
-    let household = app.owner(req)?;
+    let viewer = app.owner(req)?;
     let id = MediaId::new(id);
-    let mut media = app
-        .storage
-        .get_media(&household, &id)
-        .await?
-        .ok_or_else(|| ApiError::not_found("unknown media"))?;
     let value: bool = if req.body.is_empty() {
         true
     } else {
@@ -149,23 +171,22 @@ pub async fn set_flag(app: &App, req: &Req, id: &str, flag: &str) -> Result<Resp
             .as_bool()
             .unwrap_or(true)
     };
-    match flag {
-        "pin" => {
-            media.pinned = value;
-            if value {
-                media.hidden = false;
-            }
-        }
-        "hide" => {
-            media.hidden = value;
-            if value {
-                media.pinned = false;
-            }
-        }
+    let pin = match flag {
+        "pin" => true,
+        "hide" => false,
         _ => return Err(ApiError::bad_request("unknown flag")),
-    }
+    };
+    let (owner, mut media) = visible_media(app, &viewer, &id)
+        .await?
+        .ok_or_else(|| ApiError::not_found("unknown media"))?;
+    media.set_flag_for(&viewer, pin, value);
     app.storage.put_media(&media).await?;
-    Resp::ok(json!({ "media_id": media.id, "pinned": media.pinned, "hidden": media.hidden }))
+    Resp::ok(json!({
+        "media_id": media.id,
+        "pinned": media.pinned_for(&viewer),
+        "hidden": media.hidden_for(&viewer),
+        "owner_household": owner,
+    }))
 }
 
 /// `POST /media/{media}/keeper` (F-201, F-164): make this item the keeper of its burst
@@ -174,12 +195,9 @@ pub async fn set_flag(app: &App, req: &Req, id: &str, flag: &str) -> Result<Resp
 pub async fn set_keeper(app: &App, req: &Req, id: &str) -> Result<Resp, ApiError> {
     let id = MediaId::new(id);
     let caller = app.caller(req)?;
-    let household = caller.household().clone();
-    let media = app
-        .storage
-        .get_media(&household, &id)
+    let (household, media) = visible_media(app, caller.household(), &id)
         .await?
-        .filter(|m| !m.is_removed())
+        .filter(|(_, m)| !m.is_removed())
         .ok_or_else(|| ApiError::not_found("unknown media"))?;
     match &media.trip {
         Some(trip) => {
@@ -259,15 +277,13 @@ async fn remove_many(
         removed.push(id.clone());
     }
     if !removed.is_empty() {
-        app.storage
-            .append_event(
-                household,
-                now,
-                EventKind::MediaRemoved {
-                    media: removed.clone(),
-                },
-            )
-            .await?;
+        app.emit(
+            household,
+            EventKind::MediaRemoved {
+                media: removed.clone(),
+            },
+        )
+        .await?;
     }
     Ok(removed)
 }

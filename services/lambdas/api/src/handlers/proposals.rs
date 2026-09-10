@@ -187,7 +187,7 @@ pub async fn create(app: &App, req: &Req) -> Result<Resp, ApiError> {
         _ => None,
     };
     if let Some(kind) = event {
-        app.storage.append_event(&household, now, kind).await?;
+        app.emit(&household, kind).await?;
     }
     Resp::created(view(&proposal, now))
 }

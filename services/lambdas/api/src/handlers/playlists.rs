@@ -31,16 +31,14 @@ pub async fn create(app: &App, req: &Req) -> Result<Resp, ApiError> {
         created_at: app.now(),
     };
     app.storage.put_playlist(&playlist).await?;
-    app.storage
-        .append_event(
-            &household,
-            app.now(),
-            EventKind::PlaylistCreated {
-                playlist: playlist.id.clone(),
-                name: playlist.name.clone(),
-            },
-        )
-        .await?;
+    app.emit(
+        &household,
+        EventKind::PlaylistCreated {
+            playlist: playlist.id.clone(),
+            name: playlist.name.clone(),
+        },
+    )
+    .await?;
     Resp::created(playlist)
 }
 

@@ -146,6 +146,18 @@ impl App {
         (self.clock)()
     }
 
+    /// Append to the household feed with fan-out to member households (F-162).
+    pub async fn emit(
+        &self,
+        household: &HouseholdId,
+        kind: memorylane_core::events::EventKind,
+    ) -> Result<memorylane_core::events::Event, ApiError> {
+        Ok(
+            memorylane_store::feed::emit(self.storage.as_ref(), household, self.now(), kind)
+                .await?,
+        )
+    }
+
     pub async fn handle(&self, req: Req) -> Resp {
         match self.route(&req).await {
             Ok(resp) => resp,
@@ -197,6 +209,14 @@ impl App {
             (Method::Get, ["trips"]) => handlers::trips::list(self, req).await,
             (Method::Get, ["trips", trip]) => handlers::trips::get(self, req, trip).await,
             (Method::Get, ["trips", trip, "map"]) => handlers::trips::map(self, req, trip).await,
+            (Method::Patch, ["trips", trip]) => handlers::trips::rename(self, req, trip).await,
+            (Method::Post, ["trips", trip, "roles"]) => {
+                handlers::trips::set_role(self, req, trip).await
+            }
+            (Method::Post, ["memberships"]) => handlers::memberships::join(self, req).await,
+            (Method::Delete, ["memberships", trip]) => {
+                handlers::memberships::leave(self, req, trip).await
+            }
             (Method::Post, ["trips", trip, "narrative"]) => {
                 handlers::trips::save_narrative(self, req, trip).await
             }

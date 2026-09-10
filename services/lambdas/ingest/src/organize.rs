@@ -428,10 +428,9 @@ async fn announce(
 }
 
 async fn emit(ingest: &Ingest, household: &HouseholdId, kind: EventKind) -> Result<()> {
-    let event = ingest
-        .storage
-        .append_event(household, ingest.now(), kind)
-        .await?;
+    let event =
+        memorylane_store::feed::emit(ingest.storage.as_ref(), household, ingest.now(), kind)
+            .await?;
     ingest.bus.publish(&event).await?;
     Ok(())
 }

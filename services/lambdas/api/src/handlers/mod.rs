@@ -5,6 +5,7 @@ pub mod contributors;
 pub mod device;
 pub mod events;
 pub mod media;
+pub mod memberships;
 pub mod playlists;
 pub mod presence;
 pub mod proposals;

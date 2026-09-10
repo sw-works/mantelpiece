@@ -13,24 +13,81 @@ use crate::error::ApiError;
 use crate::req::{Req, Resp};
 use crate::tokens::Session;
 
+/// Own trips, plus trips joined from another TV with `shared_by` (F-162).
 pub async fn list(app: &App, req: &Req) -> Result<Resp, ApiError> {
     let caller = app.caller(req)?;
     let trips = app.storage.list_trips(caller.household()).await?;
-    let visible: Vec<_> = match &caller {
+    let mut visible: Vec<Value> = match &caller {
         Caller::Owner { .. } => trips,
         Caller::Contributor(Session::Upload { trip: Some(t), .. }) => {
             trips.into_iter().filter(|x| &x.id == t).collect()
         }
         Caller::Contributor(_) => vec![],
-    };
+    }
+    .into_iter()
+    .map(|t| serde_json::to_value(t).unwrap_or(Value::Null))
+    .collect();
+    if let Caller::Owner { household, .. } = &caller {
+        for m in app.storage.list_memberships(household).await? {
+            if !m.is_active() {
+                continue;
+            }
+            if let Some(t) = app.storage.get_trip(&m.owner_household, &m.trip).await? {
+                let mut v = serde_json::to_value(&t).unwrap_or(Value::Null);
+                let owner_name = app
+                    .storage
+                    .get_household(&m.owner_household)
+                    .await?
+                    .map_or_else(|| m.owner_household.to_string(), |h| h.name);
+                v["shared_by"] = Value::String(owner_name);
+                v["owner_household"] = Value::String(m.owner_household.to_string());
+                visible.push(v);
+            }
+        }
+    }
     Resp::ok(visible)
+}
+
+/// Per-household view of the highlights (F-163): this household's pins first, its
+/// hidden items gone, the owner's own flags untouched.
+fn personalise(trip: &mut Trip, viewer: &HouseholdId, media: &[memorylane_core::media::MediaItem]) {
+    let by_id = |id: &memorylane_core::ids::MediaId| media.iter().find(|m| &m.id == id);
+    let mut pinned: Vec<_> = trip
+        .highlights
+        .iter()
+        .filter(|id| by_id(id).is_some_and(|m| m.pinned_for(viewer)))
+        .cloned()
+        .collect();
+    let rest: Vec<_> = trip
+        .highlights
+        .iter()
+        .filter(|id| !pinned.contains(id) && by_id(id).is_none_or(|m| !m.hidden_for(viewer)))
+        .cloned()
+        .collect();
+    pinned.extend(rest);
+    trip.highlights = pinned;
+    for day in &mut trip.days {
+        day.media
+            .retain(|id| by_id(id).is_none_or(|m| !m.hidden_for(viewer)));
+    }
 }
 
 /// The trip plus who took what: `contributor_names` (id to display name) and
 /// `media_credits` (media id to contributor id) so every thumbnail can carry a name
 /// (F-154). `clock_offsets` on the trip already say whose clock was corrected (F-155).
 pub async fn trip_json(app: &App, household: &HouseholdId, id: &TripId) -> Result<Value, ApiError> {
-    let trip = app
+    trip_json_for(app, household, id, household).await
+}
+
+/// Like [`trip_json`] but with `viewer`'s pins and hides applied (F-163) and
+/// `contributor_roles` for the owner's Promote action (F-164).
+pub async fn trip_json_for(
+    app: &App,
+    household: &HouseholdId,
+    id: &TripId,
+    viewer: &HouseholdId,
+) -> Result<Value, ApiError> {
+    let mut trip = app
         .storage
         .get_trip(household, id)
         .await?
@@ -41,29 +98,112 @@ pub async fn trip_json(app: &App, household: &HouseholdId, id: &TripId) -> Resul
         .filter(|c| trip.contributors.contains(&c.id))
         .map(|c| (c.id.to_string(), Value::String(c.display_name.clone())))
         .collect();
-    let credits: serde_json::Map<String, Value> = app
+    let roles: serde_json::Map<String, Value> = contributors
+        .iter()
+        .filter(|c| trip.contributors.contains(&c.id))
+        .map(|c| {
+            (
+                c.id.to_string(),
+                json!(
+                    if matches!(c.kind, memorylane_core::contributor::ContributorKind::Owner) {
+                        "owner"
+                    } else if c.can_edit() {
+                        "co_editor"
+                    } else {
+                        "contributor"
+                    }
+                ),
+            )
+        })
+        .collect();
+    let media: Vec<memorylane_core::media::MediaItem> = app
         .storage
         .list_media(household)
         .await?
         .into_iter()
         .filter(|m| m.trip.as_ref() == Some(id) && !m.is_removed())
+        .collect();
+    let credits: serde_json::Map<String, Value> = media
+        .iter()
         .map(|m| (m.id.to_string(), Value::String(m.contributor.to_string())))
         .collect();
+    personalise(&mut trip, viewer, &media);
     let mut v = serde_json::to_value(&trip).map_err(|e| ApiError::internal(e.to_string()))?;
     v["contributor_names"] = Value::Object(names);
+    v["contributor_roles"] = Value::Object(roles);
     v["media_credits"] = Value::Object(credits);
+    if viewer != household {
+        v["shared_by"] = json!(app.storage.get_household(household).await?.map(|h| h.name));
+        v["owner_household"] = Value::String(household.to_string());
+    }
     Ok(v)
 }
 
 pub async fn get(app: &App, req: &Req, id: &str) -> Result<Resp, ApiError> {
-    let caller = app.caller(req)?;
     let id = TripId::new(id);
-    if let Caller::Contributor(Session::Upload { trip, .. }) = &caller {
-        if trip.as_ref() != Some(&id) {
-            return Err(ApiError::forbidden("not your trip"));
-        }
+    let access = app.trip_access(req, &id).await?;
+    Resp::ok(
+        trip_json_for(
+            app,
+            access.owner_household(),
+            &id,
+            access.viewing_household(),
+        )
+        .await?,
+    )
+}
+
+#[derive(Deserialize)]
+struct RenameBody {
+    name: String,
+}
+
+/// `PATCH /trips/{trip}` (F-164): owner or co-editor renames the trip.
+pub async fn rename(app: &App, req: &Req, id: &str) -> Result<Resp, ApiError> {
+    let id = TripId::new(id);
+    let access = app.owner_or_co_editor(req, &id).await?;
+    let body: RenameBody = req.json()?;
+    let name = body.name.trim();
+    if name.is_empty() || name.chars().count() > 80 {
+        return Err(ApiError::bad_request("name must be 1 to 80 characters"));
     }
-    Resp::ok(trip_json(app, caller.household(), &id).await?)
+    let mut trip = app
+        .storage
+        .get_trip(access.owner_household(), &id)
+        .await?
+        .ok_or_else(|| ApiError::not_found("no such trip"))?;
+    trip.name = name.to_owned();
+    app.storage.put_trip(&trip).await?;
+    Resp::ok(json!({ "id": trip.id, "name": trip.name }))
+}
+
+#[derive(Deserialize)]
+struct RoleBody {
+    contributor: memorylane_core::ids::ContributorId,
+    role: memorylane_core::contributor::Role,
+}
+
+/// `POST /trips/{trip}/roles` (F-164): the owner promotes or demotes a contributor.
+/// Guests can never be co-editors (F-165).
+pub async fn set_role(app: &App, req: &Req, id: &str) -> Result<Resp, ApiError> {
+    let household = app.owner(req)?;
+    let id = TripId::new(id);
+    let trip = app
+        .storage
+        .get_trip(&household, &id)
+        .await?
+        .ok_or_else(|| ApiError::not_found("no such trip"))?;
+    let body: RoleBody = req.json()?;
+    let _ = trip;
+    let mut c = app
+        .storage
+        .get_contributor(&household, &body.contributor)
+        .await?
+        .ok_or_else(|| ApiError::not_found("unknown contributor"))?;
+    c.set_role(body.role)
+        .map_err(|e| ApiError::bad_request(e.to_string()))?;
+    app.storage.put_contributor(&c).await?;
+    Resp::ok(json!({ "contributor": c.id, "role": c.role }))
 }
 
 /// `GET /trips/{trip}/map?day=` : a presigned URL for the trip's route map, or one day's.
@@ -209,10 +349,8 @@ pub async fn regenerate(app: &App, req: &Req, id: &str) -> Result<Resp, ApiError
     }
     app.storage.put_trip(&trip).await?;
     let event = app
-        .storage
-        .append_event(
+        .emit(
             &household,
-            app.now(),
             EventKind::TripDetected {
                 trip: id,
                 new_media: 0,

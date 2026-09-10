@@ -454,6 +454,400 @@ async fn cleanup_and_delete_tools_need_tokens_and_open_proposals() {
 }
 
 #[tokio::test]
+async fn a_second_household_joins_by_code_sees_the_trip_and_pins_privately() {
+    let h = harness();
+    let mut kyoto = trip("amzn-owner", "kyoto");
+    kyoto.contributors = vec![memorylane_core::ids::ContributorId::new("amzn-owner")];
+    let photo = enriched(&h, "temple.jpg", 61, &["Temple"], None).await;
+    let other = enriched(&h, "ramen.jpg", 62, &["Ramen"], None).await;
+    kyoto.days = vec![memorylane_core::trip::TripDay {
+        index: 1,
+        date: time::macros::date!(2026 - 04 - 03),
+        media: vec![photo.clone(), other.clone()],
+        route: Route::default(),
+        title: None,
+        story: None,
+        undated: vec![],
+    }];
+    kyoto.highlights = vec![photo.clone(), other.clone()];
+    h.storage.put_trip(&kyoto).await.unwrap();
+    for id in [&photo, &other] {
+        let mut m = h
+            .storage
+            .get_media(&HouseholdId::new("amzn-owner"), id)
+            .await
+            .unwrap()
+            .unwrap();
+        m.trip = Some(TripId::new("kyoto"));
+        h.storage.put_media(&m).await.unwrap();
+    }
+    h.storage
+        .put_household(&memorylane_core::household::Household::new(
+            HouseholdId::new("amzn-owner"),
+            "Hanyu's living room",
+            h.app.now(),
+        ))
+        .await
+        .unwrap();
+    h.storage
+        .put_household(&memorylane_core::household::Household::new(
+            HouseholdId::new("amzn-ruth"),
+            "Ruth's living room",
+            h.app.now(),
+        ))
+        .await
+        .unwrap();
+    let ruth = h.app.signer.sign(&memorylane_api::tokens::Claims {
+        session: memorylane_api::tokens::Session::Tv {
+            household: HouseholdId::new("amzn-ruth"),
+            subject: "amzn-ruth".into(),
+        },
+        exp: h.app.now() + Duration::days(1),
+    });
+
+    let code = h
+        .owner(
+            Method::Post,
+            "/trips/kyoto/code",
+            Some(json!({ "expires_in_days": 7 })),
+        )
+        .await;
+    let code = code.body["code"].as_str().unwrap().to_owned();
+    // The owner cannot join their own trip; a household code opens no trip.
+    assert_eq!(
+        h.owner(Method::Post, "/memberships", Some(json!({ "code": code })))
+            .await
+            .status,
+        400
+    );
+    let hc = h.owner(Method::Post, "/household/code", None).await;
+    assert_eq!(
+        h.bearer(
+            Method::Post,
+            "/memberships",
+            Some(json!({ "code": hc.body["code"] })),
+            &ruth
+        )
+        .await
+        .status,
+        400
+    );
+
+    let joined = h
+        .bearer(
+            Method::Post,
+            "/memberships",
+            Some(json!({ "code": code.to_lowercase() })),
+            &ruth,
+        )
+        .await;
+    assert_eq!(joined.status, 201, "{}", joined.body);
+    assert_eq!(joined.body["name"], "Kyoto, April 2026");
+    let again = h
+        .bearer(
+            Method::Post,
+            "/memberships",
+            Some(json!({ "code": code })),
+            &ruth,
+        )
+        .await;
+    assert_eq!(again.body["already"], true);
+    // The owner's ticker hears about it; the trip lists the member.
+    let feed = h.owner(Method::Get, "/events?since=0", None).await;
+    assert!(feed.body["events"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|e| e["type"] == "membership.joined" && e["member_name"] == "Ruth's living room"));
+    assert_eq!(
+        h.owner(
+            Method::Post,
+            "/trips/kyoto/code",
+            Some(json!({ "expires_in_days": 7 }))
+        )
+        .await
+        .body["member_households"],
+        1
+    );
+
+    // Ruth's home lists the trip with a shared-by badge and can open it.
+    let trips = h.bearer(Method::Get, "/trips", None, &ruth).await;
+    assert_eq!(trips.body[0]["id"], "kyoto");
+    assert_eq!(trips.body[0]["shared_by"], "Hanyu's living room");
+    let view = h.bearer(Method::Get, "/trips/kyoto", None, &ruth).await;
+    assert_eq!(view.status, 200, "{}", view.body);
+    assert_eq!(view.body["shared_by"], "Hanyu's living room");
+
+    // Ruth pins the ramen photo: first in her highlights, unchanged for Hanyu (F-163).
+    let pinned = h
+        .bearer(Method::Post, &format!("/media/{other}/pin"), None, &ruth)
+        .await;
+    assert_eq!(pinned.status, 200, "{}", pinned.body);
+    assert_eq!(pinned.body["pinned"], true);
+    let hers = h.bearer(Method::Get, "/trips/kyoto", None, &ruth).await;
+    assert_eq!(hers.body["highlights"][0], other.as_str());
+    let his = h.owner(Method::Get, "/trips/kyoto", None).await;
+    assert_eq!(his.body["highlights"][0], photo.as_str());
+    let stored = h
+        .storage
+        .get_media(&HouseholdId::new("amzn-owner"), &other)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(!stored.pinned && stored.pinned_by.contains(&HouseholdId::new("amzn-ruth")));
+    // And hides it: gone from her day, still on his.
+    h.bearer(Method::Post, &format!("/media/{other}/hide"), None, &ruth)
+        .await;
+    let hers = h.bearer(Method::Get, "/trips/kyoto", None, &ruth).await;
+    assert_eq!(hers.body["days"][0]["media"].as_array().unwrap().len(), 1);
+    assert_eq!(
+        h.owner(Method::Get, "/trips/kyoto", None).await.body["days"][0]["media"]
+            .as_array()
+            .unwrap()
+            .len(),
+        2
+    );
+
+    // Member feeds mirror trip events they may see, and nothing else.
+    h.app
+        .emit(
+            &HouseholdId::new("amzn-owner"),
+            memorylane_core::events::EventKind::ContributionReceived {
+                trip: Some(TripId::new("kyoto")),
+                contributor: memorylane_core::ids::ContributorId::new("c"),
+                display_name: "Maya".into(),
+                count: 3,
+            },
+        )
+        .await
+        .unwrap();
+    h.app
+        .emit(
+            &HouseholdId::new("amzn-owner"),
+            memorylane_core::events::EventKind::UploadProgress {
+                contributor: memorylane_core::ids::ContributorId::new("c"),
+                done: 1,
+                total: 3,
+            },
+        )
+        .await
+        .unwrap();
+    let ruth_feed = h.bearer(Method::Get, "/events?since=0", None, &ruth).await;
+    let kinds: Vec<&str> = ruth_feed.body["events"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| e["type"].as_str().unwrap())
+        .collect();
+    assert_eq!(kinds, vec!["contribution.received"]);
+
+    // Members never edit; leaving removes the badge and the pointer.
+    assert_eq!(
+        h.bearer(
+            Method::Patch,
+            "/trips/kyoto",
+            Some(json!({ "name": "Mine now" })),
+            &ruth
+        )
+        .await
+        .status,
+        403
+    );
+    assert_eq!(
+        h.bearer(Method::Post, &format!("/media/{photo}/keeper"), None, &ruth)
+            .await
+            .status,
+        403
+    );
+    assert_eq!(
+        h.bearer(Method::Delete, "/memberships/kyoto", None, &ruth)
+            .await
+            .status,
+        204
+    );
+    assert!(h
+        .bearer(Method::Get, "/trips", None, &ruth)
+        .await
+        .body
+        .as_array()
+        .unwrap()
+        .is_empty());
+    assert_eq!(
+        h.bearer(Method::Get, "/trips/kyoto", None, &ruth)
+            .await
+            .status,
+        404
+    );
+}
+
+#[tokio::test]
+async fn roles_rename_and_guests_never_edit() {
+    let h = harness();
+    let mut kyoto = trip("amzn-owner", "kyoto");
+    kyoto.contributors = vec![memorylane_core::ids::ContributorId::new("amzn-owner")];
+    h.storage.put_trip(&kyoto).await.unwrap();
+    let (ken_token, ken) = h.co_editor("amzn-ken", "Ken", Some("kyoto")).await;
+    // Demote then promote through the route; a guest can never be promoted.
+    let mut t = h
+        .storage
+        .get_trip(&HouseholdId::new("amzn-owner"), &TripId::new("kyoto"))
+        .await
+        .unwrap()
+        .unwrap();
+    t.contributors.push(ken.clone());
+    h.storage.put_trip(&t).await.unwrap();
+    let demoted = h
+        .owner(
+            Method::Post,
+            "/trips/kyoto/roles",
+            Some(json!({ "contributor": ken, "role": "contributor" })),
+        )
+        .await;
+    assert_eq!(demoted.status, 200, "{}", demoted.body);
+    assert_eq!(
+        h.bearer(
+            Method::Patch,
+            "/trips/kyoto",
+            Some(json!({ "name": "Kyoto in bloom" })),
+            &ken_token
+        )
+        .await
+        .status,
+        403
+    );
+    let promoted = h
+        .owner(
+            Method::Post,
+            "/trips/kyoto/roles",
+            Some(json!({ "contributor": ken, "role": "co_editor" })),
+        )
+        .await;
+    assert_eq!(promoted.body["role"], "co_editor");
+    let renamed = h
+        .bearer(
+            Method::Patch,
+            "/trips/kyoto",
+            Some(json!({ "name": "Kyoto in bloom" })),
+            &ken_token,
+        )
+        .await;
+    assert_eq!(renamed.status, 200, "{}", renamed.body);
+    assert_eq!(
+        h.owner(Method::Get, "/trips/kyoto", None).await.body["name"],
+        "Kyoto in bloom"
+    );
+    assert_eq!(
+        h.owner(Method::Get, "/trips/kyoto", None).await.body["contributor_roles"][ken.as_str()],
+        "co_editor"
+    );
+
+    let code = h
+        .owner(
+            Method::Post,
+            "/trips/kyoto/code",
+            Some(json!({ "expires_in_days": 7 })),
+        )
+        .await;
+    let joined = h
+        .call(
+            Method::Post,
+            "/join",
+            Some(json!({ "code": code.body["code"], "display_name": "Maya" })),
+            None,
+            None,
+        )
+        .await;
+    let maya_token = joined.body["token"].as_str().unwrap().to_owned();
+    let maya = joined.body["contributor"].as_str().unwrap().to_owned();
+    let guest_promo = h
+        .owner(
+            Method::Post,
+            "/trips/kyoto/roles",
+            Some(json!({ "contributor": maya, "role": "co_editor" })),
+        )
+        .await;
+    assert_eq!(guest_promo.status, 400);
+    assert!(guest_promo.body["error"]
+        .as_str()
+        .unwrap()
+        .contains("guests"));
+
+    // F-165: no edit route accepts a guest.
+    let init = h
+        .owner(
+            Method::Post,
+            "/uploads/init",
+            Some(json!({ "filename": "a.jpg", "bytes": 10, "sha256": sha(70) })),
+        )
+        .await;
+    let media = init.body["media_id"].as_str().unwrap().to_owned();
+    for (method, path, body) in [
+        (Method::Post, format!("/media/{media}/pin"), None),
+        (Method::Post, format!("/media/{media}/hide"), None),
+        (Method::Post, format!("/media/{media}/keeper"), None),
+        (
+            Method::Patch,
+            "/trips/kyoto".to_owned(),
+            Some(json!({ "name": "x" })),
+        ),
+        (
+            Method::Post,
+            "/trips/kyoto/roles".to_owned(),
+            Some(json!({ "contributor": maya, "role": "contributor" })),
+        ),
+        (
+            Method::Post,
+            "/trips/kyoto/narrative".to_owned(),
+            Some(json!({ "text": "x", "model_id": "m" })),
+        ),
+        (
+            Method::Post,
+            "/trips/kyoto/narrative/regenerate".to_owned(),
+            None,
+        ),
+        (
+            Method::Post,
+            "/proposals".to_owned(),
+            Some(json!({ "action": { "action": "apply_cleanup", "media_ids": [] } })),
+        ),
+        (
+            Method::Post,
+            "/confirmations".to_owned(),
+            Some(json!({ "action": "apply_cleanup", "media_ids": [] })),
+        ),
+        (
+            Method::Post,
+            "/memberships".to_owned(),
+            Some(json!({ "code": "x" })),
+        ),
+        (
+            Method::Post,
+            "/playlists".to_owned(),
+            Some(json!({ "name": "n", "media": [media], "source": "s" })),
+        ),
+    ] {
+        let resp = h.bearer(method, &path, body, &maya_token).await;
+        assert_eq!(resp.status, 403, "{method:?} {path}: {}", resp.body);
+    }
+    // The read-only web view has no session at all.
+    assert_eq!(
+        h.call(
+            Method::Post,
+            &format!(
+                "/media/{media}/pin?code={}",
+                code.body["code"].as_str().unwrap()
+            ),
+            None,
+            None,
+            None
+        )
+        .await
+        .status,
+        401
+    );
+}
+
+#[tokio::test]
 async fn search_ranks_by_meaning_and_falls_back_to_keywords() {
     let h = harness();
     let ramen = enriched(&h, "ramen.jpg", 21, &["Ramen", "Restaurant", "Food"], None).await;
@@ -1811,7 +2205,7 @@ mod roles {
     impl Harness {
         /// A friend with an Amazon account joins by household code and is promoted to
         /// co-editor. Returns their upload token and contributor id.
-        async fn co_editor(
+        pub(crate) async fn co_editor(
             &self,
             sub: &str,
             name: &str,
@@ -1855,7 +2249,12 @@ mod roles {
         }
 
         /// Another household that joined `trip` from its own TV. Returns its phone token.
-        async fn member_household(&self, household: &str, name: &str, trip: &str) -> String {
+        pub(crate) async fn member_household(
+            &self,
+            household: &str,
+            name: &str,
+            trip: &str,
+        ) -> String {
             let m = Membership::join(
                 HouseholdId::new(household),
                 HouseholdId::new("amzn-owner"),
@@ -1874,7 +2273,7 @@ mod roles {
             })
         }
 
-        async fn access(
+        pub(crate) async fn access(
             &self,
             trip: &str,
             bearer: Option<&str>,
