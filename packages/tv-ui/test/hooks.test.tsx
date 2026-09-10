@@ -61,6 +61,7 @@ describe("events feed", () => {
     expect(describeEvent({ seq: 1, at: "", type: "upload.progress", done: 42, total: 42 })).toBe("Uploaded 42, organising…");
     expect(describeEvent({ seq: 1, at: "", type: "membership.joined", member_name: "Ruth's living room" })).toBe("Ruth's living room joined");
     expect(describeEvent({ seq: 1, at: "", type: "cleanup.proposal", count: 7 })).toBe("7 photos to tidy up");
+    expect(describeEvent({ seq: 1, at: "", type: "share.join_code", recipient: "Grandma", code: "T2C3D4" })).toBe("Grandma has a MemoryLane TV: they can join with code T2C3D4");
     expect(describeEvent({ seq: 1, at: "", type: "reaction.received", actor_name: "Grandma Ruth", kind: "like", target: "day:3" })).toBe("Grandma Ruth loved day 3");
     expect(describeEvent({ seq: 1, at: "", type: "reaction.received", actor_name: "Maya", kind: "like", target: "media:m1" })).toBe("Maya loved a photo");
     expect(describeEvent({ seq: 1, at: "", type: "reaction.received", actor_name: "Grandma Ruth", kind: "comment", target: "media:m1", text: "That ramen!" })).toBe("Grandma Ruth: That ramen!");

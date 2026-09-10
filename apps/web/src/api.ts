@@ -52,6 +52,14 @@ export interface ReactionsView {
 }
 
 /** The read-only view of one trip (F-159). */
+/** A shared album for someone outside the household (F-601). */
+export interface SharedAlbum {
+  name: string;
+  shared_by: string | null;
+  expires_at: string | null;
+  items: Array<{ id: string; url: string; taken_at: string | null; landmark: string | null }>;
+}
+
 export interface TripView {
   id: string;
   name: string;
@@ -144,6 +152,11 @@ export class Api {
   }
 
   /** The read-only trip page: no session, just the trip code. */
+  /** Public, no session: the link itself is the key. 410 once it expires. */
+  sharedAlbum(id: string) {
+    return this.call<SharedAlbum>("GET", `/s/${encodeURIComponent(id)}`);
+  }
+
   viewTrip(code: string) {
     return this.call<{ household_name: string | null; trip: TripView }>("GET", `/view?code=${encodeURIComponent(code)}`);
   }

@@ -33,6 +33,8 @@ export function describe(event: FeedEvent): string | null {
       return `${String(event.count)} photos to tidy up`;
     case "membership.joined":
       return `${String(event.member_name)} joined`;
+    case "share.join_code":
+      return `${String(event.recipient)} has a MemoryLane TV: they can join with code ${String(event.code)}`;
     case "memories.ready":
       return "New memories for today";
     case "answer.card":
