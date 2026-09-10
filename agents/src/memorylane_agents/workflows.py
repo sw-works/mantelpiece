@@ -43,9 +43,13 @@ def trip_curator(tools: Tools, model: Model, household: str, trip_id: str) -> Cu
             break
     ok = not problems
     if ok:
-        tools.save_narrative(
-            household, trip_id, text, model.model_id, stories=split_days(text, len(trip.days))
-        )
+        stories = split_days(text, len(trip.days))
+        tools.save_narrative(household, trip_id, text, model.model_id, stories=stories)
+        # F-709: read the story aloud only where the household switched narration on.
+        if tools.get_household(household).get("narration_enabled"):
+            for day, story in zip(trip.days, stories, strict=False):
+                if story.strip():
+                    tools.synthesize_narration(household, trip_id, int(day["index"]))
     else:
         # F-301: nothing invented reaches the screen; the TV keeps "being written".
         tools.withhold_narrative(household, trip_id, model.model_id)

@@ -131,6 +131,14 @@ class GatewayTools:
     def memories_for(self, household: str, date: str | None = None) -> Memories:
         return Memories(**self._call("memories_for", household=household, date=date))
 
+    def get_household(self, household: str) -> dict[str, Any]:
+        return dict(self._call("get_household", household=household) or {})
+
+    def synthesize_narration(self, household: str, trip_id: str, day: int) -> str:
+        return str(
+            self._call("synthesize_narration", household=household, trip_id=trip_id, day=day)
+        )
+
     def purge_expired(self, household: str) -> int:
         return int(self._call("purge_expired", household=household) or 0)
 

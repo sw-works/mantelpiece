@@ -116,6 +116,14 @@ class Tools(Protocol):
         """Delete items whose 30-day restore window closed. Reversible-safe: only expired."""
         ...
 
+    def get_household(self, household: str) -> dict[str, Any]:
+        """Name and flags: people_enabled, narration_enabled."""
+        ...
+
+    def synthesize_narration(self, household: str, trip_id: str, day: int) -> str:
+        """One day's story to audio; returns the audio key. Only when narration is on."""
+        ...
+
 
 @dataclass
 class InMemoryTools:
@@ -233,6 +241,24 @@ class InMemoryTools:
         self.log.append(f"memories_for {date}")
         key = date or "today"
         return self.memories.get(key, Memories(date=key))
+
+    settings: dict[str, Any] = field(default_factory=dict)
+    narrations: list[tuple[str, int]] = field(default_factory=list)
+
+    def get_household(self, household: str) -> dict[str, Any]:
+        return {
+            "name": "Living room",
+            "people_enabled": False,
+            "narration_enabled": False,
+            **self.settings,
+        }
+
+    def synthesize_narration(self, household: str, trip_id: str, day: int) -> str:
+        if not self.get_household(household).get("narration_enabled"):
+            raise RuntimeError("narration is off")
+        self.narrations.append((trip_id, day))
+        self.log.append(f"synthesize_narration {trip_id} {day}")
+        return f"narration/{household}/{trip_id}/day-{day}.mp3"
 
     def purge_expired(self, household: str) -> int:
         self.log.append("purge_expired")
