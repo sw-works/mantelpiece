@@ -12,6 +12,7 @@ under 500 ms from stored data.
 |------|------|---------|
 | list_trips | household | Trip summaries, including joined trips |
 | get_trip | household, trip_id | Trip with days, route, narrative, highlights |
+| get_trip_code | household, trip_id | NEW the trip's join code for another TV (W5) |
 | search_media | household, query, trip_id?, filters? | media ids ranked |
 | list_duplicates | household, trip_id? | DedupGroup[] |
 | read_memory | household | preferences and patterns |
@@ -40,7 +41,7 @@ under 500 ms from stored data.
 | apply_dedup | household, group_ids, confirmation | token.action = ApplyDedup(group_ids) |
 | apply_cleanup | household, media_ids, confirmation | NEW token.action = ApplyCleanup(media_ids) |
 | delete_media | household, media_ids, confirmation | token.action = DeleteMedia; or RemoveMedia with subject role co_editor or owner on the trip |
-| share_album | household, media, name, confirmation | token.action = ShareAlbum |
+| share_album | household, playlist, name, confirmation, email? | token.action = ShareAlbum(playlist); `media` describes the album, the playlist is what is published |
 | remove_contributor | household, contributor_id, confirmation | token.action = RemoveContributor; owner only |
 
 Agents cannot call `/confirmations`; the token is minted only by a TV or phone session

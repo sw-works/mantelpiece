@@ -491,3 +491,26 @@ compile-checked only.
   and other platforms get captions. Virtual Device result: not run, the Vega SDK is not on
   this machine, so whether the port is system-deployed stays open (R10 unverified). The
   flag defaults to off per household regardless.
+
+## 23. US12 sharing (tasks T098 to T101)
+
+- `POST /shares` publishes a playlist, not a loose media list: the confirmation token is
+  bound to `ShareAlbum(album_id = playlist id)`, and a list of ids has nothing stable to
+  bind to. The `share_album` tool therefore takes `playlist` (from `create_playlist` or
+  the Ask playlist) plus `media` and `name` as description. Links last seven days, list
+  under `GET /shares`, and `DELETE /shares/{id}` revokes early.
+- Public `GET /s/{share}` needs no session: the id is the key. It returns the playlist's
+  live, unhidden items with presigned TV renditions, 404 for an unknown id and 410 once
+  expired or revoked so the phone page can say which. The link itself is
+  `{upload_base}/s.html?s={id}`.
+- Email goes through a `Mailer` trait (SES v2, one verified sender from the stack's
+  `shareSender`); without a sender the API answers 409 to an email request and still
+  returns the link. The IAM grant is limited to that identity and `ses:FromAddress`. SES
+  path compile-checked only; the identity needs its verification mail answered before the
+  first send.
+- W5 share: a recipient remembered in agent memory under `contacts` with a `household`
+  gets the trip's join code (`get_trip_code`, new read tool) and the TV shows it as a
+  `share.join_code` event; no link, no confirmation. A contact with only an `email`
+  gets the link mailed. The trip is matched by a shared word of four letters or more
+  between the request and a trip name, so "send the Kyoto trip to grandma" finds
+  "Kyoto, April 2026". `share` now returns a `ShareResult` instead of a bare link.

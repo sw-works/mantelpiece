@@ -19,6 +19,7 @@ are in `services/crates/core/src/events.rs`; NEW kinds are added by this feature
 | membership.joined | trip, member_name | NEW "Ruth's living room joined Kyoto" (F-162) |
 | answer.card | question, answer, media | NEW card over the paused photo (F-405) |
 | narration.ready | trip, day, audio_key | NEW (F-709, flagged) |
+| share.join_code | trip, recipient, code | NEW W5 found the recipient has a TV; the code replaces a link (F-601) |
 | memories.ready | date, on_this_day, then_and_now | NEW nightly (F-701, F-702) |
 
 Rules: a member household's feed receives events for joined trips filtered to

@@ -290,12 +290,12 @@ policy that every story builds on.
 
 **Independent Test**: share "Kyoto highlights" to an email; link opens the album; after expiry it does not.
 
-- [ ] T098 [US12] Add `POST /shares` (requires a `ShareAlbum` confirmation; 7-day expiry; optional email via SES) and public `GET /s/{share}` in `services/lambdas/api/src/handlers/shares.rs`; test in `services/lambdas/api/tests/api.rs` (F-601)
-- [ ] T099 [P] [US12] Add the public album page `apps/web/src/pages/share.ts` and `apps/web/s.html` (read-only, expired state)
-- [ ] T100 [US12] Update the `share` workflow in `agents/src/memorylane_agents/workflows.py` to offer a join code when the recipient household is known (W5); test in `agents/tests/test_workflows.py`
-- [ ] T101 [US12] Add SES identity and permissions in `infra/lib/memorylane-stack.ts`; extend `infra/test/stack.test.ts`
+- [X] T098 [US12] Add `POST /shares` (requires a `ShareAlbum` confirmation; 7-day expiry; optional email via SES) and public `GET /s/{share}` in `services/lambdas/api/src/handlers/shares.rs`; test in `services/lambdas/api/tests/api.rs` (F-601)
+- [X] T099 [P] [US12] Add the public album page `apps/web/src/pages/share.ts` and `apps/web/s.html` (read-only, expired state)
+- [X] T100 [US12] Update the `share` workflow in `agents/src/memorylane_agents/workflows.py` to offer a join code when the recipient household is known (W5); test in `agents/tests/test_workflows.py`
+- [X] T101 [US12] Add SES identity and permissions in `infra/lib/memorylane-stack.ts`; extend `infra/test/stack.test.ts`
 
-**Checkpoint**: all twelve stories independently demonstrable
+**Checkpoint** (code complete 2026-09-09; device and deployed parts still unverified): all twelve stories independently demonstrable
 
 ---
 
