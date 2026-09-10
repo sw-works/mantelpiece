@@ -10,6 +10,7 @@
 pub mod clock;
 pub mod cluster;
 pub mod highlights;
+pub mod memories;
 pub mod naming;
 pub mod route;
 

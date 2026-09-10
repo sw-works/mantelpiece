@@ -9,6 +9,7 @@ use memorylane_api::tokens::Signer;
 use memorylane_core::ids::{HouseholdId, MediaId, TripId};
 use memorylane_core::trip::{Route, Trip};
 use memorylane_store::bus::MemoryBus;
+use memorylane_store::maps::MemoryMaps;
 use memorylane_store::memory::{MemoryBlobs, MemoryStorage};
 use memorylane_store::vectors::MemoryVectors;
 use memorylane_store::{Storage, Vectors};
@@ -41,6 +42,7 @@ fn harness() -> Harness {
         blobs: blobs.clone(),
         vectors: vectors.clone(),
         bus: bus.clone(),
+        maps: Arc::new(MemoryMaps::default()),
         starter: starter.clone(),
         signer: Signer::new("test-secret"),
         config: Config {
@@ -844,6 +846,126 @@ async fn roles_rename_and_guests_never_edit() {
         .await
         .status,
         401
+    );
+}
+
+/// An owner-uploaded keeper with a capture time, GPS and score, for memories tests.
+async fn seeded(
+    h: &Harness,
+    name: &str,
+    seed: u8,
+    when: OffsetDateTime,
+    gps: Option<(f64, f64)>,
+    score: f32,
+) -> MediaId {
+    let house = HouseholdId::new("amzn-owner");
+    let init = h
+        .owner(
+            Method::Post,
+            "/uploads/init",
+            Some(json!({ "filename": name, "bytes": 10, "sha256": sha(seed) })),
+        )
+        .await;
+    let id = MediaId::new(init.body["media_id"].as_str().unwrap());
+    let mut m = h.storage.get_media(&house, &id).await.unwrap().unwrap();
+    m.is_keeper = true;
+    m.captured = Some(memorylane_core::media::CaptureTime::new(when, None));
+    m.gps = gps.map(|(a, b)| memorylane_core::geo::GeoPoint::new(a, b));
+    m.quality_score = Some(score);
+    h.storage.put_media(&m).await.unwrap();
+    id
+}
+
+#[tokio::test]
+async fn memories_home_and_the_all_trips_map() {
+    let h = harness();
+    // Today is 2026-09-08 in the harness clock.
+    let then = seeded(
+        &h,
+        "then.jpg",
+        81,
+        datetime!(2024-09-08 10:00:00 UTC),
+        Some((35.0394, 135.7292)),
+        7.0,
+    )
+    .await;
+    let now = seeded(
+        &h,
+        "now.jpg",
+        82,
+        datetime!(2026-09-08 10:00:00 UTC),
+        Some((35.0395, 135.7293)),
+        8.0,
+    )
+    .await;
+    let august = seeded(
+        &h,
+        "aug.jpg",
+        83,
+        datetime!(2026-08-20 10:00:00 UTC),
+        None,
+        9.0,
+    )
+    .await;
+    let last_year = seeded(
+        &h,
+        "ly.jpg",
+        84,
+        datetime!(2025-03-01 10:00:00 UTC),
+        None,
+        6.0,
+    )
+    .await;
+
+    let home = h.owner(Method::Get, "/memories/home", None).await;
+    assert_eq!(home.status, 200, "{}", home.body);
+    assert_eq!(home.body["date"], "2026-09-08");
+    assert_eq!(home.body["on_this_day"], json!([then]));
+    assert_eq!(home.body["then_and_now"][0]["then"], then.as_str());
+    assert_eq!(home.body["then_and_now"][0]["now"], now.as_str());
+    assert_eq!(home.body["then_and_now"][0]["years_apart"], 2);
+    assert_eq!(home.body["best_of_month"]["month"], "August");
+    assert_eq!(home.body["best_of_month"]["media"], json!([august]));
+    assert_eq!(home.body["best_of_year"]["media"], json!([last_year]));
+    assert_eq!(
+        h.owner(Method::Get, "/memories/home?date=nope", None)
+            .await
+            .status,
+        400
+    );
+    let other_day = h
+        .owner(Method::Get, "/memories/home?date=2026-03-01", None)
+        .await;
+    assert_eq!(other_day.body["on_this_day"], json!([last_year]));
+
+    // The map needs trips with a route; first call draws, the second is served from S3.
+    let empty = h.owner(Method::Get, "/map", None).await;
+    assert!(empty.body["url"].is_null());
+    let mut kyoto = trip("amzn-owner", "kyoto");
+    kyoto.route.points.push(memorylane_core::trip::RoutePoint {
+        at: memorylane_core::geo::GeoPoint::new(35.0, 135.7),
+        time: kyoto.start,
+        media: then.clone(),
+    });
+    h.storage.put_trip(&kyoto).await.unwrap();
+    let drawn = h.owner(Method::Get, "/map", None).await;
+    assert_eq!(drawn.status, 200, "{}", drawn.body);
+    assert!(drawn.body["url"]
+        .as_str()
+        .unwrap()
+        .contains("maps/amzn-owner/all-1.png"));
+    assert_eq!(drawn.body["pins"][0]["name"], "Kyoto, April 2026");
+    let again = h.owner(Method::Get, "/map", None).await;
+    assert_eq!(again.body["url"], drawn.body["url"]);
+    assert_eq!(
+        h.blobs
+            .log
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|l| l.starts_with("put maps/"))
+            .count(),
+        1
     );
 }
 

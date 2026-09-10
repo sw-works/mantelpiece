@@ -1936,6 +1936,7 @@ dependencies = [
  "memorylane-core",
  "memorylane-ingest",
  "memorylane-store",
+ "memorylane-trips",
  "rand",
  "serde",
  "serde_json",

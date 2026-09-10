@@ -9,7 +9,7 @@ use crate::error::ApiError;
 use crate::handlers;
 use crate::req::{Method, Req, Resp};
 use crate::tokens::{Claims, Session, Signer};
-use memorylane_store::{Blobs, Bus, Storage, Vectors};
+use memorylane_store::{Blobs, Bus, Maps, Storage, Vectors};
 
 #[derive(Clone, Debug)]
 pub struct Config {
@@ -44,6 +44,7 @@ pub struct App {
     pub blobs: Arc<dyn Blobs>,
     pub vectors: Arc<dyn Vectors>,
     pub bus: Arc<dyn Bus>,
+    pub maps: Arc<dyn Maps>,
     pub starter: Arc<dyn crate::starter::Starter>,
     pub signer: Signer,
     pub config: Config,
@@ -205,6 +206,8 @@ impl App {
             (Method::Put, ["presence"]) => handlers::presence::put(self, req).await,
             (Method::Get, ["presence"]) => handlers::presence::list(self, req).await,
             (Method::Post, ["ask"]) => handlers::ask::ask(self, req).await,
+            (Method::Get, ["memories", "home"]) => handlers::memories::home(self, req).await,
+            (Method::Get, ["map"]) => handlers::memories::map(self, req).await,
 
             (Method::Get, ["trips"]) => handlers::trips::list(self, req).await,
             (Method::Get, ["trips", trip]) => handlers::trips::get(self, req, trip).await,
