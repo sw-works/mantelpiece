@@ -35,6 +35,7 @@ function tool(name: string, description: string, properties: Record<string, Sche
 export const readTools: ToolDefinition[] = [
   tool("list_trips", "Trip summaries for the household, including trips joined from another TV", { household: HOUSEHOLD }, ["household"]),
   tool("get_trip", "One trip with its days, route, narrative and highlights", { household: HOUSEHOLD, trip_id: TRIP }, ["household", "trip_id"]),
+  tool("get_trip_code", "The trip's join code for another MemoryLane TV", { household: HOUSEHOLD, trip_id: TRIP }, ["household", "trip_id"]),
   tool(
     "search_media",
     "Media ids ranked for a natural-language query, optionally inside one trip or filtered by people",
@@ -103,9 +104,9 @@ export const irreversibleTools: ToolDefinition[] = [
   ),
   tool(
     "share_album",
-    "Create an expiring share link for an album",
-    { household: HOUSEHOLD, media: strings("Media ids"), name: str("Album name"), confirmation: CONFIRMATION, email: str("Recipient email, optional") },
-    ["household", "media", "name", "confirmation"],
+    "Publish a playlist as an expiring share link, optionally emailed",
+    { household: HOUSEHOLD, playlist: str("Playlist id to share, from create_playlist"), media: strings("Media ids, descriptive"), name: str("Album name"), confirmation: CONFIRMATION, email: str("Recipient email, optional") },
+    ["household", "playlist", "name", "confirmation"],
   ),
   tool(
     "remove_contributor",

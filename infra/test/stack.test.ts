@@ -187,4 +187,19 @@ describe("MemoryLane stack", () => {
       CallbackURLs: ["https://link.example.com/callback", "https://upload.example.com/callback"],
     });
   });
+
+  it("emails share links only from the verified sender, and not at all without one", () => {
+    expect(template.findResources("AWS::SES::EmailIdentity")).toEqual({});
+    template.hasResourceProperties("AWS::Lambda::Function", {
+      Environment: { Variables: Match.objectLike({ SHARE_SENDER: "", LINK_BASE: "https://link.example.com" }) },
+    });
+    const withSender = synth({ shareSender: "hello@example.com" });
+    withSender.hasResourceProperties("AWS::SES::EmailIdentity", { EmailIdentity: "hello@example.com" });
+    withSender.hasResourceProperties("AWS::Lambda::Function", {
+      Environment: { Variables: Match.objectLike({ SHARE_SENDER: "hello@example.com" }) },
+    });
+    const policies = JSON.stringify(withSender.findResources("AWS::IAM::Policy"));
+    expect(policies).toContain("ses:SendEmail");
+    expect(policies).toContain("ses:FromAddress");
+  });
 });

@@ -14,6 +14,7 @@ import * as iam from "aws-cdk-lib/aws-iam";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as s3 from "aws-cdk-lib/aws-s3";
 import * as scheduler from "aws-cdk-lib/aws-scheduler";
+import * as ses from "aws-cdk-lib/aws-ses";
 import * as schedulerTargets from "aws-cdk-lib/aws-scheduler-targets";
 import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 import * as sfn from "aws-cdk-lib/aws-stepfunctions";
@@ -35,6 +36,11 @@ export interface MemoryLaneStackProps extends StackProps {
    * `cdk synth` and the tests work without a Rust build.
    */
   lambdaAssetDir?: string;
+  /**
+   * Verified sender for emailed share links (F-601), e.g. hello@example.com. SES sends a
+   * verification mail on first deploy; without a sender the API returns links only.
+   */
+  shareSender?: string;
 }
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -294,6 +300,7 @@ export class MemoryLaneStack extends Stack {
       environment: {
         TABLE_NAME: this.table.tableName,
         MEDIA_BUCKET: this.bucket.bucketName,
+        SHARE_SENDER: props.shareSender ?? "",
         ORGANIZE_STATE_MACHINE_ARN: organizeMachine.stateMachineArn,
         EVENT_BUS: this.bus.eventBusName,
         TOKEN_SECRET: tokenSecret.secretValue.unsafeUnwrap(),
@@ -323,6 +330,18 @@ export class MemoryLaneStack extends Stack {
         resources: ["*"],
       }),
     );
+
+    // Emailed share links (F-601). One verified identity; the API may only send from it.
+    if (props.shareSender) {
+      const identity = new ses.EmailIdentity(this, "ShareSender", { identity: ses.Identity.email(props.shareSender) });
+      apiFn.addToRolePolicy(
+        new iam.PolicyStatement({
+          actions: ["ses:SendEmail"],
+          resources: [identity.emailIdentityArn],
+          conditions: { StringEquals: { "ses:FromAddress": props.shareSender } },
+        }),
+      );
+    }
 
     // HTTP API. Everything routes to the API Lambda; two routes require a Cognito JWT.
     this.api = new apigw.HttpApi(this, "Api", {
