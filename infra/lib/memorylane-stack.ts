@@ -41,6 +41,11 @@ export interface MemoryLaneStackProps extends StackProps {
    * verification mail on first deploy; without a sender the API returns links only.
    */
   shareSender?: string;
+  /**
+   * Redirect URIs Alexa+ uses after the user authorises the add-on (research R6). The
+   * default is a placeholder until the preview registration says which; unverified.
+   */
+  alexaCallbackUrls?: string[];
 }
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -127,9 +132,28 @@ export class MemoryLaneStack extends Stack {
       },
     });
     if (amazonProvider) client.node.addDependency(amazonProvider);
-    this.userPool.addDomain("Domain", {
+    const domain = this.userPool.addDomain("Domain", {
       cognitoDomain: { domainPrefix: `memorylane-${this.account}`.toLowerCase() },
     });
+
+    // Alexa+ MCP add-on (research R6): OAuth 2.1 with PKCE against the same user pool. The
+    // resource server declares the one scope the Gateway checks; the public client has no
+    // secret, so Cognito requires PKCE on the authorization-code grant.
+    const toolsScope = new cognito.ResourceServerScope({ scopeName: "tools", scopeDescription: "Call MemoryLane tools on the household's behalf" });
+    const resourceServer = this.userPool.addResourceServer("Tools", { identifier: "memorylane", scopes: [toolsScope] });
+    const alexaClient = this.userPool.addClient("AlexaPlus", {
+      supportedIdentityProviders: providers,
+      generateSecret: false,
+      oAuth: {
+        flows: { authorizationCodeGrant: true },
+        scopes: [cognito.OAuthScope.OPENID, cognito.OAuthScope.resourceServer(resourceServer, toolsScope)],
+        callbackUrls: props.alexaCallbackUrls ?? ["https://layla.amazon.com/api/skill/link/placeholder"],
+      },
+      accessTokenValidity: Duration.hours(1),
+      refreshTokenValidity: Duration.days(30),
+    });
+    alexaClient.node.addDependency(resourceServer);
+    if (amazonProvider) alexaClient.node.addDependency(amazonProvider);
 
     // Hackathon shortcut: the HMAC secret for TV and upload sessions rides in the Lambda
     // environment. Production would fetch it from Secrets Manager at cold start.
@@ -301,6 +325,8 @@ export class MemoryLaneStack extends Stack {
         TABLE_NAME: this.table.tableName,
         MEDIA_BUCKET: this.bucket.bucketName,
         SHARE_SENDER: props.shareSender ?? "",
+        OAUTH_ISSUER: this.userPool.userPoolProviderUrl,
+        OAUTH_DOMAIN: domain.baseUrl(),
         ORGANIZE_STATE_MACHINE_ARN: organizeMachine.stateMachineArn,
         EVENT_BUS: this.bus.eventBusName,
         TOKEN_SECRET: tokenSecret.secretValue.unsafeUnwrap(),
@@ -389,11 +415,13 @@ export class MemoryLaneStack extends Stack {
       authorizerConfiguration: {
         customJwtAuthorizer: {
           discoveryUrl: `${this.userPool.userPoolProviderUrl}/.well-known/openid-configuration`,
-          allowedClients: [client.userPoolClientId],
+          allowedClients: [client.userPoolClientId, alexaClient.userPoolClientId],
         },
       },
       policyEngineConfiguration: { arn: policyEngine.attrPolicyEngineArn, mode: "ENFORCE" },
     });
+    // The API serves the OAuth metadata documents that point Alexa+ at this endpoint.
+    apiFn.addEnvironment("GATEWAY_URL", this.gateway.attrGatewayUrl);
     new agentcore.CfnGatewayTarget(this, "ApiTools", {
       gatewayIdentifier: this.gateway.attrGatewayIdentifier,
       name: "api",

@@ -202,4 +202,24 @@ describe("MemoryLane stack", () => {
     expect(policies).toContain("ses:SendEmail");
     expect(policies).toContain("ses:FromAddress");
   });
+
+  it("gives Alexa+ a PKCE-only OAuth client with the memorylane/tools scope on the Gateway", () => {
+    template.hasResourceProperties("AWS::Cognito::UserPoolResourceServer", {
+      Identifier: "memorylane",
+      Scopes: [Match.objectLike({ ScopeName: "tools" })],
+    });
+    const clients = Object.values(template.findResources("AWS::Cognito::UserPoolClient"));
+    expect(clients).toHaveLength(2);
+    const alexa = clients.find((c) => JSON.stringify(c.Properties.AllowedOAuthScopes).includes("tools"));
+    if (!alexa) throw new Error("no Alexa+ client");
+    expect(alexa.Properties.AllowedOAuthFlows).toEqual(["code"]);
+    expect(alexa.Properties.GenerateSecret ?? false).toBe(false);
+    expect(JSON.stringify(alexa.Properties.AllowedOAuthScopes)).toContain("openid");
+    const gateway = Object.values(template.findResources("AWS::BedrockAgentCore::Gateway"))[0];
+    if (!gateway) throw new Error("no gateway");
+    expect(gateway.Properties.AuthorizerConfiguration.CustomJWTAuthorizer.AllowedClients).toHaveLength(2);
+    template.hasResourceProperties("AWS::Lambda::Function", {
+      Environment: { Variables: Match.objectLike({ OAUTH_ISSUER: Match.anyValue(), OAUTH_DOMAIN: Match.anyValue(), GATEWAY_URL: Match.anyValue() }) },
+    });
+  });
 });
