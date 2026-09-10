@@ -8,7 +8,15 @@ use crate::tokens::Session;
 pub async fn me(app: &App, req: &Req) -> Result<Resp, ApiError> {
     match app.caller(req)? {
         Caller::Owner { household, subject } => {
-            Resp::ok(json!({ "role": "owner", "household": household, "subject": subject }))
+            let record = app.storage.get_household(&household).await?;
+            Resp::ok(json!({
+                "role": "owner",
+                "household": household,
+                "subject": subject,
+                "household_name": record.as_ref().map(|h| h.name.clone()),
+                "people_enabled": record.as_ref().is_some_and(|h| h.people_enabled),
+                "narration_enabled": record.as_ref().is_some_and(|h| h.narration_enabled),
+            }))
         }
         Caller::Contributor(Session::Upload {
             household,

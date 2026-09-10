@@ -38,6 +38,9 @@ pub struct DeviceCode {
     /// DynamoDB TTL attribute; the row disappears after this.
     #[serde(with = "time::serde::rfc3339")]
     pub expires_at: OffsetDateTime,
+    /// What the TV calls itself; becomes the household name on first sign-in.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tv_name: Option<String>,
     #[serde(flatten)]
     pub state: DeviceCodeState,
 }
@@ -71,8 +74,15 @@ impl DeviceCode {
             device,
             created_at: now,
             expires_at: now + DEFAULT_TTL,
+            tv_name: None,
             state: DeviceCodeState::Pending,
         }
+    }
+
+    #[must_use]
+    pub fn with_tv_name(mut self, name: Option<String>) -> Self {
+        self.tv_name = name.map(|n| n.trim().to_owned()).filter(|n| !n.is_empty());
+        self
     }
 
     pub fn is_expired(&self, now: OffsetDateTime) -> bool {

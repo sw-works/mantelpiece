@@ -159,7 +159,7 @@ async fn device_code_sign_in_flow() {
         .call(
             Method::Post,
             "/device/code",
-            Some(json!({ "device_id": "tv-1" })),
+            Some(json!({ "device_id": "tv-1", "tv_name": "Living room" })),
             None,
             None,
         )
@@ -200,13 +200,27 @@ async fn device_code_sign_in_flow() {
     let me = h.bearer(Method::Get, "/me", None, &phone).await;
     assert_eq!(me.body["role"], "owner");
 
+    // A second approval of the same code: the TV is already signed in.
+    let twice = h
+        .owner(
+            Method::Post,
+            "/device/approve",
+            Some(json!({ "code": code })),
+        )
+        .await;
+    assert_eq!(twice.status, 409);
+    assert_eq!(twice.body["error"], "already signed in");
+
     let done = h.call(Method::Get, &poll_path, None, None, None).await;
     assert_eq!(done.body["state"], "approved");
     let token = done.body["token"].as_str().unwrap().to_owned();
 
+    // The TV's name became the household name, visible to every owner session.
     let me = h.bearer(Method::Get, "/me", None, &token).await;
     assert_eq!(me.body["role"], "owner");
     assert_eq!(me.body["household"], "amzn-owner");
+    assert_eq!(me.body["household_name"], "Living room");
+    assert_eq!(me.body["people_enabled"], false);
 
     // Handed over once only.
     let again = h.call(Method::Get, &poll_path, None, None, None).await;

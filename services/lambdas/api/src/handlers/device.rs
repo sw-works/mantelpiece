@@ -1,7 +1,8 @@
 //! Device-code sign-in (F-401).
 
 use memorylane_core::contributor::Contributor;
-use memorylane_core::device_code::{DeviceCode, DeviceCodeState, Poll};
+use memorylane_core::device_code::{DeviceCode, DeviceCodeError, DeviceCodeState, Poll};
+use memorylane_core::household::Household;
 use memorylane_core::ids::{ContributorId, DeviceId, HouseholdId};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -14,6 +15,8 @@ use crate::tokens::{Claims, Session, PHONE_TTL, TV_TTL};
 #[derive(Deserialize)]
 struct IssueBody {
     device_id: String,
+    #[serde(default)]
+    tv_name: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -30,7 +33,8 @@ pub async fn issue(app: &App, req: &Req) -> Result<Resp, ApiError> {
         return Err(ApiError::bad_request("device_id required"));
     }
     let now = app.now();
-    let dc = DeviceCode::issue(&mut rand::rng(), DeviceId::new(body.device_id), now);
+    let dc = DeviceCode::issue(&mut rand::rng(), DeviceId::new(body.device_id), now)
+        .with_tv_name(body.tv_name);
     app.storage.put_device_code(&dc).await?;
     Resp::created(Issued {
         link: format!("{}/?c={}", app.config.link_base, dc.code),
@@ -66,7 +70,12 @@ pub async fn approve(app: &App, req: &Req) -> Result<Resp, ApiError> {
     let now = app.now();
     let household = HouseholdId::new(jwt.sub.clone());
     dc.approve(household.clone(), jwt.sub.clone(), now)
-        .map_err(|e| ApiError::conflict(e.to_string()))?;
+        .map_err(|e| match e {
+            DeviceCodeError::AlreadyApproved | DeviceCodeError::Consumed => {
+                ApiError::conflict("already signed in")
+            }
+            other => ApiError::conflict(other.to_string()),
+        })?;
     app.storage.put_device_code(&dc).await?;
 
     let owner_id = ContributorId::new(household.as_str());
@@ -111,6 +120,22 @@ pub async fn poll(app: &App, req: &Req) -> Result<Resp, ApiError> {
         {
             Poll::Approved { household, subject } => {
                 app.storage.put_device_code(&dc).await?;
+                // First TV to sign in names the household; later TVs keep the name.
+                if app.storage.get_household(&household).await?.is_none() {
+                    let owner = app
+                        .storage
+                        .get_contributor(&household, &ContributorId::new(household.as_str()))
+                        .await?;
+                    let name = dc.tv_name.clone().unwrap_or_else(|| {
+                        format!(
+                            "{}'s TV",
+                            owner.map_or_else(|| "Owner".to_owned(), |c| c.display_name)
+                        )
+                    });
+                    app.storage
+                        .put_household(&Household::new(household.clone(), name, now))
+                        .await?;
+                }
                 let claims = Claims {
                     session: Session::Tv {
                         household: household.clone(),
