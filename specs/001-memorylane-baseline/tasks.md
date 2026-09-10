@@ -245,14 +245,14 @@ policy that every story builds on.
 
 **Independent Test**: enable People, name two clusters from the phone, "Maya at the beach" returns only her photos; disable deletes the collection.
 
-- [ ] T086 [US9] Add `POST /people/enable`, `POST /people/disable` (deletes the collection and all `Person` records), `GET /people`, `PATCH /people/{id}` (name, merge_into) in `services/lambdas/api/src/handlers/people.rs`; test in `services/lambdas/api/tests/api.rs` (F-704)
-- [ ] T087 [US9] Index keeper faces through `Faces` at enrich when `people_enabled`, cluster by match, update `Person.media_count` and samples in `services/lambdas/ingest/src/enrich.rs`; test in `services/lambdas/ingest/tests/pipeline.rs`
-- [ ] T088 [P] [US9] Add a `people` filter to `POST /search` in `services/lambdas/api/src/handlers/search.rs`
-- [ ] T089 [P] [US9] Build the phone People page `apps/web/src/pages/people.ts` and `apps/web/people.html` (toggle with consent copy, name and merge clusters, My uploads list with remove) (mockup: People and my uploads artboard); test in `apps/web/test/people.test.ts`
-- [ ] T090 [P] [US9] Build `packages/tv-ui/src/screens/People.tsx` (clusters, best-of row, Turn off) (mockup: People artboard); test in `packages/tv-ui/test/screens.test.tsx`
-- [ ] T091 [US9] Delete the face collection and `Person` records in account deletion in `services/lambdas/api/src/handlers/session.rs` (F-604); mark the household `deleting` first so `POST /uploads/init` returns 410 while deletion runs (edge case); test in `services/lambdas/api/tests/api.rs`
+- [X] T086 [US9] Add `POST /people/enable`, `POST /people/disable` (deletes the collection and all `Person` records), `GET /people`, `PATCH /people/{id}` (name, merge_into) in `services/lambdas/api/src/handlers/people.rs`; test in `services/lambdas/api/tests/api.rs` (F-704)
+- [X] T087 [US9] Index keeper faces through `Faces` at enrich when `people_enabled`, cluster by match, update `Person.media_count` and samples in `services/lambdas/ingest/src/enrich.rs`; test in `services/lambdas/ingest/tests/pipeline.rs`
+- [X] T088 [P] [US9] Add a `people` filter to `POST /search` in `services/lambdas/api/src/handlers/search.rs`
+- [X] T089 [P] [US9] Build the phone People page `apps/web/src/pages/people.ts` and `apps/web/people.html` (toggle with consent copy, name and merge clusters, My uploads list with remove) (mockup: People and my uploads artboard); test in `apps/web/test/people.test.ts`
+- [X] T090 [P] [US9] Build `packages/tv-ui/src/screens/People.tsx` (clusters, best-of row, Turn off) (mockup: People artboard); test in `packages/tv-ui/test/screens.test.tsx`
+- [X] T091 [US9] Delete the face collection and `Person` records in account deletion in `services/lambdas/api/src/handlers/session.rs` (F-604); mark the household `deleting` first so `POST /uploads/init` returns 410 while deletion runs (edge case); test in `services/lambdas/api/tests/api.rs`
 
-**Checkpoint**: People end to end with consent and deletion
+**Checkpoint**: People end to end with consent and deletion (code complete 2026-09-09; Rekognition collections compile-checked only)
 
 ---
 

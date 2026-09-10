@@ -432,3 +432,24 @@ compile-checked only.
 - TV: Memories home gains an On this day row with Play and a Then and now card, a Map
   screen with the pins list, and the slideshow drifts and zooms each slide (Ken Burns),
   held still while paused so the paused photo is the one a question refers to.
+
+## 20. US9 People (tasks T086 to T091)
+
+- Opt-in per household: `POST /people/enable` creates the Rekognition collection and sets
+  the flag; `POST /people/disable` deletes the collection, every `Person` record and the
+  people links on media. Nothing about faces is indexed while the flag is off (checked
+  at enrich, keepers only, research R9).
+- Enrich searches the collection first, then indexes the keeper's faces; a match joins
+  the existing person, otherwise an unnamed person opens. `MediaItem.people` records who
+  is on each item. `GET /people` lists live clusters, `PATCH /people/{id}` names or
+  merges (media re-pointed to the target).
+- `POST /search` takes `people` names, resolved through merges; a photo must carry every
+  named person. An unknown name is a 404 rather than an empty result.
+- `DELETE /me` (F-604) marks the household deleting so `POST /uploads/init` answers 410,
+  then deletes originals, renditions, vectors, the face collection, people and every
+  record through the new `Storage::purge_household`; the household row stays as a
+  tombstone. DynamoDB purge queries the partition and deletes row by row plus the code
+  and share-link rows keyed elsewhere; compile-checked only.
+- Phone People page with consent copy that states what is stored and that off deletes
+  it, naming and merging, and My uploads with Remove. TV People screen with clusters,
+  best-of for a person, Play, and Turn off.
