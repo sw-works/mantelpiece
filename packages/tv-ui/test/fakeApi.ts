@@ -75,8 +75,18 @@ export class FakeApi extends TvApi {
     this.calls.push(`rotate ${code}`);
     return { code: "R2C3D4", scope: "trip" as const, trip: "kyoto", link: "https://upload.test/?t=R2C3D4", accepts_uploads: true, contributors: 3, member_households: 1 };
   }
-  override async mintConfirmation(_token: string, action: Record<string, unknown>) {
-    this.calls.push(`confirm ${String(action.action)}`);
-    return { token: "conf-1", tool: String(action.action), expires_at: 0 };
+  override async mintConfirmation(_token: string, action: Record<string, unknown>, proposal?: string) {
+    this.calls.push(`confirm ${String(action.action)}${proposal ? ` ${proposal}` : ""}`);
+    return { token: "conf-1", tool: String(action.action), expires_at: 0, proposal: proposal ?? null };
+  }
+  proposalList: import("../src/api/client").ProposalView[] = [];
+  override async proposals() {
+    this.calls.push("proposals");
+    return this.proposalList;
+  }
+  override async cancelProposal(_token: string, id: string) {
+    this.calls.push(`cancel ${id}`);
+    const p = this.proposalList.find((x) => x.id === id)!;
+    return { ...p, state: "cancelled" as const };
   }
 }

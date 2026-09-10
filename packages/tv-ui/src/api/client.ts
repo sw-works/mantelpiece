@@ -114,6 +114,42 @@ export function playlistAsTrip(name: string, media: string[]): Trip {
   };
 }
 
+export interface ProposalSample {
+  keep: string | null;
+  remove: string[];
+  reason: string;
+}
+
+/** A pending change waiting for the remote (F-410). */
+export interface ProposalView {
+  id: string;
+  kind: "dedup" | "cleanup" | "remove_media" | "remove_contributor" | "share";
+  action: Record<string, unknown>;
+  trip: string | null;
+  before: number;
+  after: number;
+  samples: ProposalSample[];
+  state: "open" | "cancelled" | "confirmed" | "applied" | "expired";
+  requested_by: string;
+  expires_at: string | null;
+}
+
+export function proposalTitle(p: ProposalView): string {
+  const n = Math.max(0, p.before - p.after);
+  switch (p.kind) {
+    case "dedup":
+      return `Remove ${n} duplicate${n === 1 ? "" : "s"}, keeping the best of each burst`;
+    case "cleanup":
+      return `Tidy away ${n} screenshot${n === 1 ? "" : "s"}, receipts or blurry frames`;
+    case "remove_media":
+      return `Remove ${n} photo${n === 1 ? "" : "s"} (asked by ${p.requested_by})`;
+    case "remove_contributor":
+      return "Remove a contributor and their photos";
+    case "share":
+      return "Share an album outside the household";
+  }
+}
+
 export interface FeedEvent {
   seq: number;
   at: string;
@@ -202,8 +238,16 @@ export class TvApi {
     return this.call<CodeView>("POST", `/codes/${code}/rotate`, undefined, token);
   }
 
-  mintConfirmation(token: string, action: Record<string, unknown>) {
-    return this.call<{ token: string; tool: string; expires_at: number }>("POST", "/confirmations", action, token);
+  mintConfirmation(token: string, action: Record<string, unknown>, proposal?: string) {
+    return this.call<{ token: string; tool: string; expires_at: number; proposal?: string | null }>("POST", "/confirmations", { ...action, proposal }, token);
+  }
+
+  proposals(token: string) {
+    return this.call<ProposalView[]>("GET", "/proposals", undefined, token);
+  }
+
+  cancelProposal(token: string, id: string) {
+    return this.call<ProposalView>("POST", `/proposals/${id}/cancel`, undefined, token);
   }
 
   tripMap(token: string, tripId: string, day?: number) {

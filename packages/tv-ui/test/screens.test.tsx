@@ -196,15 +196,27 @@ describe("screens", () => {
     expect(api.calls).toContain("rotate T2C3D4");
   });
 
-  it("ReviewChanges mints a confirmation only when the user applies", async () => {
+  it("ReviewChanges shows counts and samples, keeps everything or mints a token bound to the proposal", async () => {
     const api = new FakeApi();
-    const onConfirmed = jest.fn();
-    const proposal = { title: "Remove 12 duplicates", before: 300, after: 288, action: { action: "apply_dedup", group_ids: ["g1"] }, sample: [] };
-    await render(<ReviewChanges api={api} token="t" proposal={proposal} onConfirmed={onConfirmed} onCancel={() => undefined} />);
-    expect(screen.getByTestId("counts").props.children).toBe("300 before · 288 after");
-    expect(api.calls).toHaveLength(0);
-    await fireEvent.press(screen.getByTestId("apply"));
-    await waitFor(() => expect(onConfirmed).toHaveBeenCalledWith("conf-1"));
-    expect(api.calls).toEqual(["confirm apply_dedup"]);
+    const samples = Array.from({ length: 6 }, (_, i) => ({ keep: `k${i}`, remove: [`r${i}`], reason: "near duplicate" }));
+    api.proposalList = [
+      { id: "p1", kind: "dedup", action: { action: "apply_dedup", group_ids: ["g1"] }, trip: "kyoto", before: 300, after: 288, samples, state: "open", requested_by: "agent", expires_at: null },
+      { id: "p2", kind: "cleanup", action: { action: "apply_cleanup", media_ids: ["s1"] }, trip: null, before: 300, after: 299, samples: [{ keep: null, remove: ["s1"], reason: "screenshot" }], state: "open", requested_by: "agent", expires_at: null },
+    ];
+    await render(<ReviewChanges api={api} token="t" onDone={() => undefined} />);
+    await waitFor(() => expect(screen.getByTestId("counts-p1").props.children).toBe("300 before · 288 after"));
+    expect(screen.getByText("Remove 12 duplicates, keeping the best of each burst")).toBeTruthy();
+    expect(screen.getByText("Tidy away 1 screenshot, receipts or blurry frames")).toBeTruthy();
+    expect(screen.queryByTestId("sample-p1-4")).toBeNull();
+    await fireEvent.press(screen.getByTestId("all-p1"));
+    expect(screen.getByTestId("sample-p1-5")).toBeTruthy();
+    expect(api.calls.filter((c) => c.startsWith("confirm"))).toHaveLength(0);
+    await fireEvent.press(screen.getByTestId("cancel-p2"));
+    await waitFor(() => expect(screen.queryByTestId("proposal-p2")).toBeNull());
+    expect(api.calls).toContain("cancel p2");
+    await fireEvent.press(screen.getByTestId("apply-p1"));
+    await waitFor(() => expect(screen.queryByTestId("proposal-p1")).toBeNull());
+    expect(api.calls).toContain("confirm apply_dedup p1");
+    await waitFor(() => expect(screen.getByTestId("empty")).toBeTruthy());
   });
 });

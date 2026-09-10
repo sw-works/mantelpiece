@@ -13,6 +13,8 @@ export function MemoriesHome({
   onOpenTrip,
   onInvite,
   onAsk,
+  onReview,
+  pendingReviews = 0,
 }: {
   api: TvApi;
   token: string;
@@ -20,6 +22,8 @@ export function MemoriesHome({
   onOpenTrip: (trip: TripSummary) => void;
   onInvite: () => void;
   onAsk?: () => void;
+  onReview?: () => void;
+  pendingReviews?: number;
 }) {
   const [trips, setTrips] = useState<TripSummary[] | null>(null);
   const [seen, setSeen] = useState<Set<string>>(new Set());
@@ -39,6 +43,9 @@ export function MemoriesHome({
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
         <Text style={{ color: theme.fg, fontSize: theme.title, fontWeight: "700" }}>Memories</Text>
         <View style={{ flexDirection: "row", gap: 16 }}>
+          {onReview && (pendingReviews > 0 || true) && (
+            <FocusButton label={pendingReviews > 0 ? `Review changes (${pendingReviews})` : "Review changes"} onPress={onReview} testID="review" />
+          )}
           {onAsk && <FocusButton label="Ask" onPress={onAsk} testID="ask" />}
           <FocusButton label="Add photos" onPress={onInvite} testID="invite" />
         </View>

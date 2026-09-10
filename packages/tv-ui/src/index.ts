@@ -4,6 +4,7 @@ export { App } from "./App";
 export type { AppProps, Route } from "./App";
 export { TvApi, clockHints, creditFor, slides, storyOf } from "./api/client";
 export { Ask } from "./screens/Ask";
+export { ReviewChanges } from "./screens/ReviewChanges";
 export { Slideshow } from "./screens/Slideshow";
 export type { NowShowing } from "./screens/Slideshow";
 export { KeyValueSessionStore, MemorySessionStore, SESSION_KEY, newDeviceId } from "./session";
