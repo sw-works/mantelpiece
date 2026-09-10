@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from .model import Model
-from .narrative import SYSTEM, check_narrative, facts_for, prompt_for, split_days
+from .narrative import SYSTEM, Facts, check_narrative, facts_for, prompt_for, split_days
 from .tools import Tools, Trip
 
 HIGHLIGHTS_IN_PLAYLIST = 12
@@ -89,6 +89,60 @@ def ask_archive(
         household, {"type": "playlist.created", "playlist": playlist, "name": prompt[:60]}
     )
     return AskResult(query, playlist, len(media))
+
+
+DESCRIBE_SYSTEM = (
+    "You answer one question about a family photo for a living-room TV. Use only the facts "
+    "given. One or two sentences. If the facts do not answer the question, say what the "
+    "photo shows instead. Never add a place, date or person that is not listed."
+)
+
+
+@dataclass
+class DescribeResult:
+    mode: str  # describe | nothing
+    answer: str | None
+    media: str | None
+    problems: list[str]
+
+
+def describe_photo(
+    tools: Tools, model: Model, household: str, question: str, tv: str | None = None
+) -> DescribeResult:
+    """Voice question about the photo on screen (F-405, research R3 and R8).
+
+    The stored description answers first, within the Alexa+ budget. Only when there is
+    none does the model speak, from the photo's facts, and its answer goes through the same
+    check as a story (constitution IV)."""
+    now = tools.get_now_showing(household, tv)
+    if now is None:
+        return DescribeResult("nothing", None, None, [])
+    try:
+        stored = tools.describe_photo(household, now.media, question)
+    except KeyError:
+        return DescribeResult("nothing", None, now.media, ["photo not found"])
+    answer: str | None = stored.answer or None
+    problems: list[str] = []
+    if not answer:
+        facts = Facts(
+            places={stored.landmark} if stored.landmark else set(),
+            dates={stored.when} if stored.when else set(),
+            people={stored.taken_by} if stored.taken_by else set(),
+        )
+        prompt = (
+            f"Facts: taken by {stored.taken_by} on {stored.when}"
+            + (f" at {stored.landmark}" if stored.landmark else "")
+            + f".\nQuestion: {question}"
+        )
+        candidate = model.complete(DESCRIBE_SYSTEM, prompt)
+        problems = check_narrative(candidate, facts)
+        answer = None if problems else candidate
+    if answer:
+        tools.push_event(
+            household,
+            {"type": "answer.card", "question": question, "answer": answer, "media": now.media},
+        )
+    return DescribeResult("describe", answer, now.media, problems)
 
 
 def household_patterns(

@@ -15,7 +15,7 @@ from typing import Any
 from .model import Model, bedrock_model
 from .router import handle_event
 from .tools import Tools
-from .workflows import ask_archive
+from .workflows import ask_archive, describe_photo
 
 
 def _plain(value: Any) -> Any:
@@ -26,6 +26,11 @@ def invoke(payload: dict[str, Any], tools: Tools, model: Model) -> dict[str, Any
     if "detail-type" in payload:
         result = handle_event(tools, model, payload["detail-type"], payload.get("detail", {}))
         return {"handled": result is not None, "result": _plain(result)}
+    if "question" in payload:
+        result = describe_photo(
+            tools, model, payload["household"], payload["question"], payload.get("tv")
+        )
+        return {"result": _plain(result)}
     if "prompt" in payload:
         result = ask_archive(
             tools, model, payload["household"], payload["prompt"], payload.get("trip")
