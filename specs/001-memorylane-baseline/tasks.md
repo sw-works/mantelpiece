@@ -118,14 +118,14 @@ policy that every story builds on.
 
 **Independent Test**: upload 50 mixed JPG, HEIC, MOV; progress on phone and TV; thumbnails within a minute; re-upload returns duplicate.
 
-- [ ] T036 [P] [US2] Add `GET /uploads/mine` listing the caller's uploads with state in `services/lambdas/api/src/handlers/uploads.rs`; test in `services/lambdas/api/tests/api.rs`
-- [ ] T037 [P] [US2] Show "duplicate, skipped" for 409 from `/uploads/init` and a retry state for failed parts in `apps/web/src/pages/upload.ts` and `apps/web/src/upload/queue.ts`; test in `apps/web/test/upload.test.ts`
-- [ ] T038 [P] [US2] Emit `upload.progress` per completed file in `services/lambdas/api/src/handlers/uploads.rs` (`done`, `total` per batch) and render it in `packages/tv-ui/src/components/Ticker.tsx`
-- [ ] T039 [US2] Add the poster-frame Lambda `services/lambdas/poster/` (ffmpeg layer, h264/hevc/aac only) invoked from the signal task for videos in `services/lambdas/ingest/src/signal.rs`; layer definition in `infra/lib/memorylane-stack.ts` under 250 MB unzipped (research R5)
-- [ ] T040 [US2] Replace the inline `sfn.Map` with a Distributed Map over an S3 manifest with a per-household concurrency cap in `infra/lib/memorylane-stack.ts` (F-108); extend `infra/test/stack.test.ts`
-- [ ] T041 [US2] Prove idempotent re-run: re-executing a completed batch produces no new records in `services/lambdas/ingest/tests/pipeline.rs` (F-106)
+- [X] T036 [P] [US2] Add `GET /uploads/mine` listing the caller's uploads with state in `services/lambdas/api/src/handlers/uploads.rs`; test in `services/lambdas/api/tests/api.rs`
+- [X] T037 [P] [US2] Show "duplicate, skipped" for 409 from `/uploads/init` and a retry state for failed parts in `apps/web/src/pages/upload.ts` and `apps/web/src/upload/queue.ts`; test in `apps/web/test/upload.test.ts`
+- [X] T038 [P] [US2] Emit `upload.progress` per completed file in `services/lambdas/api/src/handlers/uploads.rs` (`done`, `total` per batch) and render it in `packages/tv-ui/src/components/Ticker.tsx`
+- [X] T039 [US2] Add the poster-frame Lambda `services/lambdas/poster/` (ffmpeg layer, h264/hevc/aac only) invoked from the signal task for videos in `services/lambdas/ingest/src/signal.rs`; layer definition in `infra/lib/memorylane-stack.ts` under 250 MB unzipped (research R5)
+- [X] T040 [US2] Replace the inline `sfn.Map` with a Distributed Map over an S3 manifest with a per-household concurrency cap in `infra/lib/memorylane-stack.ts` (F-108); extend `infra/test/stack.test.ts`
+- [X] T041 [US2] Prove idempotent re-run: re-executing a completed batch produces no new records in `services/lambdas/ingest/tests/pipeline.rs` (F-106)
 
-**Checkpoint**: uploads visible end to end on phone and TV
+**Checkpoint**: uploads visible end to end on phone and TV (code complete 2026-09-09; the ffmpeg layer and Distributed Map are compile- and synth-checked, not deployed)
 
 ---
 

@@ -32,6 +32,7 @@ services/        Rust workspace
   crates/store   Storage and Blobs traits: DynamoDB, S3, in-memory
   lambdas/api    backend API Lambda behind API Gateway
   lambdas/ingest Step Functions tasks: signal, enrich, organize
+  lambdas/poster poster frames for videos (ffmpeg from a Lambda layer)
 agents/          Concierge workflows W1 to W6 for AgentCore Runtime (Python, uv)
 infra/           CDK stack (TypeScript)
 scripts/         tv-walkthrough.sh: Virtual Device key presses and screenshots
@@ -43,6 +44,7 @@ scripts/         tv-walkthrough.sh: Virtual Device key presses and screenshots
 make test        # cargo test, vitest/jest, pytest
 make lint        # rustfmt + clippy, eslint + tsc, ruff
 make build-lambdas   # cargo-lambda, arm64, into services/target/lambda
+scripts/ffmpeg-layer.sh   # static ffmpeg into infra/assets/ffmpeg-layer for the poster Lambda
 make deploy      # cdk deploy (needs AWS credentials and Login with Amazon client id/secret)
 ```
 

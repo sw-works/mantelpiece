@@ -265,3 +265,23 @@ compile-checked only.
   fragment, stored and stripped on arrival; no second sign-in.
 - T035 (Virtual Device run) is blocked until the Vega SDK is installed on the build
   machine.
+
+## 13. US2 uploads (tasks T036 to T041)
+
+- `GET /uploads/mine` lists the caller's own uploads with state, newest first, removed
+  items excluded.
+- Phone: "duplicate, skipped" for a 409 on init; a failed file keeps a Retry button that
+  re-runs the upload from the resume record, so only the missing parts are sent and no new
+  init happens. The TV ticker reads "Uploaded N, organising…" when a batch completes.
+- Videos: the signal task flags `poster: true`; the signal state machine branches to a new
+  `poster` Lambda that runs a static ffmpeg from a layer (`scripts/ffmpeg-layer.sh`,
+  John Van Sickle arm64 build, about 80 MB unpacked, GPL) and writes `poster.jpg`, the thumb
+  and TV renditions and the quality signals, so a video behaves like a still everywhere.
+  Frame extraction is a trait; the test uses a scripted frame. The layer binary is not in
+  git; without it the stack packages a placeholder and the poster step fails at runtime.
+  *Unverified*: ffmpeg on arm64 Lambda, and the codec coverage of that build.
+- F-108: organize writes a keepers manifest to `manifests/<household>/` and the enrich
+  step is a Step Functions Distributed Map over it with four keepers in flight per
+  household execution. Synth-checked in the CDK tests, not deployed.
+- F-106: the pipeline test now asserts that re-running organize over a completed batch
+  adds no media, trips or feed events and rewrites the same manifest shape.
