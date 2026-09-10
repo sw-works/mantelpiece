@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { Api, ApiError } from "../src/api.js";
 import { DuplicateError, uploadFile } from "../src/upload/multipart.js";
-import { runQueue } from "../src/upload/queue.js";
+import { labelFor, retryItem, runQueue } from "../src/upload/queue.js";
 import { fingerprintOf, MemoryResumeStore } from "../src/upload/store.js";
 
 interface Call {
@@ -45,7 +45,7 @@ function fakeBackend(opts: { partSize?: number; failPuts?: number[]; duplicate?:
     if (url.endsWith("/uploads/complete")) return new Response(JSON.stringify({ media_id: (body as { media_id: string }).media_id }), { status: 200 });
     return new Response(JSON.stringify({ error: "no route" }), { status: 404 });
   }) as typeof fetch;
-  return { fetchFn, calls, api: new Api("https://api.test", fetchFn) };
+  return { fetchFn, calls, failPuts, api: new Api("https://api.test", fetchFn) };
 }
 
 function file(name: string, bytes: number): File {
@@ -158,6 +158,38 @@ describe("runQueue", () => {
     const items = await runQueue([file("a.jpg", 10)], { api: dup.api, bearer: "t", store: new MemoryResumeStore(), fetchFn: dup.fetchFn, sleep: noSleep });
     expect(items[0]!.progress.phase).toBe("duplicate");
     expect(items[0]!.error).toContain("duplicate of m0");
+    expect(labelFor(items[0]!)).toBe("duplicate, skipped");
+  });
+
+  it("retries a failed file from its finished parts without a new init", async () => {
+    // Part 3 fails on every attempt the first time round.
+    const b = fakeBackend({ failPuts: [3, 4, 5, 6, 7] });
+    const store = new MemoryResumeStore();
+    const opts = { api: b.api, bearer: "t", store, fetchFn: b.fetchFn, sleep: noSleep };
+    const [item] = await runQueue([file("a.jpg", 2500)], opts);
+    expect(item!.progress.phase).toBe("failed");
+    expect(labelFor(item!)).toMatch(/^failed: part upload failed/);
+    expect(b.calls.filter((c) => c.url.endsWith("/uploads/init"))).toHaveLength(1);
+
+    b.failPuts.clear();
+    const retried = await retryItem(item!, opts, { total: 1, done: 1 });
+    expect(retried.progress.phase).toBe("done");
+    expect(retried.mediaId).toBe("m1");
+    expect(labelFor(retried)).toBe("done");
+    expect(b.calls.filter((c) => c.url.endsWith("/uploads/init"))).toHaveLength(1);
+    const puts = b.calls.filter((c) => c.method === "PUT").map((c) => c.url.split("partNumber=")[1]);
+    expect(puts.slice(-1)).toEqual(["3"]);
+    const complete = b.calls.filter((c) => c.url.endsWith("/uploads/complete")).at(-1)!;
+    expect(complete.body).toMatchObject({ media_id: "m1", batch_done: 1, batch_total: 1 });
+    // A retry on a finished item is a no-op.
+    expect(await retryItem(retried, opts, { total: 1, done: 1 })).toBe(retried);
+  });
+
+  it("labels progress phases for the phone list", () => {
+    const base = { file: file("a.jpg", 1), batchId: "b" };
+    expect(labelFor({ ...base, progress: { phase: "hashing", fraction: 0.5 } })).toBe("checking 50%");
+    expect(labelFor({ ...base, progress: { phase: "uploading", fraction: 0.25 } })).toBe("uploading 25%");
+    expect(labelFor({ ...base, progress: { phase: "failed", fraction: 1 } })).toBe("failed: unknown error");
   });
 });
 

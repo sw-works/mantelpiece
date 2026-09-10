@@ -57,6 +57,10 @@ describe("useDeviceSignIn", () => {
 describe("events feed", () => {
   it("describes events for the ticker", () => {
     expect(describeEvent({ seq: 1, at: "", type: "contribution.received", display_name: "Maya", count: 42 })).toBe("Maya added 42 photos");
+    expect(describeEvent({ seq: 1, at: "", type: "upload.progress", done: 3, total: 42 })).toBe("Uploading 3 of 42");
+    expect(describeEvent({ seq: 1, at: "", type: "upload.progress", done: 42, total: 42 })).toBe("Uploaded 42, organising…");
+    expect(describeEvent({ seq: 1, at: "", type: "membership.joined", member_name: "Ruth's living room" })).toBe("Ruth's living room joined");
+    expect(describeEvent({ seq: 1, at: "", type: "cleanup.proposal", count: 7 })).toBe("7 photos to tidy up");
     expect(describeEvent({ seq: 1, at: "", type: "unknown.thing" })).toBeNull();
   });
 

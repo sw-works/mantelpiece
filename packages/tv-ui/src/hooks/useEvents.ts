@@ -20,7 +20,7 @@ export function describe(event: FeedEvent): string | null {
     case "contribution.received":
       return `${String(event.display_name)} added ${String(event.count)} photos`;
     case "upload.progress":
-      return `Uploading ${String(event.done)} of ${String(event.total)}`;
+      return Number(event.done) >= Number(event.total) ? `Uploaded ${String(event.total)}, organising…` : `Uploading ${String(event.done)} of ${String(event.total)}`;
     case "trip.detected":
       return `New memory: ${String(event.new_media)} photos organised`;
     case "memory.ready":
@@ -29,6 +29,12 @@ export function describe(event: FeedEvent): string | null {
       return `Playlist ready: ${String(event.name)}`;
     case "dedup.proposal":
       return `${String(event.removable)} duplicates found to review`;
+    case "cleanup.proposal":
+      return `${String(event.count)} photos to tidy up`;
+    case "membership.joined":
+      return `${String(event.member_name)} joined`;
+    case "memories.ready":
+      return "New memories for today";
     default:
       return null;
   }
@@ -38,7 +44,7 @@ export function reduce(state: FeedState, events: FeedEvent[], next: number): Fee
   if (events.length === 0) return state.since === next ? state : { ...state, since: next };
   const recent = [...state.recent, ...events].slice(-MAX_RECENT);
   const last = events[events.length - 1]!;
-  const touchesTrips = events.some((e) => ["trip.detected", "memory.ready", "media.removed", "contribution.received"].includes(e.type));
+  const touchesTrips = events.some((e) => ["trip.detected", "memory.ready", "media.removed", "contribution.received", "membership.joined"].includes(e.type));
   return {
     since: next,
     recent,

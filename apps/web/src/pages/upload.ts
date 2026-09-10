@@ -5,7 +5,7 @@ import { Api } from "../api.js";
 import { OWNER_TOKEN_KEY, beginSignIn, completeSignIn, savedTokens, takeOwnerHandoff } from "../auth.js";
 import { loadConfig } from "../config.js";
 import { el, formatBytes, mount } from "../ui.js";
-import { runQueue, type QueueItem } from "../upload/queue.js";
+import { labelFor, retryItem, runQueue, type QueueItem } from "../upload/queue.js";
 import { IndexedDbResumeStore } from "../upload/store.js";
 
 const SESSION = "ml.upload.session";
@@ -121,12 +121,12 @@ function renderUploader(root: HTMLElement, api: Api, session: Session) {
     if (files.length === 0) return;
     input.disabled = true;
     status.textContent = `Uploading ${files.length} file${files.length === 1 ? "" : "s"}…`;
+    let all: readonly QueueItem[] = [];
     const render = (items: readonly QueueItem[]) => {
+      if (items.length >= all.length) all = items;
       list.replaceChildren(
-        ...items.map((it) => {
-          const pct = Math.round(it.progress.fraction * 100);
-          const label = it.error ?? `${it.progress.phase} ${pct}%`;
-          const row = el("li", { class: `item ${it.progress.phase}` }, el("span", { class: "name" }, it.file.name), el("span", { class: "size" }, formatBytes(it.file.size)), el("span", { class: "state" }, label));
+        ...all.map((it, index) => {
+          const row = el("li", { class: `item ${it.progress.phase}` }, el("span", { class: "name" }, it.file.name), el("span", { class: "size" }, formatBytes(it.file.size)), el("span", { class: "state" }, labelFor(it)));
           if (it.mediaId) {
             const remove = el("button", { class: "link" }, "Remove");
             remove.onclick = async () => {
@@ -134,6 +134,15 @@ function renderUploader(root: HTMLElement, api: Api, session: Session) {
               row.remove();
             };
             row.append(remove);
+          }
+          if (it.progress.phase === "failed") {
+            const retry = el("button", { class: "link" }, "Retry");
+            retry.onclick = async () => {
+              retry.disabled = true;
+              await retryItem(it, { api, bearer: session.token, store, onChange: () => render(all) }, { total: all.length, done: index + 1 });
+              render(all);
+            };
+            row.append(retry);
           }
           return row;
         }),
