@@ -5,24 +5,26 @@
 # names follow inputd-cli; the sequence assumes the app is on Onboarding after a fresh
 # install and has been approved from the phone before the Home steps run.
 #
-# Screenshots: gwsi-tool-screenshooter works only on a physical Fire TV (Vega CLI docs). On
-# the Virtual Device the script captures the host screen with macOS `screencapture` instead
-# (SHOT=host), which needs the Virtual Device window in front.
+# Screenshots: gwsi-tool-screenshooter works only on a physical Fire TV and hangs on the
+# Virtual Device; there the script uses the emulator console (scripts/vvd-screenshot.sh,
+# SHOT=vvd, the default when DEVICE is VirtualDevice).
 #
-# Unverified on a device: written from the Vega SDK 0.24 documentation.
+# Verified 2026-09-09 on SDK 0.24.9914: install, launch and the vvd screenshot route. The
+# key-press sequence is still from the documentation only.
 set -euo pipefail
 
 DEVICE="${VVD:-VirtualDevice}"
 OUT="${1:-docs/screens}"
 PAUSE="${WALK_PAUSE:-2}"
-SHOT="${SHOT:-device}" # device (physical Fire TV) or host (Virtual Device window, macOS)
+if [ "$DEVICE" = "VirtualDevice" ]; then DEFAULT_SHOT=vvd; else DEFAULT_SHOT=device; fi
+SHOT="${SHOT:-$DEFAULT_SHOT}" # device (physical Fire TV) or vvd (emulator console)
 mkdir -p "$OUT"
 
 shell() { vega exec vda shell "$@"; }
 press() { shell inputd-cli button_press "$1"; sleep "$PAUSE"; }
 shot() {
-  if [ "$SHOT" = "host" ]; then
-    screencapture -x "$OUT/$1.png"
+  if [ "$SHOT" = "vvd" ]; then
+    "$(dirname "$0")/vvd-screenshot.sh" "$OUT/$1.png"
   else
     shell gwsi-tool-screenshooter "/tmp/walk-$1.png"
     vega device copy-from --device "$DEVICE" --source "/tmp/walk-$1.png"

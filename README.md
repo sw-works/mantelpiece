@@ -82,13 +82,19 @@ pnpm build:vega            # release .vpkg
 make tv-vvd-start          # Virtual Device plus Metro port forward
 make tv-vvd-install        # debug build and install on the Virtual Device
 make tv-vvd-logs           # log stream
+make tv-vvd-shot           # screenshot through the emulator console (scripts/vvd-screenshot.sh)
+make tv-vvd-stop           # stop the Virtual Device
 make tv-walkthrough        # scripts/tv-walkthrough.sh: key presses and screenshots into docs/screens
 ```
 
 The `.vpkg` step and everything on the Virtual Device need the
 [Vega SDK](https://developer.amazon.com/docs/vega/0.24/install-vega-sdk.html) 0.24 with
-the `vega` CLI on `PATH`. Verified so far: the bundle builds locally and contains only the
-kepler React Native. Not yet verified: packaging, install and behaviour on a device.
+the `vega` CLI on `PATH` (`source ~/vega/env`). Verified on the Virtual Device with SDK
+0.24.9914 on 2026-09-09: the debug `.vpkg` builds for aarch64, armv7 and x86_64, installs,
+launches in about 800 ms, renders Onboarding with focus (`docs/screens/`), and Fast Refresh
+pulls the bundle from Metro over the forwarded port. Not yet verified: a physical Fire TV,
+and every screen past Onboarding, which needs a deployed API (the shell has no API base
+yet, so sign-in shows "Network request failed").
 
 Platform-specific code goes in `.kepler.ts` files next to the default implementation (see
 `packages/tv-ui/src/hooks/useRemoteKeys.kepler.ts`); Metro picks them on Vega and falls back

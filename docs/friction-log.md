@@ -29,8 +29,17 @@ what would have helped. Dates are when we hit it.
   system module (exported from `react-native` on kepler 4) but not `react-native-w3cmedia`,
   so narration audio is behind a flag and looks for an `Audio` constructor at runtime.
   A single "what is on the device" manifest per OS version would remove the guessing.
-- **2026-09-09, screenshots.** `gwsi-tool-screenshooter` works on physical devices only;
-  the Virtual Device walkthrough falls back to a host screen capture.
+- **2026-09-09, screenshots.** `gwsi-tool-screenshooter` hangs on the Virtual Device
+  (physical devices only) and a QEMU QMP `screendump` is black because rendering goes
+  through host GL. The Virtual Device turns out to be an Android-emulator fork, and its
+  console on port 5554 (`screenrecord screenshot`) gives a host-rendered PNG. A `vega
+  virtual-device screenshot` command would save the archaeology.
+- **2026-09-09, JavaScript logs.** `console.log` from the app reaches neither the device
+  syslog nor the Metro terminal on React Native 0.83 (DevTools only), so an agent driving
+  the Virtual Device has no text channel for app state; screenshots are the only signal.
+- **2026-09-09, first device run.** Good news: with the SDK installed, the `.vpkg` built,
+  installed and launched on the first attempt, and Fast Refresh worked with the documented
+  three-terminal setup.
 
 ## Amazon ecosystem
 

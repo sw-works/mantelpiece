@@ -1,4 +1,4 @@
-.PHONY: test lint fmt test-rust lint-rust test-node lint-node test-py lint-py build-lambdas deploy tv-vvd-start tv-vvd-install tv-vvd-logs tv-vvd-shot tv-walkthrough
+.PHONY: test lint fmt test-rust lint-rust test-node lint-node test-py lint-py build-lambdas deploy tv-vvd-start tv-vvd-install tv-vvd-logs tv-vvd-shot tv-vvd-stop tv-walkthrough
 
 test: test-rust test-node test-py
 lint: lint-rust lint-node lint-py
@@ -50,13 +50,13 @@ tv-vvd-install:
 tv-vvd-logs:
 	vega device start-log-stream --device $(VVD)
 
-# gwsi-tool-screenshooter runs only on a physical Fire TV (per the Vega CLI docs, not on the
-# Virtual Device); for the Virtual Device capture its window on the host instead.
+# gwsi-tool-screenshooter hangs on the Virtual Device (physical Fire TV only) and a QEMU
+# screendump comes back black; the emulator console on port 5554 renders on the host.
 tv-vvd-shot:
-	mkdir -p $(dir $(TV_SHOT))
-	vega exec vda shell gwsi-tool-screenshooter /tmp/memorylane-shot.png
-	vega device copy-from --device $(VVD) --source /tmp/memorylane-shot.png
-	mv memorylane-shot.png $(TV_SHOT)
+	scripts/vvd-screenshot.sh $(TV_SHOT)
+
+tv-vvd-stop:
+	vega virtual-device stop
 
 tv-walkthrough:
 	scripts/tv-walkthrough.sh
