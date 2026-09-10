@@ -1,8 +1,9 @@
 import * as path from "node:path";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { CfnOutput, Duration, RemovalPolicy, Stack, type StackProps } from "aws-cdk-lib";
 import * as apigw from "aws-cdk-lib/aws-apigatewayv2";
+import * as agentcore from "aws-cdk-lib/aws-bedrockagentcore";
 import { HttpJwtAuthorizer } from "aws-cdk-lib/aws-apigatewayv2-authorizers";
 import { HttpLambdaIntegration } from "aws-cdk-lib/aws-apigatewayv2-integrations";
 import * as cognito from "aws-cdk-lib/aws-cognito";
@@ -12,10 +13,13 @@ import * as targets from "aws-cdk-lib/aws-events-targets";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as s3 from "aws-cdk-lib/aws-s3";
+import * as scheduler from "aws-cdk-lib/aws-scheduler";
+import * as schedulerTargets from "aws-cdk-lib/aws-scheduler-targets";
 import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 import * as sfn from "aws-cdk-lib/aws-stepfunctions";
 import * as sfnTasks from "aws-cdk-lib/aws-stepfunctions-tasks";
 import type { Construct } from "constructs";
+import { toolDefinitions } from "./tools.js";
 
 export interface MemoryLaneStackProps extends StackProps {
   /** Base URL of the sign-in approval page, e.g. https://link.example.com */
@@ -35,6 +39,7 @@ export interface MemoryLaneStackProps extends StackProps {
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const placeholderDir = path.resolve(here, "..", "assets", "placeholder");
+const cedarPolicyPath = path.resolve(here, "..", "policy", "tools.cedar");
 
 export class MemoryLaneStack extends Stack {
   readonly table: dynamodb.Table;
@@ -42,6 +47,7 @@ export class MemoryLaneStack extends Stack {
   readonly bus: events.EventBus;
   readonly userPool: cognito.UserPool;
   readonly api: apigw.HttpApi;
+  readonly gateway: agentcore.CfnGateway;
 
   constructor(scope: Construct, id: string, props: MemoryLaneStackProps) {
     super(scope, id, props);
@@ -153,9 +159,19 @@ export class MemoryLaneStack extends Stack {
     this.table.grantReadWriteData(ingestFn);
     this.bucket.grantReadWrite(ingestFn);
     this.bus.grantPutEventsTo(ingestFn);
+    // Model and map backends behind the store traits (Vision, Faces, Maps). Embeddings
+    // live in the table (DynamoVectors) until S3 Vectors is enabled per region (R7).
     ingestFn.addToRolePolicy(
       new iam.PolicyStatement({
-        actions: ["rekognition:DetectLabels", "rekognition:DetectFaces"],
+        actions: [
+          "rekognition:DetectLabels",
+          "rekognition:DetectFaces",
+          "rekognition:DetectText",
+          "rekognition:IndexFaces",
+          "rekognition:SearchFacesByImage",
+          "bedrock:InvokeModel",
+          "geo-maps:GetStaticMap",
+        ],
         resources: ["*"],
       }),
     );
@@ -240,6 +256,21 @@ export class MemoryLaneStack extends Stack {
     this.table.grantReadWriteData(apiFn);
     this.bucket.grantReadWrite(apiFn);
     organizeMachine.grantStartExecution(apiFn);
+    // People opt-in (Faces), describe_photo fallback (Vision), narration (Speech).
+    apiFn.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: [
+          "rekognition:CreateCollection",
+          "rekognition:DeleteCollection",
+          "rekognition:IndexFaces",
+          "rekognition:SearchFacesByImage",
+          "bedrock:InvokeModel",
+          "polly:SynthesizeSpeech",
+          "geo-maps:GetStaticMap",
+        ],
+        resources: ["*"],
+      }),
+    );
 
     // HTTP API. Everything routes to the API Lambda; two routes require a Cognito JWT.
     this.api = new apigw.HttpApi(this, "Api", {
@@ -258,7 +289,72 @@ export class MemoryLaneStack extends Stack {
     this.api.addRoutes({ path: "/join/amazon", methods: [apigw.HttpMethod.POST], integration, authorizer: jwt });
     this.api.addRoutes({ path: "/{proxy+}", methods: [apigw.HttpMethod.ANY], integration });
 
+    // AgentCore Gateway: the one tool surface for the Concierge and Alexa+ (F-505, W2).
+    // Cedar policy from policy/tools.cedar requires a confirmation token on every
+    // irreversible tool (constitution III). Property values follow the CloudFormation
+    // schema for AWS::BedrockAgentCore; not yet deployed.
+    const policyEngine = new agentcore.CfnPolicyEngine(this, "ToolPolicyEngine", {
+      name: "memorylane_tools",
+      description: "Confirmation tokens for irreversible MemoryLane tools",
+    });
+    new agentcore.CfnPolicy(this, "ToolPolicy", {
+      name: "irreversible_requires_confirmation",
+      policyEngineId: policyEngine.attrPolicyEngineId,
+      description: "Cedar rules from infra/policy/tools.cedar",
+      definition: { cedar: { statement: readFileSync(cedarPolicyPath, "utf8") } },
+    });
+    const gatewayRole = new iam.Role(this, "GatewayRole", {
+      assumedBy: new iam.ServicePrincipal("bedrock-agentcore.amazonaws.com"),
+      description: "Lets the AgentCore Gateway invoke the API Lambda as its tool target",
+    });
+    apiFn.grantInvoke(gatewayRole);
+    this.gateway = new agentcore.CfnGateway(this, "ToolGateway", {
+      name: "memorylane_tools",
+      description: "MemoryLane tools over MCP for the Concierge and Alexa+",
+      roleArn: gatewayRole.roleArn,
+      protocolType: "MCP",
+      protocolConfiguration: { mcp: { supportedVersions: ["2025-11-25"], searchType: "SEMANTIC" } },
+      authorizerType: "CUSTOM_JWT",
+      authorizerConfiguration: {
+        customJwtAuthorizer: {
+          discoveryUrl: `${this.userPool.userPoolProviderUrl}/.well-known/openid-configuration`,
+          allowedClients: [client.userPoolClientId],
+        },
+      },
+      policyEngineConfiguration: { arn: policyEngine.attrPolicyEngineArn, mode: "ENFORCE" },
+    });
+    new agentcore.CfnGatewayTarget(this, "ApiTools", {
+      gatewayIdentifier: this.gateway.attrGatewayIdentifier,
+      name: "api",
+      description: "Every tool in contracts/tools.md, served by the API Lambda",
+      credentialProviderConfigurations: [{ credentialProviderType: "GATEWAY_IAM_ROLE" }],
+      targetConfiguration: {
+        mcp: {
+          lambda: {
+            lambdaArn: apiFn.functionArn,
+            toolSchema: { inlinePayload: toolDefinitions },
+          },
+        },
+      },
+    });
+
+    // Nightly work: one `nightly.tick` on the bus at 03:00 UTC. The Concierge is its only
+    // consumer (W3 Household Patterns, memories_nightly, purge_expired) and fans out per
+    // household in its own local time. No Lambda runs on a timer.
+    new scheduler.Schedule(this, "NightlyTick", {
+      description: "nightly.tick for the Concierge",
+      schedule: scheduler.ScheduleExpression.cron({ minute: "0", hour: "3" }),
+      target: new schedulerTargets.EventBridgePutEvents({
+        eventBus: this.bus,
+        source: "memorylane.schedule",
+        detailType: "nightly.tick",
+        detail: scheduler.ScheduleTargetInput.fromObject({ reason: "nightly" }),
+      }),
+    });
+
     new CfnOutput(this, "ApiUrl", { value: this.api.apiEndpoint });
+    new CfnOutput(this, "GatewayUrl", { value: this.gateway.attrGatewayUrl });
+    new CfnOutput(this, "PolicyEngineArn", { value: policyEngine.attrPolicyEngineArn });
     new CfnOutput(this, "UserPoolId", { value: this.userPool.userPoolId });
     new CfnOutput(this, "UserPoolClientId", { value: client.userPoolClientId });
     new CfnOutput(this, "MediaBucket", { value: this.bucket.bucketName });

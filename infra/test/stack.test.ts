@@ -2,6 +2,7 @@ import { App } from "aws-cdk-lib";
 import { Match, Template } from "aws-cdk-lib/assertions";
 import { describe, expect, it } from "vitest";
 import { MemoryLaneStack } from "../lib/memorylane-stack.js";
+import { irreversibleTools, toolDefinitions } from "../lib/tools.js";
 
 function synth(extra: Partial<ConstructorParameters<typeof MemoryLaneStack>[2]> = {}) {
   const app = new App();
@@ -95,15 +96,62 @@ describe("MemoryLane stack", () => {
     template.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: "ANY /{proxy+}", AuthorizationType: "NONE" });
   });
 
-  it("API Lambda may start the organize machine and the ingest Lambda may call Rekognition", () => {
+  it("API Lambda may start the organize machine and the ingest Lambda may call the model backends", () => {
     template.hasResourceProperties("AWS::IAM::Policy", {
       PolicyDocument: { Statement: Match.arrayWith([Match.objectLike({ Action: "states:StartExecution" })]) },
     });
     template.hasResourceProperties("AWS::IAM::Policy", {
       PolicyDocument: {
-        Statement: Match.arrayWith([Match.objectLike({ Action: ["rekognition:DetectLabels", "rekognition:DetectFaces"] })]),
+        Statement: Match.arrayWith([
+          Match.objectLike({ Action: Match.arrayWith(["rekognition:DetectLabels", "rekognition:DetectText", "bedrock:InvokeModel", "geo-maps:GetStaticMap"]) }),
+        ]),
       },
     });
+    template.hasResourceProperties("AWS::IAM::Policy", {
+      PolicyDocument: {
+        Statement: Match.arrayWith([Match.objectLike({ Action: Match.arrayWith(["rekognition:CreateCollection", "polly:SynthesizeSpeech"]) })]),
+      },
+    });
+  });
+
+  it("exposes every contract tool through one MCP Gateway target on the API Lambda", () => {
+    template.resourceCountIs("AWS::BedrockAgentCore::Gateway", 1);
+    template.hasResourceProperties("AWS::BedrockAgentCore::Gateway", {
+      ProtocolType: "MCP",
+      AuthorizerType: "CUSTOM_JWT",
+      PolicyEngineConfiguration: Match.objectLike({ Mode: "ENFORCE" }),
+    });
+    const targets = template.findResources("AWS::BedrockAgentCore::GatewayTarget");
+    expect(Object.keys(targets)).toHaveLength(1);
+    const target = Object.values(targets)[0];
+    if (!target) throw new Error("no gateway target");
+    const tools = target.Properties.TargetConfiguration.Mcp.Lambda.ToolSchema.InlinePayload as Array<{ Name: string }>;
+    expect(tools.map((t) => t.Name)).toEqual(toolDefinitions.map((t) => t.name));
+    expect(tools.map((t) => t.Name)).toEqual(expect.arrayContaining(["get_now_showing", "describe_photo", "apply_cleanup", "purge_expired"]));
+  });
+
+  it("loads the Cedar policy that gates every irreversible tool", () => {
+    const policies = template.findResources("AWS::BedrockAgentCore::Policy");
+    expect(Object.keys(policies)).toHaveLength(1);
+    const policy = Object.values(policies)[0];
+    if (!policy) throw new Error("no policy");
+    const statement = policy.Properties.Definition.Cedar.Statement as string;
+    for (const tool of irreversibleTools) {
+      expect(statement).toContain(`api___${tool.name}`);
+    }
+    expect(statement).toContain("context.input.confirmation");
+    template.hasResourceProperties("AWS::BedrockAgentCore::PolicyEngine", { Name: "memorylane_tools" });
+  });
+
+  it("emits nightly.tick on the bus from a schedule, with no timer on any Lambda", () => {
+    template.hasResourceProperties("AWS::Scheduler::Schedule", {
+      ScheduleExpression: "cron(0 3 * * ? *)",
+      Target: Match.objectLike({ EventBridgeParameters: { DetailType: "nightly.tick", Source: "memorylane.schedule" } }),
+    });
+    const rules = template.findResources("AWS::Events::Rule");
+    for (const rule of Object.values(rules)) {
+      expect(rule.Properties.ScheduleExpression).toBeUndefined();
+    }
   });
 
   it("federates to Login with Amazon when credentials are given", () => {
