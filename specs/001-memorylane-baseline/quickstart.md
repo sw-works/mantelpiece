@@ -28,9 +28,10 @@ vega device start-log-stream --device VirtualDevice
 Expected: Onboarding screen with code and QR; after phone approval, Memories home; after a
 restart the TV is still signed in (R2).
 
-Scripted walkthrough and screenshots: enable Developer Mode in the device shell
-(`vsm developer-mode enable`), then `inputd-cli button_press KEY_DOWN` and friends, and
-`vega exec vda shell gwsi-tool-screenshooter out.png`.
+Scripted walkthrough and screenshots: `make tv-walkthrough` (enables Developer Mode with
+`vsm developer-mode enable`, drives `inputd-cli button_press KEY_DOWN` and friends). The
+device screenshot tool `gwsi-tool-screenshooter` works only on a physical Fire TV; on the
+Virtual Device run it with `SHOT=host` to capture the window from macOS.
 
 ## Deploy (once per environment)
 

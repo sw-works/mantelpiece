@@ -48,6 +48,33 @@ them; they break `pnpm install --frozen-lockfile`.
 
 Manifest addition required by SDK 0.24: `[os.version] target = "1.2" min = "1.2"`.
 
+Done the same evening (Spec Kit Phase 1, tasks T001 to T007). Findings that changed the plan:
+
+- `@amazon-devices/react-native-kepler` 4.0.1 (`+rn0.83.0`, a full fork of React Native
+  0.83 with `.kepler.js` platform files), `@amazon-devices/kepler-cli-platform` 0.22.14,
+  `@amazon-devices/kepler-module-resolver-preset` 0.1.16 and
+  `@amazon-devices/keplerscript-commonmodules` 1.1.0 are on public npm under `latest`. The
+  private registry and allowlist note was stale. So the constitution VI gate is met by
+  `pnpm install --frozen-lockfile` with no token, and `apps/tv-vega` declares them now.
+- Package shape follows `AmazonAppDev/react-native-multi-tv-helloworld` (RN 0.83): stock
+  `react-native` 0.83.0 plus the kepler package, `@react-native/babel-preset` and
+  `metro-config` 0.83.0, `@react-native-community/cli` 20, `@babel/runtime` 7 (8.0 drops
+  `regenerator`, which `react-devtools-core` still imports).
+- `react-native build-kepler` is deprecated for `build-vega`; `bundle-vega` produces the JS
+  and Hermes bundle without the SDK and runs in CI. The `.vpkg` step needs the `vega` CLI.
+- The React Native CLI rewrites `react-native` imports to the kepler package through its
+  own Metro `resolveRequest`. A project-level `resolveRequest` replaces it and the bundle
+  pulls in stock React Native, which has no `.kepler` variants and fails. The shell's Metro
+  config therefore only sets `watchFolders`, `nodeModulesPaths` and `sourceExts`.
+- Manifest for kepler 4: `runtime-module` is
+  `/com.amazon.kepler.runtime.react_native_kepler_4@IReactNativeKepler_0` and `[needs]`
+  lists `/com.amazon.vega.os@IVega_1_2` and `/com.amazon.kepler.keplerscript_4@IKeplerScript_0`,
+  copied from the sample. *Unverified* on a device.
+- Verified locally: the Debug and Release bundles build, contain the 17 `tv-ui` modules,
+  35 kepler modules and no stock React Native, and pick `useRemoteKeys.kepler.ts`. `packages/tv-ui`
+  tests run against stock React Native 0.83.10 (no 0.83 `@react-native/jest-preset` exists;
+  the preset inside `react-native` is used).
+
 ## 3. Vega Virtual Device in the dev process
 
 VVD ships with the SDK. macOS (Apple Silicon needs `aarch64` builds; Intel Mac support ends
@@ -65,8 +92,11 @@ Uses, in order of value:
    another port. *Unverified* for arbitrary ports.
 4. Scripted walkthroughs and golden screenshots: enable Developer Mode in the device shell
    (`vsm developer-mode enable`), then `inputd-cli button_press KEY_DOWN|KEY_ENTER|KEY_BACK`
-   and `vega exec vda shell gwsi-tool-screenshooter out.png`. SDK 0.24 adds a text dump of
-   the rendered screen and the view hierarchy. Appium Vega Driver is the heavier option.
+   and `vega exec vda shell gwsi-tool-screenshooter out.png` pulled with
+   `vega device copy-from`. Correction from the CLI reference: the screenshooter runs only
+   on a physical Fire TV, so Virtual Device captures come from the host window. SDK 0.24
+   adds a text dump of the rendered screen and the view hierarchy. Appium Vega Driver is
+   the heavier option.
 5. Demo video: rules accept simulator footage. VVD crashes under simultaneous screen, audio
    and video recording when free memory drops under 2 GB; record the real stick if possible.
 
@@ -74,8 +104,9 @@ Not covered by VVD: performance (docs say stick before submission), hardware Bac
 with no handler on the home screen, microphone, Fire OS, CI (needs GUI and KVM). Physical
 stick path: `vega devmode login`, `vega devmode enable-device --code <6 digits>`, `armv7`.
 
-Planned additions: Makefile targets `tv-vvd-start`, `tv-vvd-install`, `tv-vvd-logs`,
-`tv-vvd-shot`; `scripts/tv-walkthrough.sh` writing to `docs/screens/`.
+Added (unverified, no SDK on this machine yet): Makefile targets `tv-vvd-start`,
+`tv-vvd-install`, `tv-vvd-logs`, `tv-vvd-shot`, `tv-walkthrough`; `scripts/tv-walkthrough.sh`
+writing to `docs/screens/`.
 
 ## 4. Amazon Devices Builder Tools (ADBT) installed
 

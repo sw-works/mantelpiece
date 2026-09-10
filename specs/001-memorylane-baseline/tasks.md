@@ -29,7 +29,7 @@ identified, plus the structural TV split.
 | FR-015 (cross-contributor bursts) | `services/crates/ingest/src/burst.rs`, `services/lambdas/ingest/src/organize.rs` | `services/lambdas/ingest/tests/pipeline.rs` |
 | FR-030, FR-033, FR-034, FR-036 (keepers, score, clustering, naming, highlights) | `services/crates/ingest/src/quality.rs`, `services/crates/trips/src/{cluster,naming,highlights}.rs` | unit tests in those files |
 | FR-050, FR-051, FR-054, FR-055 (device code, screens, long-poll, Review Changes) | `services/lambdas/api/src/handlers/{device,events,confirmations}.rs`, `packages/tv-ui/src/screens/*` | `services/lambdas/api/tests/api.rs`, `packages/tv-ui/test/screens.test.tsx` |
-| FR-056 (runs on Vega) | `apps/tv-vega/` after Phase 1 | T035 on the Virtual Device |
+| FR-056 (runs on Vega) | `apps/tv-vega/` (Phase 1 done: bundle builds in CI) | T035 on the Virtual Device |
 | FR-060 (governed tools, memory, event workflows) | `agents/src/memorylane_agents/{gateway,workflows,router}.py` | `agents/tests/test_workflows.py` |
 | FR-071 (per-household isolation) | DynamoDB `pk = household`, `services/lambdas/api/src/app.rs::caller` | `services/lambdas/api/tests/api.rs` |
 
@@ -51,13 +51,13 @@ Monorepo per plan.md: `services/` (Rust), `agents/` (Python), `infra/` (CDK),
 **Purpose**: make the TV app buildable for Vega (research R1, R2) and give every later
 task a place to land.
 
-- [ ] T001 Create `packages/tv-ui/` with `package.json` (`@memorylane/tv-ui`, React Native core peer dep, jest 30, `test`/`lint`/`typecheck` scripts) and move `apps/tv/src/**` and `apps/tv/test/**` into it unchanged; update import paths in `packages/tv-ui/test/*.test.tsx`
-- [ ] T002 Create `apps/tv-vega/` shell: `package.json` with the Vega SDK React Native pin (0.83 if reachable, else 0.72), `kepler` block, `build:vega` and `build:vega:debug` scripts; `index.js` registering `App` from `@memorylane/tv-ui`; move `apps/tv/manifest.toml`, `apps/tv/app.json`, `apps/tv/metro.config.js`, `apps/tv/react-native.config.js` there
-- [ ] T003 Add `[os.version] target = "1.2" min = "1.2"` to `apps/tv-vega/manifest.toml` (research R1)
-- [ ] T004 [P] Add `packages/*` to `pnpm-workspace.yaml` and remove `apps/tv` from the workspace once T001 and T002 build; delete `apps/tv/`
-- [ ] T005 [P] Add Makefile targets `tv-vvd-start`, `tv-vvd-install`, `tv-vvd-logs`, `tv-vvd-shot` in `Makefile` wrapping the `vega` CLI commands from quickstart.md
-- [ ] T006 [P] Add `scripts/tv-walkthrough.sh` that enables Developer Mode, drives `inputd-cli button_press` through Onboarding, Home, Trip and Invite, and saves screenshots to `docs/screens/`
-- [ ] T007 Update `README.md` Fire TV section and `.github/workflows/ci.yml` node job for the new workspace layout: add `apps/tv-vega/.npmrc` pointing `@amazon-devices` at the Vega SDK registry with `${VEGA_NPM_TOKEN}`, add the `VEGA_NPM_TOKEN` repository secret, and make `pnpm install --frozen-lockfile` cover `apps/tv-vega` in CI so constitution VI holds before T030 lands
+- [X] T001 Create `packages/tv-ui/` with `package.json` (`@memorylane/tv-ui`, React Native core peer dep, jest 30, `test`/`lint`/`typecheck` scripts) and move `apps/tv/src/**` and `apps/tv/test/**` into it unchanged; update import paths in `packages/tv-ui/test/*.test.tsx`
+- [X] T002 Create `apps/tv-vega/` shell: `package.json` with the Vega SDK React Native pin (0.83 if reachable, else 0.72), `kepler` block, `build:vega` and `build:vega:debug` scripts; `index.js` registering `App` from `@memorylane/tv-ui`; move `apps/tv/manifest.toml`, `apps/tv/app.json`, `apps/tv/metro.config.js`, `apps/tv/react-native.config.js` there
+- [X] T003 Add `[os.version] target = "1.2" min = "1.2"` to `apps/tv-vega/manifest.toml` (research R1)
+- [X] T004 [P] Add `packages/*` to `pnpm-workspace.yaml` and remove `apps/tv` from the workspace once T001 and T002 build; delete `apps/tv/`
+- [X] T005 [P] Add Makefile targets `tv-vvd-start`, `tv-vvd-install`, `tv-vvd-logs`, `tv-vvd-shot` in `Makefile` wrapping the `vega` CLI commands from quickstart.md
+- [X] T006 [P] Add `scripts/tv-walkthrough.sh` that enables Developer Mode, drives `inputd-cli button_press` through Onboarding, Home, Trip and Invite, and saves screenshots to `docs/screens/`
+- [X] T007 Update `README.md` Fire TV section and `.github/workflows/ci.yml` for the new workspace layout. Found during implementation: `@amazon-devices/react-native-kepler` 4.0.1, `kepler-cli-platform` 0.22.14 and the module resolver preset are on public npm, so no `.npmrc`, registry token or `VEGA_NPM_TOKEN` secret is needed; CI runs `pnpm --filter @memorylane/tv-vega bundle:vega` after `pnpm install --frozen-lockfile`, which satisfies constitution VI before T030 lands
 
 ---
 
@@ -101,7 +101,7 @@ policy that every story builds on.
 
 **Independent Test**: on the Vega Virtual Device, scan the QR with a phone, approve, land on Memories home; restart the app and stay signed in.
 
-- [ ] T030 [US1] (after T007 makes CI install `apps/tv-vega`) Implement `AsyncStorageSessionStore` in `apps/tv-vega/src/sessionStore.ts` using the `@react-native-async-storage/async-storage` alias to `@amazon-devices/react-native-async-storage__async-storage` (package.json `npm:` alias plus `pnpm.overrides` in `apps/tv-vega/package.json` only); inject it into `App` from `apps/tv-vega/index.js`
+- [ ] T030 [US1] Implement `AsyncStorageSessionStore` in `apps/tv-vega/src/sessionStore.ts` using the `@react-native-async-storage/async-storage` alias to `@amazon-devices/react-native-async-storage__async-storage` (package.json `npm:` alias plus `pnpm.overrides` in `apps/tv-vega/package.json` only); inject it into `App` from `apps/tv-vega/index.js`
 - [ ] T031 [P] [US1] Add code expiry and "Get a new code" handling to `packages/tv-ui/src/screens/Onboarding.tsx` and `packages/tv-ui/src/hooks/useDeviceSignIn.ts` (expired state after `expires_at`, one press issues a new code); extend `packages/tv-ui/test/hooks.test.tsx`
 - [ ] T032 [P] [US1] Make the second approval of an already-approved code return 409 "already signed in" in `services/lambdas/api/src/handlers/device.rs`; test in `services/lambdas/api/tests/api.rs`
 - [ ] T033 [P] [US1] After approval, redirect the phone from `apps/web/src/pages/link.ts` to the upload page with the household session (no second sign-in); test in `apps/web/test/auth.test.ts`
