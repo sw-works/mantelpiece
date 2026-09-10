@@ -12,13 +12,12 @@
 
 #![allow(clippy::cast_precision_loss)]
 
-pub mod bus;
 pub mod enrich;
 pub mod organize;
 pub mod signal;
 
 use memorylane_core::ids::{HouseholdId, MediaId};
-use memorylane_store::{Blobs, Storage, StorageError, Vision};
+use memorylane_store::{Blobs, Bus, Maps, Storage, StorageError, Vectors, Vision};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use thiserror::Error;
@@ -58,7 +57,9 @@ pub struct Ingest {
     pub storage: Arc<dyn Storage>,
     pub blobs: Arc<dyn Blobs>,
     pub vision: Arc<dyn Vision>,
-    pub bus: Arc<dyn bus::Bus>,
+    pub vectors: Arc<dyn Vectors>,
+    pub maps: Arc<dyn Maps>,
+    pub bus: Arc<dyn Bus>,
     pub clock: Clock,
 }
 

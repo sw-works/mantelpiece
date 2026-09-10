@@ -8,11 +8,13 @@ use memorylane_core::media::{
     CaptureTime, Enrichment, MediaItem, MediaKind, ProcessingState, Signals, Tag,
 };
 use memorylane_ingest::checksum::sha256_hex;
-use memorylane_ingest_lambda::bus::MemoryBus;
 use memorylane_ingest_lambda::{Ingest, Task};
+use memorylane_store::bus::MemoryBus;
+use memorylane_store::maps::MemoryMaps;
 use memorylane_store::memory::{MemoryBlobs, MemoryStorage};
+use memorylane_store::vectors::MemoryVectors;
 use memorylane_store::vision::MemoryVision;
-use memorylane_store::{Blobs, Storage};
+use memorylane_store::{Blobs, Storage, Vectors};
 use std::collections::BTreeSet;
 use std::sync::Arc;
 use time::macros::datetime;
@@ -23,16 +25,26 @@ struct Harness {
     storage: Arc<MemoryStorage>,
     blobs: Arc<MemoryBlobs>,
     bus: Arc<MemoryBus>,
+    vectors: Arc<MemoryVectors>,
+    maps: Arc<MemoryMaps>,
 }
 
 fn harness(enrichment: Enrichment) -> Harness {
+    harness_with(MemoryVision::with_enrichment(enrichment))
+}
+
+fn harness_with(vision: MemoryVision) -> Harness {
     let storage = Arc::new(MemoryStorage::new());
     let blobs = Arc::new(MemoryBlobs::default());
     let bus = Arc::new(MemoryBus::default());
+    let vectors = Arc::new(MemoryVectors::default());
+    let maps = Arc::new(MemoryMaps::default());
     let ingest = Ingest {
         storage: storage.clone(),
         blobs: blobs.clone(),
-        vision: Arc::new(MemoryVision::with_enrichment(enrichment)),
+        vision: Arc::new(vision),
+        vectors: vectors.clone(),
+        maps: maps.clone(),
         bus: bus.clone(),
         clock: Arc::new(|| datetime!(2026-09-08 10:00:00 UTC)),
     };
@@ -41,6 +53,8 @@ fn harness(enrichment: Enrichment) -> Harness {
         storage,
         blobs,
         bus,
+        vectors,
+        maps,
     }
 }
 
@@ -253,6 +267,22 @@ async fn organize_groups_bursts_builds_trip_and_is_idempotent() {
         trip.name
     );
     assert!(!trip.route.points.is_empty());
+    // F-207: a route map for the trip and each day with GPS, drawn once.
+    assert_eq!(
+        trip.route.map_key.as_deref(),
+        Some(format!("maps/{H}/{}.png", trip.id).as_str())
+    );
+    assert!(h
+        .blobs
+        .get(trip.route.map_key.as_ref().unwrap())
+        .await
+        .is_ok());
+    assert!(trip
+        .days
+        .iter()
+        .all(|d| d.route.points.is_empty() || d.route.map_key.is_some()));
+    let drawn = h.maps.log.lock().unwrap().len();
+    assert!(drawn >= 1);
     assert_eq!(trip.hero, trip.highlights.first().cloned());
     assert!(
         !trip.highlights.contains(&MediaId::new("a")),
@@ -292,6 +322,11 @@ async fn organize_groups_bursts_builds_trip_and_is_idempotent() {
     assert_eq!(
         h.storage.list_trips(&HouseholdId::new(H)).await.unwrap()[0].id,
         trip.id
+    );
+    assert_eq!(
+        h.maps.log.lock().unwrap().len(),
+        drawn,
+        "no new maps on a no-op re-run"
     );
     assert_eq!(h.bus.published.lock().unwrap().len(), 1);
     // F-106: a re-run over a completed batch writes no new records and no new events.
@@ -373,7 +408,12 @@ async fn enrich_runs_on_keepers_and_organize_propagates_to_burst() {
         smile_count: 2,
         ..Enrichment::default()
     };
-    let h = harness(tags.clone());
+    let h = harness_with(MemoryVision {
+        enrichment: tags.clone(),
+        text: vec!["Ichiran".into(), "ラーメン".into()],
+        description: "Landmark: Todai-ji\nThe Great Buddha hall on a bright afternoon.".into(),
+        prompts: std::sync::Mutex::new(vec![]),
+    });
     let kyoto = Some((35.0116, 135.7681));
     let mut items = vec![
         signalled("a", "owner", 0.0, kyoto, 0xFF00_FF00_FF00_FF00, 100.0),
@@ -416,6 +456,39 @@ async fn enrich_runs_on_keepers_and_organize_propagates_to_burst() {
         .await
         .unwrap();
     assert_eq!(done["state"], "enriched");
+    assert_eq!(done["described"], true);
+    let b = h
+        .storage
+        .get_media(&HouseholdId::new(H), &MediaId::new("b"))
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(b.text.as_deref(), Some("Ichiran ラーメン"));
+    let description = b.description.as_ref().expect("description stored");
+    assert_eq!(description.landmark.as_deref(), Some("Todai-ji"));
+    assert_eq!(
+        b.enrichment.landmark.as_ref().map(|t| t.name.as_str()),
+        Some("Todai-ji")
+    );
+    let prompt = h.ingest.vision.describe(b"", "").await.unwrap();
+    assert!(prompt.starts_with("Landmark:"));
+    let prompts = h
+        .storage
+        .get_media(&HouseholdId::new(H), &MediaId::new("b"))
+        .await
+        .unwrap();
+    assert!(prompts.is_some());
+    // The keeper is searchable by its labels and text (F-303).
+    let hits = h
+        .vectors
+        .query_household(
+            &HouseholdId::new(H),
+            &memorylane_ingest::embed::embed_query("temple ichiran"),
+            5,
+        )
+        .await
+        .unwrap();
+    assert_eq!(hits.first().map(|x| x.media.as_str()), Some("b"));
     let again = h
         .ingest
         .run(Task::Enrich {

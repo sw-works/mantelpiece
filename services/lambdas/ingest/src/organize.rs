@@ -95,7 +95,7 @@ pub async fn run(ingest: &Ingest, household: &HouseholdId) -> Result<Output> {
         }
 
         let member_samples: Vec<Sample> = members.iter().map(|s| (*s).clone()).collect();
-        let (trip, new_media, new_contributors) = build_trip(BuildTrip {
+        let (mut trip, new_media, new_contributors) = build_trip(BuildTrip {
             household,
             id: id.clone(),
             start,
@@ -107,10 +107,12 @@ pub async fn run(ingest: &Ingest, household: &HouseholdId) -> Result<Output> {
             pinned: &pinned,
             hidden: &hidden,
             offsets: &offsets,
+            undated: &c.undated,
         });
+        render_maps(ingest, household, &mut trip, previous).await?;
         ingest.storage.put_trip(&trip).await?;
-        for s in &members {
-            if let Some(m) = media.iter_mut().find(|m| m.id == s.id) {
+        for s in members.iter().map(|s| &s.id).chain(c.undated.iter()) {
+            if let Some(m) = media.iter_mut().find(|m| &m.id == s) {
                 m.trip = Some(id.clone());
             }
         }
@@ -213,6 +215,45 @@ fn assign_groups(media: &mut [MediaItem], groups: &[burst::BurstGroup]) {
     }
 }
 
+/// Static route maps for the trip and each day (F-207) through `Maps`. Skipped when the
+/// previous run drew the same number of points, so a no-op organize costs no map calls.
+async fn render_maps(
+    ingest: &Ingest,
+    household: &HouseholdId,
+    trip: &mut Trip,
+    previous: Option<&Trip>,
+) -> Result<()> {
+    let unchanged = |prev: &memorylane_core::trip::Route, now: &memorylane_core::trip::Route| {
+        prev.map_key.is_some() && prev.points.len() == now.points.len()
+    };
+    if trip.route.points.is_empty() {
+        trip.route.map_key = None;
+    } else if let Some(p) = previous.filter(|p| unchanged(&p.route, &trip.route)) {
+        trip.route.map_key.clone_from(&p.route.map_key);
+    } else {
+        let points: Vec<_> = trip.route.points.iter().map(|p| p.at).collect();
+        let png = ingest.maps.route_map(&points, 1280, 720).await?;
+        let key = format!("maps/{household}/{}.png", trip.id);
+        ingest.blobs.put(&key, png, "image/png").await?;
+        trip.route.map_key = Some(key);
+    }
+    for day in &mut trip.days {
+        let prev_day = previous.and_then(|p| p.days.iter().find(|d| d.index == day.index));
+        if day.route.points.is_empty() {
+            day.route.map_key = None;
+        } else if let Some(pd) = prev_day.filter(|pd| unchanged(&pd.route, &day.route)) {
+            day.route.map_key.clone_from(&pd.route.map_key);
+        } else {
+            let points: Vec<_> = day.route.points.iter().map(|p| p.at).collect();
+            let png = ingest.maps.route_map(&points, 1280, 720).await?;
+            let key = format!("maps/{household}/{}/day-{}.png", trip.id, day.index);
+            ingest.blobs.put(&key, png, "image/png").await?;
+            day.route.map_key = Some(key);
+        }
+    }
+    Ok(())
+}
+
 fn to_samples(media: &[MediaItem]) -> Vec<Sample> {
     media
         .iter()
@@ -220,6 +261,7 @@ fn to_samples(media: &[MediaItem]) -> Vec<Sample> {
             id: m.id.clone(),
             contributor: m.contributor.clone(),
             captured: m.sort_instant(),
+            dated: m.captured.is_some() || m.gps.is_some(),
             offset: m
                 .captured
                 .and_then(|c| c.offset_seconds)
@@ -244,12 +286,14 @@ struct BuildTrip<'a> {
     pinned: &'a [MediaId],
     hidden: &'a [MediaId],
     offsets: &'a [memorylane_core::trip::ClockOffset],
+    /// Photos with no capture time, placed at the end of the last day and flagged.
+    undated: &'a [MediaId],
 }
 
 /// Returns the trip, how many of its media are new, and which contributors are new.
 fn build_trip(b: BuildTrip<'_>) -> (Trip, usize, Vec<ContributorId>) {
     let day_index = |i: usize| u32::try_from(i + 1).unwrap_or(u32::MAX);
-    let days: Vec<TripDay> = b
+    let mut days: Vec<TripDay> = b
         .days
         .iter()
         .enumerate()
@@ -267,10 +311,24 @@ fn build_trip(b: BuildTrip<'_>) -> (Trip, usize, Vec<ContributorId>) {
                 media: d.media.clone(),
                 route: route::from_gps(&day_samples, route::Params::default()),
                 title: Some(naming::day_title(day_index(i), landmark.as_deref())),
-                story: None,
+                story: b.previous.and_then(|t| {
+                    t.days
+                        .iter()
+                        .find(|d| d.index == day_index(i))
+                        .and_then(|d| d.story.clone())
+                }),
+                undated: vec![],
             }
         })
         .collect();
+    if let Some(last) = days.last_mut() {
+        for id in b.undated {
+            if !last.media.contains(id) {
+                last.media.push(id.clone());
+            }
+            last.undated.push(id.clone());
+        }
+    }
     let landmark =
         naming::dominant_landmark(b.members.iter().filter_map(|s| s.landmark.as_deref()));
     let picks = highlights::pick(b.members, HIGHLIGHTS_PER_TRIP, b.pinned, b.hidden);
@@ -374,5 +432,6 @@ async fn emit(ingest: &Ingest, household: &HouseholdId, kind: EventKind) -> Resu
         .storage
         .append_event(household, ingest.now(), kind)
         .await?;
-    ingest.bus.publish(&event).await
+    ingest.bus.publish(&event).await?;
+    Ok(())
 }

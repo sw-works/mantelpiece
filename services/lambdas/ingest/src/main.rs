@@ -1,10 +1,12 @@
 //! Lambda entry point for the ingest tasks. The state machine passes a [`Task`] as input.
 
 use lambda_runtime::{run, service_fn, Error, LambdaEvent};
-use memorylane_ingest_lambda::bus::EventBridgeBus;
 use memorylane_ingest_lambda::{Ingest, Task};
+use memorylane_store::bus::EventBridgeBus;
 use memorylane_store::dynamo::DynamoStorage;
+use memorylane_store::maps::LocationMaps;
 use memorylane_store::s3::S3Blobs;
+use memorylane_store::vectors::DynamoVectors;
 use memorylane_store::vision::{AwsVision, MemoryVision};
 use memorylane_store::Vision;
 use std::sync::Arc;
@@ -33,6 +35,8 @@ async fn main() -> Result<(), Error> {
         storage: Arc::new(DynamoStorage::from_config(&aws, env("TABLE_NAME")?)),
         blobs: Arc::new(S3Blobs::from_config(&aws, env("MEDIA_BUCKET")?)),
         vision,
+        vectors: Arc::new(DynamoVectors::from_config(&aws, env("TABLE_NAME")?)),
+        maps: Arc::new(LocationMaps::from_config(&aws)),
         bus: Arc::new(EventBridgeBus::from_config(&aws, env("EVENT_BUS")?)),
         clock: Arc::new(OffsetDateTime::now_utc),
     });

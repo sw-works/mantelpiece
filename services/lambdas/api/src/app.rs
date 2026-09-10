@@ -9,7 +9,7 @@ use crate::error::ApiError;
 use crate::handlers;
 use crate::req::{Method, Req, Resp};
 use crate::tokens::{Claims, Session, Signer};
-use memorylane_store::{Blobs, Storage, Vectors};
+use memorylane_store::{Blobs, Bus, Storage, Vectors};
 
 #[derive(Clone, Debug)]
 pub struct Config {
@@ -43,6 +43,7 @@ pub struct App {
     pub storage: Arc<dyn Storage>,
     pub blobs: Arc<dyn Blobs>,
     pub vectors: Arc<dyn Vectors>,
+    pub bus: Arc<dyn Bus>,
     pub starter: Arc<dyn crate::starter::Starter>,
     pub signer: Signer,
     pub config: Config,
@@ -187,6 +188,13 @@ impl App {
 
             (Method::Get, ["trips"]) => handlers::trips::list(self, req).await,
             (Method::Get, ["trips", trip]) => handlers::trips::get(self, req, trip).await,
+            (Method::Get, ["trips", trip, "map"]) => handlers::trips::map(self, req, trip).await,
+            (Method::Post, ["trips", trip, "narrative"]) => {
+                handlers::trips::save_narrative(self, req, trip).await
+            }
+            (Method::Post, ["trips", trip, "narrative", "regenerate"]) => {
+                handlers::trips::regenerate(self, req, trip).await
+            }
             // Read-only web view by trip code, no session (F-159).
             (Method::Get, ["view"]) => handlers::trips::view(self, req).await,
 
@@ -197,6 +205,9 @@ impl App {
             }
             (Method::Post, ["media", media, "hide"]) => {
                 handlers::media::set_flag(self, req, media, "hide").await
+            }
+            (Method::Post, ["media", media, "keeper"]) => {
+                handlers::media::set_keeper(self, req, media).await
             }
 
             (Method::Get, ["contributors"]) => handlers::contributors::list(self, req).await,

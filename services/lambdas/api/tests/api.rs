@@ -8,6 +8,7 @@ use memorylane_api::starter::MemoryStarter;
 use memorylane_api::tokens::Signer;
 use memorylane_core::ids::{HouseholdId, MediaId, TripId};
 use memorylane_core::trip::{Route, Trip};
+use memorylane_store::bus::MemoryBus;
 use memorylane_store::memory::{MemoryBlobs, MemoryStorage};
 use memorylane_store::vectors::MemoryVectors;
 use memorylane_store::Storage;
@@ -21,6 +22,7 @@ struct Harness {
     app: App,
     storage: Arc<MemoryStorage>,
     blobs: Arc<MemoryBlobs>,
+    bus: Arc<MemoryBus>,
     starter: Arc<MemoryStarter>,
     now: Arc<Mutex<OffsetDateTime>>,
 }
@@ -28,6 +30,7 @@ struct Harness {
 fn harness() -> Harness {
     let storage = Arc::new(MemoryStorage::new());
     let blobs = Arc::new(MemoryBlobs::default());
+    let bus = Arc::new(MemoryBus::default());
     let starter = Arc::new(MemoryStarter::default());
     let now = Arc::new(Mutex::new(datetime!(2026-09-08 10:00:00 UTC)));
     let clock_now = now.clone();
@@ -35,6 +38,7 @@ fn harness() -> Harness {
         storage: storage.clone(),
         blobs: blobs.clone(),
         vectors: Arc::new(MemoryVectors::default()),
+        bus: bus.clone(),
         starter: starter.clone(),
         signer: Signer::new("test-secret"),
         config: Config {
@@ -48,9 +52,191 @@ fn harness() -> Harness {
         app,
         storage,
         blobs,
+        bus,
         starter,
         now,
     }
+}
+
+#[tokio::test]
+async fn narratives_are_checked_stored_per_day_and_regenerated_through_the_bus() {
+    let h = harness();
+    let mut kyoto = trip("amzn-owner", "kyoto");
+    kyoto.contributors = vec![memorylane_core::ids::ContributorId::new("amzn-owner")];
+    kyoto.days = (1..=2)
+        .map(|i| memorylane_core::trip::TripDay {
+            index: i,
+            date: time::macros::date!(2026 - 04 - 03) + Duration::days(i64::from(i) - 1),
+            media: vec![],
+            route: Route::default(),
+            title: Some(if i == 1 {
+                "Day 1: Kinkaku-ji".into()
+            } else {
+                "Day 2".into()
+            }),
+            story: None,
+            undated: vec![],
+        })
+        .collect();
+    h.storage.put_trip(&kyoto).await.unwrap();
+    h.storage
+        .put_contributor(&memorylane_core::contributor::Contributor::owner(
+            HouseholdId::new("amzn-owner"),
+            "Hanyu",
+            h.app.now(),
+        ))
+        .await
+        .unwrap();
+
+    let bad = h
+        .owner(
+            Method::Post,
+            "/trips/kyoto/narrative",
+            Some(json!({ "text": "Grandma flew in from Osaka in May.", "model_id": "nova" })),
+        )
+        .await;
+    assert_eq!(bad.status, 422, "{}", bad.body);
+    assert_eq!(bad.body["check"], "withheld");
+    let stored = h
+        .storage
+        .get_trip(&HouseholdId::new("amzn-owner"), &TripId::new("kyoto"))
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(stored.narrative.as_ref().map(|n| n.shown()), Some(None));
+    let shown = h.owner(Method::Get, "/trips/kyoto", None).await;
+    assert_eq!(shown.body["narrative"]["check"], "withheld");
+
+    let good = h
+        .owner(
+            Method::Post,
+            "/trips/kyoto/narrative",
+            Some(json!({
+                "text": "Hanyu started at Kinkaku-ji in April. The second day was quiet.",
+                "model_id": "nova",
+                "stories": ["Hanyu started at Kinkaku-ji in April.", "The second day was quiet."]
+            })),
+        )
+        .await;
+    assert_eq!(good.status, 200, "{}", good.body);
+    let stored = h
+        .storage
+        .get_trip(&HouseholdId::new("amzn-owner"), &TripId::new("kyoto"))
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        stored.days[1].story.as_deref(),
+        Some("The second day was quiet.")
+    );
+    assert!(stored.narrative.as_ref().unwrap().shown().is_some());
+
+    let (maya, _) = h.guest("Maya").await;
+    assert_eq!(
+        h.bearer(
+            Method::Post,
+            "/trips/kyoto/narrative/regenerate",
+            None,
+            &maya
+        )
+        .await
+        .status,
+        403
+    );
+    let again = h
+        .owner(Method::Post, "/trips/kyoto/narrative/regenerate", None)
+        .await;
+    assert_eq!(again.status, 200, "{}", again.body);
+    let stored = h
+        .storage
+        .get_trip(&HouseholdId::new("amzn-owner"), &TripId::new("kyoto"))
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(stored.narrative.is_none());
+    {
+        let published = h.bus.published.lock().unwrap();
+        assert_eq!(published.len(), 1);
+        assert_eq!(published[0].detail_type(), "trip.detected");
+    }
+    assert_eq!(
+        h.owner(Method::Get, "/trips/kyoto/map", None).await.status,
+        404,
+        "no map until organize drew one"
+    );
+}
+
+#[tokio::test]
+async fn keeper_moves_within_a_burst_and_non_keepers_inherit() {
+    let h = harness();
+    let first = h
+        .owner(
+            Method::Post,
+            "/uploads/init",
+            Some(json!({ "filename": "a.jpg", "bytes": 10, "sha256": sha(1) })),
+        )
+        .await;
+    let second = h
+        .owner(
+            Method::Post,
+            "/uploads/init",
+            Some(json!({ "filename": "b.jpg", "bytes": 10, "sha256": sha(2) })),
+        )
+        .await;
+    let (a, b) = (
+        MediaId::new(first.body["media_id"].as_str().unwrap()),
+        MediaId::new(second.body["media_id"].as_str().unwrap()),
+    );
+    for (id, keeper) in [(&a, true), (&b, false)] {
+        let mut m = h
+            .storage
+            .get_media(&HouseholdId::new("amzn-owner"), id)
+            .await
+            .unwrap()
+            .unwrap();
+        m.burst_group = Some("g1".into());
+        m.is_keeper = keeper;
+        if !keeper {
+            m.state = memorylane_core::media::ProcessingState::Enriched;
+            m.enrichment.scene_tags = vec![memorylane_core::media::Tag {
+                name: "Temple".into(),
+                confidence: 0.9,
+            }];
+        }
+        h.storage.put_media(&m).await.unwrap();
+    }
+    let moved = h
+        .owner(Method::Post, &format!("/media/{b}/keeper"), None)
+        .await;
+    assert_eq!(moved.status, 200, "{}", moved.body);
+    assert_eq!(moved.body["changed"], true);
+    assert_eq!(moved.body["previous"], a.as_str());
+    let a_now = h
+        .storage
+        .get_media(&HouseholdId::new("amzn-owner"), &a)
+        .await
+        .unwrap()
+        .unwrap();
+    let b_now = h
+        .storage
+        .get_media(&HouseholdId::new("amzn-owner"), &b)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(b_now.is_keeper && !a_now.is_keeper);
+    assert_eq!(a_now.enrichment.inherited_from, Some(b.clone()));
+    assert_eq!(a_now.enrichment.scene_tags.len(), 1);
+    let same = h
+        .owner(Method::Post, &format!("/media/{b}/keeper"), None)
+        .await;
+    assert_eq!(same.body["changed"], false);
+    let (maya, _) = h.guest("Maya").await;
+    assert_eq!(
+        h.bearer(Method::Post, &format!("/media/{a}/keeper"), None, &maya)
+            .await
+            .status,
+        403
+    );
 }
 
 impl Harness {
@@ -603,6 +789,7 @@ async fn removing_media_cascades_out_of_trips_and_playlists_but_keeps_the_origin
         route: Route::default(),
         title: None,
         story: None,
+        undated: vec![],
     }];
     kyoto.highlights = vec![gone.clone(), kept.clone()];
     kyoto.hero = Some(gone.clone());

@@ -6,6 +6,7 @@ use memorylane_api::app::{App, Config};
 use memorylane_api::req::{Jwt, Method, Req};
 use memorylane_api::starter::SfnStarter;
 use memorylane_api::tokens::Signer;
+use memorylane_store::bus::EventBridgeBus;
 use memorylane_store::dynamo::DynamoStorage;
 use memorylane_store::s3::S3Blobs;
 use memorylane_store::vectors::DynamoVectors;
@@ -82,6 +83,7 @@ async fn main() -> Result<(), Error> {
         storage: Arc::new(DynamoStorage::from_config(&aws, env("TABLE_NAME")?)),
         blobs: Arc::new(S3Blobs::from_config(&aws, env("MEDIA_BUCKET")?)),
         vectors: Arc::new(DynamoVectors::from_config(&aws, env("TABLE_NAME")?)),
+        bus: Arc::new(EventBridgeBus::from_config(&aws, env("EVENT_BUS")?)),
         starter: Arc::new(SfnStarter::from_config(
             &aws,
             env("ORGANIZE_STATE_MACHINE_ARN")?,

@@ -2,7 +2,8 @@
 
 use memorylane_core::events::EventKind;
 use memorylane_core::ids::{HouseholdId, MediaId};
-use memorylane_core::media::MediaItem;
+use memorylane_core::media::{MediaItem, ProcessingState};
+use memorylane_ingest::embed;
 use serde_json::json;
 
 use crate::app::{App, Caller};
@@ -162,4 +163,73 @@ pub async fn set_flag(app: &App, req: &Req, id: &str, flag: &str) -> Result<Resp
     }
     app.storage.put_media(&media).await?;
     Resp::ok(json!({ "media_id": media.id, "pinned": media.pinned, "hidden": media.hidden }))
+}
+
+/// `POST /media/{media}/keeper` (F-201, F-164): make this item the keeper of its burst
+/// group. Owner or co-editor of the trip. Non-keepers re-inherit tags and the embedding
+/// index follows the keeper.
+pub async fn set_keeper(app: &App, req: &Req, id: &str) -> Result<Resp, ApiError> {
+    let id = MediaId::new(id);
+    let caller = app.caller(req)?;
+    let household = caller.household().clone();
+    let media = app
+        .storage
+        .get_media(&household, &id)
+        .await?
+        .filter(|m| !m.is_removed())
+        .ok_or_else(|| ApiError::not_found("unknown media"))?;
+    match &media.trip {
+        Some(trip) => {
+            app.owner_or_co_editor(req, trip).await?;
+        }
+        None => {
+            app.owner(req)?;
+        }
+    }
+    let Some(group) = media.burst_group.clone() else {
+        return Resp::ok(json!({ "keeper": media.id, "group": null, "members": 1 }));
+    };
+    let mut members: Vec<MediaItem> = app
+        .storage
+        .list_media(&household)
+        .await?
+        .into_iter()
+        .filter(|m| m.burst_group.as_deref() == Some(group.as_str()) && !m.is_removed())
+        .collect();
+    let old_keeper = members.iter().find(|m| m.is_keeper).map(|m| m.id.clone());
+    if old_keeper.as_ref() == Some(&id) {
+        return Resp::ok(
+            json!({ "keeper": id, "group": group, "members": members.len(), "changed": false }),
+        );
+    }
+    let new_enrichment = media.enrichment.clone();
+    let new_enriched = media.state == ProcessingState::Enriched;
+    for m in &mut members {
+        m.is_keeper = m.id == id;
+        if !m.is_keeper && new_enriched {
+            m.enrichment = new_enrichment.clone();
+            m.enrichment.inherited_from = Some(id.clone());
+        }
+        if m.is_keeper {
+            m.enrichment.inherited_from = None;
+        }
+        app.storage.put_media(m).await?;
+    }
+    if let Some(old) = &old_keeper {
+        app.vectors.delete(&household, old).await?;
+    }
+    if new_enriched {
+        let vector = embed::embed_media(
+            &new_enrichment.scene_tags,
+            new_enrichment.landmark.as_ref().map(|t| t.name.as_str()),
+            media.text.as_deref(),
+            media.description.as_ref().map(|d| d.text.as_str()),
+        );
+        app.vectors
+            .upsert(&household, media.trip.as_ref(), &id, &vector)
+            .await?;
+    }
+    Resp::ok(
+        json!({ "keeper": id, "group": group, "members": members.len(), "changed": true, "previous": old_keeper }),
+    )
 }
