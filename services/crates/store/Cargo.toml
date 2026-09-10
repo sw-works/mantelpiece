@@ -21,6 +21,7 @@ aws-sdk-bedrockruntime.workspace = true
 aws-sdk-s3vectors.workspace = true
 aws-sdk-geomaps.workspace = true
 aws-sdk-polly.workspace = true
+aws-sdk-eventbridge.workspace = true
 aws-smithy-types.workspace = true
 serde_dynamo.workspace = true
 

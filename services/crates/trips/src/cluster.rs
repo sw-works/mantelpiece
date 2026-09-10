@@ -4,7 +4,9 @@
 //! unless the time gap or the distance exceeds the event thresholds; consecutive events
 //! belong to the same trip unless the gap exceeds the trip threshold. A trip must span
 //! at least two local calendar days; shorter clusters are day outings and are returned
-//! separately so the caller can still show them.
+//! separately so the caller can still show them. Samples with no capture time never
+//! shape a cluster: they are attached to the nearest cluster by upload time and listed as
+//! `undated` so the caller can flag them.
 
 use crate::Sample;
 use memorylane_core::ids::MediaId;
@@ -49,18 +51,23 @@ pub struct Cluster {
     pub events: Vec<Event>,
     pub days: Vec<Day>,
     pub is_trip: bool,
+    /// Media without a capture time whose upload time falls nearest this cluster.
+    pub undated: Vec<MediaId>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Clustering {
-    /// Input samples sorted by capture time; indices elsewhere refer to this.
+    /// Dated input samples sorted by capture time; indices elsewhere refer to this.
     pub sorted: Vec<Sample>,
     pub clusters: Vec<Cluster>,
+    /// Undated media with no cluster to attach to.
+    pub unplaced: Vec<MediaId>,
 }
 
 pub fn cluster(samples: &[Sample], params: Params) -> Clustering {
-    let mut sorted = samples.to_vec();
+    let mut sorted: Vec<Sample> = samples.iter().filter(|s| s.dated).cloned().collect();
     sorted.sort_by_key(|s| s.captured);
+    let undated: Vec<&Sample> = samples.iter().filter(|s| !s.dated).collect();
 
     let mut clusters = Vec::new();
     let mut current: Vec<usize> = Vec::new();
@@ -75,7 +82,34 @@ pub fn cluster(samples: &[Sample], params: Params) -> Clustering {
     if !current.is_empty() {
         clusters.push(finish(&sorted, current, params));
     }
-    Clustering { sorted, clusters }
+
+    let mut unplaced = Vec::new();
+    for s in undated {
+        let nearest = clusters
+            .iter_mut()
+            .map(|c| {
+                let first = sorted[c.sample_indices[0]].captured;
+                let last = sorted[*c.sample_indices.last().expect("non-empty")].captured;
+                let distance = if s.captured < first {
+                    first - s.captured
+                } else if s.captured > last {
+                    s.captured - last
+                } else {
+                    Duration::ZERO
+                };
+                (distance, c)
+            })
+            .min_by_key(|(d, _)| *d);
+        match nearest {
+            Some((_, c)) => c.undated.push(s.id.clone()),
+            None => unplaced.push(s.id.clone()),
+        }
+    }
+    Clustering {
+        sorted,
+        clusters,
+        unplaced,
+    }
 }
 
 fn finish(sorted: &[Sample], indices: Vec<usize>, params: Params) -> Cluster {
@@ -122,6 +156,7 @@ fn finish(sorted: &[Sample], indices: Vec<usize>, params: Params) -> Cluster {
         events,
         days,
         is_trip,
+        undated: vec![],
     }
 }
 
@@ -192,5 +227,34 @@ mod tests {
     #[test]
     fn empty() {
         assert!(cluster(&[], Params::default()).clusters.is_empty());
+    }
+
+    #[test]
+    fn undated_media_attach_to_the_nearest_trip_without_shaping_it() {
+        let kyoto = Some((35.0116, 135.7681));
+        let mut scan = sample("scan", 24.0 * 3.0, None); // uploaded three days after the trip
+        scan.dated = false;
+        let mut old = sample("old", 24.0 * 40.0, None); // uploaded near the later outing
+        old.dated = false;
+        let samples = vec![
+            sample("a", 0.0, kyoto),
+            sample("b", 24.0, kyoto),
+            scan,
+            sample("z", 24.0 * 41.0, None),
+            old,
+        ];
+        let c = cluster(&samples, Params::default());
+        assert_eq!(c.sorted.len(), 3, "undated samples are not sorted in");
+        assert_eq!(c.clusters.len(), 2);
+        assert_eq!(c.clusters[0].undated, vec![MediaId::new("scan")]);
+        assert_eq!(c.clusters[0].days.len(), 2, "an undated photo adds no day");
+        assert_eq!(c.clusters[1].undated, vec![MediaId::new("old")]);
+        assert!(c.unplaced.is_empty());
+        let mut lonely = sample("lonely", 0.0, None);
+        lonely.dated = false;
+        assert_eq!(
+            cluster(&[lonely], Params::default()).unplaced,
+            vec![MediaId::new("lonely")]
+        );
     }
 }

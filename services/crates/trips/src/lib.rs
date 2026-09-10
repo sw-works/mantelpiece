@@ -30,6 +30,8 @@ pub struct Sample {
     pub score: f32,
     pub burst_group: Option<String>,
     pub landmark: Option<String>,
+    /// False when the camera wrote no timestamp and `captured` is the upload instant.
+    pub dated: bool,
 }
 
 impl Sample {
@@ -59,6 +61,7 @@ pub(crate) mod fixtures {
             score: 5.0,
             burst_group: None,
             landmark: None,
+            dated: true,
         }
     }
 }

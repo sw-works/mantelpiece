@@ -15,6 +15,7 @@
 pub mod burst;
 pub mod checksum;
 pub mod decode;
+pub mod embed;
 pub mod exif;
 pub mod phash;
 pub mod quality;

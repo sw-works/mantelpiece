@@ -13,6 +13,7 @@ pub mod household;
 pub mod ids;
 pub mod media;
 pub mod membership;
+pub mod narrative_check;
 pub mod person;
 pub mod presence;
 pub mod proposal;

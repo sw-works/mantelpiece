@@ -32,6 +32,9 @@ pub struct TripDay {
     /// The narrative paragraph for this day, split out for narration sync (F-709).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub story: Option<String>,
+    /// Media with no capture time or GPS, placed here by upload time (edge case, US4).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub undated: Vec<MediaId>,
 }
 
 /// Outcome of the place-and-date check every story goes through (F-301).

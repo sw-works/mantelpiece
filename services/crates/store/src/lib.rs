@@ -5,6 +5,7 @@
 //! descriptions), [`Maps`] (Amazon Location static maps) and [`Speech`] (Polly).
 
 pub mod blobs;
+pub mod bus;
 pub mod dynamo;
 pub mod faces;
 pub mod maps;
@@ -16,6 +17,7 @@ pub mod vectors;
 pub mod vision;
 
 pub use blobs::{Blobs, CompletedPart};
+pub use bus::Bus;
 pub use faces::Faces;
 pub use maps::Maps;
 pub use speech::Speech;
