@@ -3,6 +3,7 @@ import { Ask } from "../src/screens/Ask";
 import { Highlights } from "../src/screens/Highlights";
 import { Invite } from "../src/screens/Invite";
 import { JoinTrip } from "../src/screens/JoinTrip";
+import { MapView } from "../src/screens/MapView";
 import { MemoriesHome } from "../src/screens/MemoriesHome";
 import { Onboarding } from "../src/screens/Onboarding";
 import { ReviewChanges } from "../src/screens/ReviewChanges";
@@ -86,6 +87,38 @@ describe("screens", () => {
     await fireEvent.press(screen.getByTestId("clear"));
     await fireEvent.changeText(screen.getByTestId("code"), "badbad");
     await waitFor(() => expect(screen.getByTestId("error")).toBeTruthy());
+  });
+
+  it("MemoriesHome shows On this day and Then and now when the archive has history", async () => {
+    const api = new FakeApi();
+    api.tripList = [trip];
+    api.memories = {
+      date: "2026-09-08",
+      on_this_day: ["m1", "m2"],
+      then_and_now: [{ then: "m1", now: "m4", lat: 35, lon: 135.7, years_apart: 2 }],
+      best_of_month: { year: 2026, month: "August", media: [] },
+      best_of_year: { year: 2025, media: [] },
+    };
+    const onPlay = jest.fn();
+    await render(<MemoriesHome api={api} token="t" tripsVersion={0} onOpenTrip={() => undefined} onInvite={() => undefined} onPlay={onPlay} onMap={() => undefined} />);
+    await waitFor(() => expect(screen.getByTestId("on-this-day")).toBeTruthy());
+    expect(screen.getByTestId("then-and-now-line").props.children).toBe("Same place, 2 years apart");
+    await fireEvent.press(screen.getByTestId("play-on-this-day"));
+    expect(onPlay).toHaveBeenCalledWith(expect.objectContaining({ highlights: ["m1", "m2"] }));
+    expect(screen.getByTestId("map")).toBeTruthy();
+  });
+
+  it("MapView draws the pins and opens a trip", async () => {
+    const api = new FakeApi();
+    api.mapData = { url: "https://cdn.test/all.png", pins: [{ trip: "kyoto", name: "Kyoto, April 2026", lat: 35, lon: 135.7, start: "2026-04-03" }] };
+    const onOpen = jest.fn();
+    await render(<MapView api={api} token="t" onOpenTrip={onOpen} onBack={() => undefined} />);
+    await waitFor(() => expect(screen.getByTestId("map-image")).toBeTruthy());
+    await fireEvent.press(screen.getByText("Kyoto, April 2026"));
+    expect(onOpen).toHaveBeenCalledWith("kyoto");
+    api.mapData = { url: null, pins: [] };
+    await render(<MapView api={api} token="t" onOpenTrip={onOpen} onBack={() => undefined} />);
+    await waitFor(() => expect(screen.getByTestId("empty")).toBeTruthy());
   });
 
   it("MemoriesHome explains the empty state", async () => {
@@ -178,6 +211,7 @@ describe("screens", () => {
     const kyoto = { ...trip, days: [{ index: 1, date: "2026-04-03", media: ["m1"], title: "Day 1", route: { points: [], inferred: false, map_key: null } }], narrative: null, route: { points: [], inferred: false, map_key: null } };
     await render(<Slideshow api={api} token="t" trip={kyoto} onBack={() => undefined} answer={{ question: "what's that statue", answer: "The Great Buddha at Todai-ji." }} />);
     expect(screen.getByTestId("answer").props.children).toBe("The Great Buddha at Todai-ji.");
+    expect(screen.getByTestId("ken-burns")).toBeTruthy();
   });
 
   it("Slideshow advances, pauses, jumps days and reports presence", async () => {

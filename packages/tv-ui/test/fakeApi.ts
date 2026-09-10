@@ -75,6 +75,17 @@ export class FakeApi extends TvApi {
     this.calls.push(`role ${tripId} ${contributor} ${role}`);
     return { contributor, role };
   }
+  memories: import("../src/api/client").MemoriesHomeView | null = null;
+  override async memoriesHome() {
+    this.calls.push("memories");
+    if (!this.memories) throw new Error("no memories");
+    return this.memories;
+  }
+  mapData: import("../src/api/client").MapView = { url: null, pins: [] };
+  override async map() {
+    this.calls.push("map");
+    return this.mapData;
+  }
   override async setKeeper(_token: string, mediaId: string) {
     this.calls.push(`keeper ${mediaId}`);
     return { keeper: mediaId, changed: true };

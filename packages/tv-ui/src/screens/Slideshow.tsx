@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Text, View } from "react-native";
 import { slides as slidesOf, type Trip, type TvApi } from "../api/client";
 import { FocusButton } from "../components/FocusButton";
+import { KenBurns } from "../components/KenBurns";
 import { RemoteImage } from "../components/RemoteImage";
 import { useRemoteKeys } from "../hooks/useRemoteKeys";
 import { theme } from "../theme";
@@ -80,7 +81,9 @@ export function Slideshow({
   const dayInfo = trip.days.find((d) => d.index === current.day);
   return (
     <View style={{ flex: 1, backgroundColor: "#000" }}>
-      <RemoteImage api={api} token={token} mediaId={current.media} rendition="tv" width={1920} height={1080} />
+      <KenBurns slideKey={current.media} paused={paused} durationMs={intervalMs}>
+        <RemoteImage api={api} token={token} mediaId={current.media} rendition="tv" width={1920} height={1080} />
+      </KenBurns>
       {answer && (
         <View testID="answer-card" style={{ position: "absolute", top: theme.safe.y, left: theme.safe.x, right: theme.safe.x, padding: 24, borderRadius: theme.radius, backgroundColor: "#000c", gap: 8 }}>
           <Text style={{ color: theme.muted, fontSize: theme.small }}>{answer.question}</Text>

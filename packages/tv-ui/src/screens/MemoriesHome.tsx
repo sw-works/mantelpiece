@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
-import { type TripSummary, type TvApi } from "../api/client";
+import { playlistAsTrip, type MemoriesHomeView, type Trip, type TripSummary, type TvApi } from "../api/client";
 import { FocusButton } from "../components/FocusButton";
 import { RemoteImage } from "../components/RemoteImage";
 import { theme } from "../theme";
@@ -17,6 +17,8 @@ export function MemoriesHome({
   pendingReviews = 0,
   onJoin,
   onLeave,
+  onMap,
+  onPlay,
 }: {
   api: TvApi;
   token: string;
@@ -28,8 +30,21 @@ export function MemoriesHome({
   pendingReviews?: number;
   onJoin?: () => void;
   onLeave?: (trip: TripSummary) => Promise<void> | void;
+  onMap?: () => void;
+  onPlay?: (trip: Trip) => void;
 }) {
   const [trips, setTrips] = useState<TripSummary[] | null>(null);
+  const [memories, setMemories] = useState<MemoriesHomeView | null>(null);
+  useEffect(() => {
+    let alive = true;
+    api
+      .memoriesHome(token)
+      .then((m) => alive && setMemories(m))
+      .catch(() => alive && setMemories(null));
+    return () => {
+      alive = false;
+    };
+  }, [api, token, tripsVersion]);
   const [seen, setSeen] = useState<Set<string>>(new Set());
   useEffect(() => {
     let alive = true;
@@ -50,6 +65,7 @@ export function MemoriesHome({
           {onReview && (pendingReviews > 0 || true) && (
             <FocusButton label={pendingReviews > 0 ? `Review changes (${pendingReviews})` : "Review changes"} onPress={onReview} testID="review" />
           )}
+          {onMap && <FocusButton label="Map" onPress={onMap} testID="map" />}
           {onJoin && <FocusButton label="Join a trip" onPress={onJoin} testID="join" />}
           {onAsk && <FocusButton label="Ask" onPress={onAsk} testID="ask" />}
           <FocusButton label="Add photos" onPress={onInvite} testID="invite" />
@@ -62,6 +78,29 @@ export function MemoriesHome({
         </Text>
       )}
       <ScrollView>
+        {memories && memories.on_this_day.length > 0 && (
+          <View testID="on-this-day" style={{ gap: 8, marginBottom: theme.gap }}>
+            <View style={{ flexDirection: "row", gap: 16, alignItems: "center" }}>
+              <Text style={{ color: theme.fg, fontSize: 34, fontWeight: "600" }}>On this day</Text>
+              {onPlay && <FocusButton label="Play" testID="play-on-this-day" onPress={() => onPlay(playlistAsTrip(`On this day, ${memories.date}`, memories.on_this_day))} />}
+            </View>
+            <ScrollView horizontal contentContainerStyle={{ gap: 16 }}>
+              {memories.on_this_day.map((m) => (
+                <RemoteImage key={m} api={api} token={token} mediaId={m} rendition="thumb" width={280} height={190} />
+              ))}
+            </ScrollView>
+          </View>
+        )}
+        {memories && memories.then_and_now[0] && (
+          <View testID="then-and-now" style={{ flexDirection: "row", gap: 16, alignItems: "center", marginBottom: theme.gap, backgroundColor: theme.panel, padding: 16, borderRadius: theme.radius }}>
+            <RemoteImage api={api} token={token} mediaId={memories.then_and_now[0].then} rendition="thumb" width={280} height={190} />
+            <RemoteImage api={api} token={token} mediaId={memories.then_and_now[0].now} rendition="thumb" width={280} height={190} />
+            <View style={{ flex: 1, gap: 6 }}>
+              <Text style={{ color: theme.fg, fontSize: 34, fontWeight: "600" }}>Then and now</Text>
+              <Text testID="then-and-now-line" style={{ color: theme.muted, fontSize: theme.small }}>{`Same place, ${memories.then_and_now[0].years_apart} year${memories.then_and_now[0].years_apart === 1 ? "" : "s"} apart`}</Text>
+            </View>
+          </View>
+        )}
         {trips?.map((trip, i) => (
           <View key={trip.id} testID={`trip-${trip.id}`} style={{ flexDirection: "row", gap: theme.gap, marginBottom: theme.gap, alignItems: "center" }}>
             {trip.hero && <RemoteImage api={api} token={token} mediaId={trip.hero} rendition="thumb" width={320} height={200} />}

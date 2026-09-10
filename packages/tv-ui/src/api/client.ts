@@ -155,6 +155,19 @@ export function proposalTitle(p: ProposalView): string {
   }
 }
 
+export interface MemoriesHomeView {
+  date: string;
+  on_this_day: string[];
+  then_and_now: Array<{ then: string; now: string; lat: number; lon: number; years_apart: number }>;
+  best_of_month: { year: number; month: string; media: string[] };
+  best_of_year: { year: number; media: string[] };
+}
+
+export interface MapView {
+  url: string | null;
+  pins: Array<{ trip: string; name: string; lat: number; lon: number; start: string }>;
+}
+
 export interface FeedEvent {
   seq: number;
   at: string;
@@ -299,6 +312,14 @@ export class TvApi {
 
   ask(token: string, question: string, tv?: string) {
     return this.call<AskResult>("POST", "/ask", { question, tv }, token);
+  }
+
+  memoriesHome(token: string, date?: string) {
+    return this.call<MemoriesHomeView>("GET", `/memories/home${date ? `?date=${date}` : ""}`, undefined, token);
+  }
+
+  map(token: string) {
+    return this.call<MapView>("GET", "/map", undefined, token);
   }
 
   setFlag(token: string, mediaId: string, flag: "pin" | "hide", value: boolean) {
