@@ -16,12 +16,14 @@ export interface AppProps {
   apiBase?: string;
   api?: TvApi;
   sessionStore?: SessionStore;
+  /** Name of this TV as the phone and other households see it. */
+  tvName?: string;
 }
 
 const DEFAULT_API = "https://api.memorylane.test";
 
 /** State-based router: no navigation library, no native screens module. */
-export function App({ apiBase, api: injectedApi, sessionStore }: AppProps) {
+export function App({ apiBase, api: injectedApi, sessionStore, tvName }: AppProps) {
   const api = useMemo(() => injectedApi ?? new TvApi(apiBase ?? DEFAULT_API), [injectedApi, apiBase]);
   const store = useMemo(() => sessionStore ?? new MemorySessionStore(), [sessionStore]);
   const [deviceId] = useState(() => newDeviceId());
@@ -50,6 +52,7 @@ export function App({ apiBase, api: injectedApi, sessionStore }: AppProps) {
       <Onboarding
         api={api}
         deviceId={deviceId}
+        tvName={tvName}
         onSignedIn={(s) => {
           void store.save({ ...s, deviceId });
           setSession(s);

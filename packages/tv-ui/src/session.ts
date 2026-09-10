@@ -1,6 +1,6 @@
-// Where the TV keeps its session. Persistent storage on Vega goes through the Kepler
-// storage API, which is a native surface; until that spike passes the session lives in
-// memory and the TV re-pairs after a cold start.
+// Where the TV keeps its session. The platform shell supplies a key-value store (on Vega
+// the system-deployed AsyncStorage, research R2); tests and unknown platforms fall back to
+// memory and re-pair after a cold start.
 
 export interface SessionStore {
   load(): Promise<{ token: string; household: string; deviceId: string } | null>;
@@ -18,6 +18,42 @@ export class MemorySessionStore implements SessionStore {
   }
   async clear() {
     this.value = null;
+  }
+}
+
+/** The subset of AsyncStorage the store needs; any platform key-value store fits. */
+export interface AsyncStorageLike {
+  getItem(key: string): Promise<string | null>;
+  setItem(key: string, value: string): Promise<void>;
+  removeItem(key: string): Promise<void>;
+}
+
+export const SESSION_KEY = "memorylane.session.v1";
+
+/** Persists the session as JSON under one key. Corrupt or partial records read as signed out. */
+export class KeyValueSessionStore implements SessionStore {
+  constructor(
+    private readonly kv: AsyncStorageLike,
+    private readonly key: string = SESSION_KEY,
+  ) {}
+  async load() {
+    const raw = await this.kv.getItem(this.key);
+    if (!raw) return null;
+    try {
+      const v = JSON.parse(raw) as Partial<Record<"token" | "household" | "deviceId", unknown>>;
+      if (typeof v.token === "string" && typeof v.household === "string" && typeof v.deviceId === "string") {
+        return { token: v.token, household: v.household, deviceId: v.deviceId };
+      }
+    } catch {
+      // fall through: unreadable record means signed out
+    }
+    return null;
+  }
+  async save(session: { token: string; household: string; deviceId: string }) {
+    await this.kv.setItem(this.key, JSON.stringify(session));
+  }
+  async clear() {
+    await this.kv.removeItem(this.key);
   }
 }
 

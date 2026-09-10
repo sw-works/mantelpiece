@@ -33,6 +33,16 @@ describe("screens", () => {
     expect(screen.getByTestId("qr")).toBeTruthy();
   });
 
+  it("Onboarding offers a new code after expiry", async () => {
+    const api = new FakeApi();
+    api.polls = [{ state: "expired" }, { state: "pending" }];
+    await render(<Onboarding api={api} deviceId="tv-1" onSignedIn={() => undefined} retryMs={50} />);
+    await waitFor(() => expect(screen.getByTestId("expired")).toBeTruthy());
+    await fireEvent.press(screen.getByText("Get a new code"));
+    await waitFor(() => expect(screen.getByTestId("device-code")).toBeTruthy());
+    expect(api.calls.filter((c) => c.startsWith("issue"))).toHaveLength(2);
+  });
+
   it("MemoriesHome lists trips with a new badge and opens one", async () => {
     const api = new FakeApi();
     api.tripList = [trip];

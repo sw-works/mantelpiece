@@ -3,6 +3,6 @@
 export { App } from "./App";
 export type { AppProps, Route } from "./App";
 export { TvApi } from "./api/client";
-export { MemorySessionStore, newDeviceId } from "./session";
-export type { SessionStore } from "./session";
+export { KeyValueSessionStore, MemorySessionStore, SESSION_KEY, newDeviceId } from "./session";
+export type { AsyncStorageLike, SessionStore } from "./session";
 export { theme } from "./theme";

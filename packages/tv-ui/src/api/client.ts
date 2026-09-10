@@ -81,8 +81,8 @@ export class TvApi {
     return json as T;
   }
 
-  issueDeviceCode(deviceId: string) {
-    return this.call<DeviceCodeIssued>("POST", "/device/code", { device_id: deviceId });
+  issueDeviceCode(deviceId: string, tvName?: string) {
+    return this.call<DeviceCodeIssued>("POST", "/device/code", { device_id: deviceId, tv_name: tvName });
   }
 
   pollDeviceCode(code: string, deviceId: string) {

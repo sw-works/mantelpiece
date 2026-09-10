@@ -8,15 +8,19 @@ import { theme } from "../theme";
 export function Onboarding({
   api,
   deviceId,
+  tvName,
   onSignedIn,
   retryMs,
+  now,
 }: {
   api: TvApi;
   deviceId: string;
+  tvName?: string;
   onSignedIn: (session: { token: string; household: string }) => void;
   retryMs?: number;
+  now?: () => number;
 }) {
-  const state = useDeviceSignIn({ api, deviceId, retryMs });
+  const state = useDeviceSignIn({ api, deviceId, tvName, retryMs, now });
   if (state.phase === "approved") {
     onSignedIn({ token: state.token, household: state.household });
   }
@@ -36,6 +40,14 @@ export function Onboarding({
           </>
         )}
         {state.phase === "issuing" && <Text style={{ color: theme.muted, fontSize: theme.body }}>Getting a code…</Text>}
+        {state.phase === "expired" && (
+          <>
+            <Text testID="expired" style={{ color: theme.muted, fontSize: theme.body }}>
+              {`Code ${state.code.slice(0, 4)} ${state.code.slice(4)} expired. Codes last ten minutes.`}
+            </Text>
+            <FocusButton label="Get a new code" onPress={state.restart} preferred />
+          </>
+        )}
         {state.phase === "error" && (
           <>
             <Text testID="error" style={{ color: "#ff7a7a", fontSize: theme.body }}>{state.message}</Text>

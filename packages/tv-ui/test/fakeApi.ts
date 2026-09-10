@@ -12,9 +12,12 @@ export class FakeApi extends TvApi {
     super("https://fake", () => Promise.reject(new Error("no network in tests")));
   }
 
-  override async issueDeviceCode(deviceId: string) {
-    this.calls.push(`issue ${deviceId}`);
-    return { code: "AB2C3D4E", link: "https://link.test/?c=AB2C3D4E", expires_at: "2026-09-08T10:10:00Z", poll_seconds: 25 };
+  /** Ten minutes from now, like the server. */
+  expiresInMs = 600_000;
+
+  override async issueDeviceCode(deviceId: string, tvName?: string) {
+    this.calls.push(`issue ${deviceId}${tvName ? ` ${tvName}` : ""}`);
+    return { code: "AB2C3D4E", link: "https://link.test/?c=AB2C3D4E", expires_at: new Date(Date.now() + this.expiresInMs).toISOString(), poll_seconds: 25 };
   }
   override async pollDeviceCode(code: string) {
     this.calls.push(`poll ${code}`);

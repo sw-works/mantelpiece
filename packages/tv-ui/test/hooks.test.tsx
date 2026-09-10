@@ -29,11 +29,28 @@ describe("useDeviceSignIn", () => {
   it("reports expiry and restarts with a fresh code", async () => {
     const api = new FakeApi();
     api.polls = [{ state: "expired" }, { state: "approved", household: "h", token: "t" }];
-    const { result } = await renderHook(() => useDeviceSignIn({ api, deviceId: "tv-1", sleep: noSleep }));
-    await waitFor(() => expect(result.current.phase).toBe("error"));
+    const { result } = await renderHook(() => useDeviceSignIn({ api, deviceId: "tv-1", tvName: "Living room", sleep: noSleep }));
+    await waitFor(() => expect(result.current.phase).toBe("expired"));
+    if (result.current.phase === "expired") expect(result.current.code).toBe("AB2C3D4E");
     await act(async () => result.current.restart());
     await waitFor(() => expect(result.current.phase).toBe("approved"));
-    expect(api.calls.filter((c) => c.startsWith("issue"))).toHaveLength(2);
+    expect(api.calls.filter((c) => c.startsWith("issue"))).toEqual(["issue tv-1 Living room", "issue tv-1 Living room"]);
+  });
+
+  it("expires on the TV clock without asking the server", async () => {
+    const api = new FakeApi();
+    api.polls = [{ state: "pending" }];
+    let clock = Date.now();
+    const gates: Array<() => void> = [];
+    const sleep = () => new Promise<void>((r) => gates.push(r));
+    // Inline closures on every render must not restart the flow.
+    const { result } = await renderHook(() => useDeviceSignIn({ api, deviceId: "tv-1", sleep: () => sleep(), now: () => clock }));
+    await waitFor(() => expect(result.current.phase).toBe("waiting"));
+    await waitFor(() => expect(gates.length).toBe(1));
+    clock += api.expiresInMs + 1;
+    await act(async () => gates.shift()!());
+    await waitFor(() => expect(result.current.phase).toBe("expired"));
+    expect(api.calls.filter((c) => c.startsWith("poll"))).toHaveLength(1);
   });
 });
 
