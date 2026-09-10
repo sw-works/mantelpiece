@@ -74,6 +74,10 @@ string_id!(
     /// Opaque TV install identifier, chosen by the TV app on first launch.
     DeviceId
 );
+uuid_id!(ProposalId);
+uuid_id!(ReactionId);
+uuid_id!(PersonId);
+uuid_id!(ShareLinkId);
 
 #[cfg(test)]
 mod tests {
