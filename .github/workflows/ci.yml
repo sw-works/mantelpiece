@@ -30,6 +30,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: make lint-node
       - run: make test-node
+      # JS and Hermes bundle for Vega OS from public npm packages; the .vpkg needs the SDK.
+      - run: pnpm --filter @memorylane/tv-vega bundle:vega
 
   python:
     runs-on: ubuntu-latest

@@ -1,0 +1,46 @@
+{
+  "name": "@memorylane/tv-vega",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Vega OS shell for the MemoryLane Fire TV app. React Native pinned to the Vega SDK line (0.83, @amazon-devices/react-native-kepler 4); all screens come from @memorylane/tv-ui.",
+  "main": "index.js",
+  "engines": {
+    "node": ">=22.14.0"
+  },
+  "scripts": {
+    "start": "react-native start",
+    "bundle:vega": "react-native bundle-vega --build-type Release",
+    "build:vega": "react-native build-vega --build-type Release",
+    "build:vega:debug": "react-native build-vega --build-type Debug",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@amazon-devices/kepler-module-resolver-preset": "^0.1.16",
+    "@amazon-devices/react-native-kepler": "~4.0.1",
+    "@babel/runtime": "^7.28.0",
+    "@memorylane/tv-ui": "workspace:*",
+    "babel-plugin-module-resolver": "^5.0.2",
+    "react": "19.2.8",
+    "react-native": "0.83.0"
+  },
+  "devDependencies": {
+    "@amazon-devices/kepler-cli-platform": "^0.22.14",
+    "@amazon-devices/keplerscript-commonmodules": "^1.0.0",
+    "@eslint/js": "^10.0.1",
+    "@react-native-community/cli": "^20.0.0",
+    "@react-native/babel-preset": "0.83.0",
+    "@react-native/metro-config": "0.83.0",
+    "@types/react": "^19.2.18",
+    "eslint": "^10.10.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.70.0"
+  },
+  "kepler": {
+    "projectType": "application",
+    "appName": "MemoryLane",
+    "targets": [
+      "tv"
+    ]
+  }
+}

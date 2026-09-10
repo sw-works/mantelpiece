@@ -22,7 +22,8 @@ Tracks: Fire TV (primary), Alexa+ (secondary). Mini-challenges: AWS Builder, Ope
 ## Layout
 
 ```
-apps/tv/         React Native (TypeScript) Fire TV app: fetch-only, no native modules
+packages/tv-ui/  Fire TV screens, hooks and API client: React Native core only, no native modules
+apps/tv-vega/    Vega OS shell: manifest, Metro, React Native pinned to the Vega SDK line (0.83)
 apps/web/        Phone pages: link (approve the TV code) and upload (join by code, resumable uploads)
 services/        Rust workspace
   crates/core    domain types, device-code and trip-code flows, confirmation tokens
@@ -33,6 +34,7 @@ services/        Rust workspace
   lambdas/ingest Step Functions tasks: signal, enrich, organize
 agents/          Concierge workflows W1 to W6 for AgentCore Runtime (Python, uv)
 infra/           CDK stack (TypeScript)
+scripts/         tv-walkthrough.sh: Virtual Device key presses and screenshots
 ```
 
 ## Build and test
@@ -50,25 +52,36 @@ stack is deployed.
 
 ### Fire TV app
 
-Requires the [Amazon Vega SDK](https://developer.amazon.com/docs/vega/0.21/install-vega-sdk.html)
-with `KEPLER_SDK_HOME` set, and `@amazon-devices/kepler-cli-platform` installed from the
-SDK's registry (not on public npm, so it is not in `package.json`). The Vega SDK pins its
-own React Native version; if it differs from the one in `apps/tv/package.json`, the app
-moves to a `packages/tv-ui` plus per-platform app layout. Not yet verified: the packaging
-below waits on the week 1 spike.
+The TV code is split in two. `packages/tv-ui` holds every screen, hook and the API client
+and is tested with jest against upstream React Native. `apps/tv-vega` is the Vega OS shell:
+`manifest.toml`, `app.json`, Metro config, and React Native 0.83 with
+`@amazon-devices/react-native-kepler` 4, both from public npm, so `pnpm install` needs no
+Vega registry token. The Babel preset `@amazon-devices/kepler-module-resolver-preset` maps
+ported libraries to their `@amazon-devices/*` equivalents at bundle time.
 
 ```
-cd apps/tv
+cd apps/tv-vega
+pnpm bundle:vega           # JS + Hermes bundle only; runs in CI, no SDK needed
 pnpm start                 # Metro
-pnpm build:vega:debug      # react-native build-kepler, installs on a Vega Virtual Device
+pnpm build:vega:debug      # react-native build-vega: bundle, then .vpkg (needs the Vega SDK)
 pnpm build:vega            # release .vpkg
+make tv-vvd-start          # Virtual Device plus Metro port forward
+make tv-vvd-install        # debug build and install on the Virtual Device
+make tv-vvd-logs           # log stream
+make tv-walkthrough        # scripts/tv-walkthrough.sh: key presses and screenshots into docs/screens
 ```
 
-`apps/tv/manifest.toml` declares the Vega package: one interactive component and network
-access only. Platform-specific code goes in `.kepler.ts` files next to the default
-implementation (see `src/hooks/useRemoteKeys.kepler.ts`); Metro picks them on Vega and
-falls back to the plain file on Fire OS. Screens keep text inside the 1080p title-safe
-margin defined in `src/theme.ts`.
+The `.vpkg` step and everything on the Virtual Device need the
+[Vega SDK](https://developer.amazon.com/docs/vega/0.24/install-vega-sdk.html) 0.24 with
+the `vega` CLI on `PATH`. Verified so far: the bundle builds locally and contains only the
+kepler React Native. Not yet verified: packaging, install and behaviour on a device.
+
+Platform-specific code goes in `.kepler.ts` files next to the default implementation (see
+`packages/tv-ui/src/hooks/useRemoteKeys.kepler.ts`); Metro picks them on Vega and falls back
+to the plain file elsewhere. Screens keep text inside the 1080p title-safe margin defined in
+`packages/tv-ui/src/theme.ts`. Do not add a `resolver.resolveRequest` to the shell's Metro
+config: it replaces the React Native CLI resolver that maps `react-native` to the kepler
+package.
 
 ## Contributing
 
