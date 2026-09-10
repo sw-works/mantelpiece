@@ -2,11 +2,9 @@
 // then continue to the uploader as the owner.
 
 import { Api } from "../api.js";
-import { beginSignIn, completeSignIn, savedTokens } from "../auth.js";
+import { OWNER_TOKEN_KEY, beginSignIn, completeSignIn, ownerHandoffUrl, savedTokens } from "../auth.js";
 import { loadConfig } from "../config.js";
 import { el, mount } from "../ui.js";
-
-const OWNER_TOKEN = "ml.owner.token";
 
 export async function main(root: HTMLElement, location: Location, storage: Storage): Promise<void> {
   const config = loadConfig();
@@ -36,14 +34,16 @@ export async function main(root: HTMLElement, location: Location, storage: Stora
   mount(root, el("h1", {}, `Approving ${code}…`));
   try {
     const approved = await api.approveDeviceCode(code, tokens.idToken);
-    storage.setItem(OWNER_TOKEN, approved.token);
-    const uploadUrl = `${location.origin.replace("link.", "upload.")}/?owner=1`;
+    storage.setItem(OWNER_TOKEN_KEY, approved.token);
+    // Straight on to the uploader as the owner: no second sign-in (US1).
+    const uploadUrl = ownerHandoffUrl(location.origin.replace("link.", "upload."), approved.token);
     mount(
       root,
       el("h1", {}, "Your TV is signed in"),
-      el("p", {}, "Now pick the photos you want on the big screen."),
+      el("p", {}, "Taking you to your photos…"),
       el("a", { class: "button", href: uploadUrl }, "Choose photos"),
     );
+    location.replace(uploadUrl);
   } catch (e) {
     mount(root, el("h1", {}, "That code did not work"), el("p", {}, e instanceof Error ? e.message : String(e)));
   }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { beginSignIn, challengeFor, completeSignIn, savedTokens } from "../src/auth.js";
+import { beginSignIn, challengeFor, completeSignIn, ownerHandoffUrl, savedTokens, takeOwnerHandoff } from "../src/auth.js";
 
 class MemStorage implements Storage {
   private m = new Map<string, string>();
@@ -55,6 +55,16 @@ describe("PKCE sign-in", () => {
     await expect(completeSignIn(config, storage, `https://link.test/callback?code=xyz&state=${state}`, fetchFn)).rejects.toThrow(
       "did not start here",
     );
+  });
+
+  it("hands the owner session to the uploader in the fragment only", () => {
+    const url = ownerHandoffUrl("https://upload.test", "a.b/c=");
+    expect(url).toBe("https://upload.test/?owner=1#owner=a.b%2Fc%3D");
+    expect(new URL(url).search).toBe("?owner=1");
+    expect(takeOwnerHandoff(new URL(url).hash)).toBe("a.b/c=");
+    expect(takeOwnerHandoff("")).toBeNull();
+    expect(takeOwnerHandoff("#owner=")).toBeNull();
+    expect(takeOwnerHandoff("#other=1")).toBeNull();
   });
 
   it("rejects a state mismatch", async () => {

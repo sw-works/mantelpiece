@@ -100,6 +100,23 @@ export async function completeSignIn(
   return { tokens, returnTo };
 }
 
+export const OWNER_TOKEN_KEY = "ml.owner.token";
+
+/**
+ * After approving the TV, the phone continues to the uploader on another origin. The
+ * owner session rides in the URL fragment, which never reaches a server or a log, and the
+ * uploader stores it and strips it on arrival.
+ */
+export function ownerHandoffUrl(uploadOrigin: string, token: string): string {
+  return `${uploadOrigin}/?owner=1#owner=${encodeURIComponent(token)}`;
+}
+
+export function takeOwnerHandoff(hash: string): string | null {
+  const params = new URLSearchParams(hash.replace(/^#/, ""));
+  const token = params.get("owner");
+  return token && token.length > 0 ? token : null;
+}
+
 export function savedTokens(storage: Storage, now = Date.now()): Tokens | null {
   const raw = storage.getItem(TOKENS_KEY);
   if (!raw) return null;

@@ -2,14 +2,13 @@
 // Join as a guest or with Amazon, pick photos, watch them go up, remove your own.
 
 import { Api } from "../api.js";
-import { beginSignIn, completeSignIn, savedTokens } from "../auth.js";
+import { OWNER_TOKEN_KEY, beginSignIn, completeSignIn, savedTokens, takeOwnerHandoff } from "../auth.js";
 import { loadConfig } from "../config.js";
 import { el, formatBytes, mount } from "../ui.js";
 import { runQueue, type QueueItem } from "../upload/queue.js";
 import { IndexedDbResumeStore } from "../upload/store.js";
 
 const SESSION = "ml.upload.session";
-const OWNER_TOKEN = "ml.owner.token";
 
 interface Session {
   token: string;
@@ -29,11 +28,19 @@ export async function main(root: HTMLElement, location: Location, storage: Stora
     return;
   }
 
+  // Owner session handed over from the link page in the fragment (US1).
+  const handoff = takeOwnerHandoff(url.hash);
+  if (handoff) {
+    storage.setItem(OWNER_TOKEN_KEY, handoff);
+    url.hash = "";
+    globalThis.history?.replaceState(null, "", url.toString());
+  }
+
   const code = url.searchParams.get("t") ?? url.searchParams.get("h");
   let session = readSession(storage, code);
 
-  if (!session && url.searchParams.get("owner") === "1") {
-    const token = storage.getItem(OWNER_TOKEN);
+  if (!session && (handoff || url.searchParams.get("owner") === "1")) {
+    const token = storage.getItem(OWNER_TOKEN_KEY);
     if (token) session = { token, displayName: "You", code: null };
   }
 
