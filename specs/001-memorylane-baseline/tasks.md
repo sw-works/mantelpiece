@@ -174,16 +174,16 @@ policy that every story builds on.
 
 **Independent Test**: "the ramen place on day 1" typed on the TV plays a playlist; phone mic on a paused Nara photo returns a card naming the statue on the TV.
 
-- [ ] T059 [US5] Add `POST /search` (query, trip, filters; vector cache first, 300 ms warm budget) in `services/lambdas/api/src/handlers/search.rs`; register in `app.rs`; test in `services/lambdas/api/tests/api.rs` (F-303)
-- [ ] T060 [P] [US5] Add `POST /playlists`, `GET /playlists`, `GET /playlists/{id}` in `services/lambdas/api/src/handlers/playlists.rs`; the `create_playlist` Gateway target maps to it (F-304)
-- [ ] T061 [P] [US5] Add `PUT /presence` writing the TV's `now_showing` field (data-model Presence) in `services/lambdas/api/src/handlers/presence.rs`; post it from `packages/tv-ui/src/screens/Slideshow.tsx` on every slide change and pause (research R3; depends on T053)
-- [ ] T062 [US5] Add `POST /ask` in `services/lambdas/api/src/handlers/ask.rs`: resolves the target TV from the `tv` parameter, else the household's presence record with the newest `at` (edge case: two TVs); a question with no fresh now-showing goes to search, with now-showing to `describe_photo`; emits `answer.card` to that TV (F-405)
-- [ ] T063 [US5] Implement `get_now_showing` and `describe_photo` tools in `agents/src/memorylane_agents/tools.py`, `gateway.py`, and a `describe` workflow in `agents/src/memorylane_agents/workflows.py` that answers from the stored description and runs the place and date check on any live model answer (research R8, constitution IV); test in `agents/tests/test_workflows.py`
-- [ ] T064 [P] [US5] Build `packages/tv-ui/src/screens/Ask.tsx`: text input, results as playlist, `answer.card` overlay over the paused photo (mockup: Ask artboard); test in `packages/tv-ui/test/screens.test.tsx`
-- [ ] T065 [P] [US5] Build the phone Ask page `apps/web/src/pages/ask.ts` and `apps/web/ask.html` with Web Speech API hold-to-talk, now-showing preview, and `POST /ask`; feature-detect and fall back to text; test in `apps/web/test/ask.test.ts`
-- [ ] T066 [US5] Handle "nothing found" (no playlist created) and "nothing on screen" (offer search) paths in `services/lambdas/api/src/handlers/ask.rs`; tests in `services/lambdas/api/tests/api.rs`
+- [X] T059 [US5] Add `POST /search` (query, trip, filters; vector cache first, 300 ms warm budget) in `services/lambdas/api/src/handlers/search.rs`; register in `app.rs`; test in `services/lambdas/api/tests/api.rs` (F-303)
+- [X] T060 [P] [US5] Add `POST /playlists`, `GET /playlists`, `GET /playlists/{id}` in `services/lambdas/api/src/handlers/playlists.rs`; the `create_playlist` Gateway target maps to it (F-304)
+- [X] T061 [P] [US5] Add `PUT /presence` writing the TV's `now_showing` field (data-model Presence) in `services/lambdas/api/src/handlers/presence.rs`; post it from `packages/tv-ui/src/screens/Slideshow.tsx` on every slide change and pause (research R3; depends on T053)
+- [X] T062 [US5] Add `POST /ask` in `services/lambdas/api/src/handlers/ask.rs`: resolves the target TV from the `tv` parameter, else the household's presence record with the newest `at` (edge case: two TVs); a question with no fresh now-showing goes to search, with now-showing to `describe_photo`; emits `answer.card` to that TV (F-405)
+- [X] T063 [US5] Implement `get_now_showing` and `describe_photo` tools in `agents/src/memorylane_agents/tools.py`, `gateway.py`, and a `describe` workflow in `agents/src/memorylane_agents/workflows.py` that answers from the stored description and runs the place and date check on any live model answer (research R8, constitution IV); test in `agents/tests/test_workflows.py`
+- [X] T064 [P] [US5] Build `packages/tv-ui/src/screens/Ask.tsx`: text input, results as playlist, `answer.card` overlay over the paused photo (mockup: Ask artboard); test in `packages/tv-ui/test/screens.test.tsx`
+- [X] T065 [P] [US5] Build the phone Ask page `apps/web/src/pages/ask.ts` and `apps/web/ask.html` with Web Speech API hold-to-talk, now-showing preview, and `POST /ask`; feature-detect and fall back to text; test in `apps/web/test/ask.test.ts`
+- [X] T066 [US5] Handle "nothing found" (no playlist created) and "nothing on screen" (offer search) paths in `services/lambdas/api/src/handlers/ask.rs`; tests in `services/lambdas/api/tests/api.rs`
 
-**Checkpoint**: Ask works by text and by phone voice
+**Checkpoint**: Ask works by text and by phone voice (code complete 2026-09-09; speech recognition runs only in a real browser, untested here)
 
 ---
 

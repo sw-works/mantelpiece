@@ -340,3 +340,29 @@ compile-checked only.
   "Make keeper" action.
 - Slideshow screen: day order, play and pause on the remote, next and previous day, and a
   `NowShowing` callback ready for presence (US5).
+
+## 16. US5 Ask (tasks T059 to T066)
+
+- `POST /search` ranks by the hashed embedding inside a trip or across the household,
+  then adds a keyword pass over labels, landmark, text and description for items with no
+  vector, drops removed and hidden items, and never calls a model; the 300 ms warm budget
+  is a matter of one vector query plus one media listing. *Unmeasured* on the deployed
+  stack.
+- `POST /playlists`, `GET /playlists`, `GET /playlists/{id}` back the `create_playlist`
+  tool. `PUT /presence` records what a TV shows (device, media, trip, day, paused); the
+  Slideshow posts it on every change. `GET /presence` lists the fresh records for the
+  phone.
+- `POST /ask`: a named TV wins, else the freshest presence under ten minutes; with a
+  photo on screen the answer comes from the stored description (or, failing that, from
+  contributor, date, landmark and labels) with no model call, and lands as an
+  `answer.card` on the household feed, which the Slideshow draws over the photo. Without
+  a fresh presence the question becomes a search and a playlist, or "nothing" with a
+  hint. The event carries no target TV: every TV in the household sees the card.
+- Agents: `describe_photo` workflow answers from the stored description; only when it is
+  empty does the model speak from the photo's facts, and that answer passes the same
+  check as a story before it is pushed. The runtime accepts `{"question", "tv"}`.
+- TV: Ask screen with text entry, matches as thumbnails, Play as a slideshow; Ask button
+  on Memories home. Phone: `ask.html` with hold-to-talk through the browser's
+  SpeechRecognition (Safari and Chrome), a text fallback, the now-showing preview and the
+  answer. Speech recognition only runs in a real browser; the helpers around it are
+  tested.
