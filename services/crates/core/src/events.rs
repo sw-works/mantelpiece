@@ -66,6 +66,14 @@ pub enum EventKind {
         answer: String,
         media: Option<MediaId>,
     },
+    /// The share workflow found the recipient has a MemoryLane TV: show the trip's join
+    /// code instead of a link (F-601, W5).
+    #[serde(rename = "share.join_code")]
+    ShareJoinCode {
+        trip: TripId,
+        recipient: String,
+        code: String,
+    },
     /// Narration audio for one day is ready (F-709, behind a flag).
     #[serde(rename = "narration.ready")]
     NarrationReady {
@@ -116,6 +124,7 @@ impl Event {
             EventKind::ReactionReceived { .. } => "reaction.received",
             EventKind::MembershipJoined { .. } => "membership.joined",
             EventKind::AnswerCard { .. } => "answer.card",
+            EventKind::ShareJoinCode { .. } => "share.join_code",
             EventKind::NarrationReady { .. } => "narration.ready",
             EventKind::MemoriesReady { .. } => "memories.ready",
             EventKind::CleanupCandidates { .. } => "cleanup.candidates",
@@ -140,6 +149,7 @@ impl Event {
             | EventKind::MemoryReady { trip }
             | EventKind::ReactionReceived { trip, .. }
             | EventKind::MembershipJoined { trip, .. }
+            | EventKind::ShareJoinCode { trip, .. }
             | EventKind::NarrationReady { trip, .. } => Some(trip),
             EventKind::DedupProposal { trip, .. }
             | EventKind::ContributionReceived { trip, .. }
@@ -223,6 +233,11 @@ mod tests {
                 trip: TripId::new("t"),
                 day: 1,
                 audio_key: "narration/h/t/1.mp3".into(),
+            },
+            EventKind::ShareJoinCode {
+                trip: TripId::new("t"),
+                recipient: "Grandma".into(),
+                code: "T2C3D4".into(),
             },
             EventKind::MemoriesReady {
                 date: "2026-09-08".into(),

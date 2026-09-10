@@ -30,6 +30,9 @@ pub struct ShareLink {
     pub expires_at: OffsetDateTime,
     #[serde(default, with = "time::serde::rfc3339::option")]
     pub revoked_at: Option<OffsetDateTime>,
+    /// Where the link was emailed, when it was.
+    #[serde(default)]
+    pub email: Option<String>,
 }
 
 impl ShareLink {
@@ -50,6 +53,7 @@ impl ShareLink {
             created_at: now,
             expires_at: now + ttl.unwrap_or(DEFAULT_TTL),
             revoked_at: None,
+            email: None,
         }
     }
 

@@ -73,7 +73,7 @@ pub async fn redeem(
     req: &Req,
     household: &HouseholdId,
     action: &ConfirmedAction,
-) -> Result<(), ApiError> {
+) -> Result<String, ApiError> {
     let from_body = serde_json::from_slice::<serde_json::Value>(&req.body)
         .ok()
         .and_then(|v| v["confirmation"].as_str().map(str::to_owned));
@@ -89,7 +89,7 @@ pub async fn redeem(
         .map_err(|e| ApiError::forbidden(e.to_string()))?;
     app.storage.put_confirmation(&t).await?;
     crate::handlers::proposals::mark_applied(app, household, &token).await?;
-    Ok(())
+    Ok(token)
 }
 
 /// The subject a redeemed token was confirmed by, for the RemoveMedia role check.

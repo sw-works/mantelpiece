@@ -15,5 +15,6 @@ pub mod proposals;
 pub mod reactions;
 pub mod search;
 pub mod session;
+pub mod shares;
 pub mod trips;
 pub mod uploads;

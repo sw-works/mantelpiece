@@ -10,6 +10,7 @@ use memorylane_core::ids::{HouseholdId, MediaId, TripId};
 use memorylane_core::trip::{Route, Trip};
 use memorylane_store::bus::MemoryBus;
 use memorylane_store::faces::MemoryFaces;
+use memorylane_store::mailer::MemoryMailer;
 use memorylane_store::maps::MemoryMaps;
 use memorylane_store::memory::{MemoryBlobs, MemoryStorage};
 use memorylane_store::speech::MemorySpeech;
@@ -29,6 +30,7 @@ struct Harness {
     bus: Arc<MemoryBus>,
     vectors: Arc<MemoryVectors>,
     starter: Arc<MemoryStarter>,
+    mailer: Arc<MemoryMailer>,
     now: Arc<Mutex<OffsetDateTime>>,
 }
 
@@ -38,6 +40,7 @@ fn harness() -> Harness {
     let bus = Arc::new(MemoryBus::default());
     let vectors = Arc::new(MemoryVectors::default());
     let starter = Arc::new(MemoryStarter::default());
+    let mailer = Arc::new(MemoryMailer::default());
     let now = Arc::new(Mutex::new(datetime!(2026-09-08 10:00:00 UTC)));
     let clock_now = now.clone();
     let app = App {
@@ -48,6 +51,7 @@ fn harness() -> Harness {
         maps: Arc::new(MemoryMaps::default()),
         faces: Arc::new(MemoryFaces::with_faces_per_image(1)),
         speech: Arc::new(MemorySpeech::default()),
+        mailer: mailer.clone(),
         starter: starter.clone(),
         signer: Signer::new("test-secret"),
         config: Config {
@@ -64,6 +68,7 @@ fn harness() -> Harness {
         bus,
         vectors,
         starter,
+        mailer,
         now,
     };
     // The owner exists once they approved a TV; tests that skip that flow still need them.
@@ -1287,6 +1292,188 @@ async fn reactions_from_contributors_viewers_and_members_reach_the_ticker() {
             .await
             .status,
         401
+    );
+}
+
+#[tokio::test]
+async fn share_links_need_a_confirmation_and_open_publicly_until_they_expire() {
+    let h = harness();
+    h.storage
+        .put_household(&memorylane_core::household::Household::new(
+            HouseholdId::new("amzn-owner"),
+            "Living room",
+            h.app.now(),
+        ))
+        .await
+        .unwrap();
+    let a = enriched(&h, "a.jpg", 111, &["Temple"], None).await;
+    let b = enriched(&h, "b.jpg", 112, &["Temple"], None).await;
+    let hidden = enriched(&h, "c.jpg", 113, &["Temple"], None).await;
+    h.owner(Method::Post, &format!("/media/{hidden}/hide"), None)
+        .await;
+    let playlist = h
+        .owner(
+            Method::Post,
+            "/playlists",
+            Some(
+                json!({ "name": "Kyoto temples", "media": [a, b, hidden], "source": "ask:temple" }),
+            ),
+        )
+        .await
+        .body["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+
+    // No token, or a token for another album: refused.
+    assert_eq!(
+        h.owner(
+            Method::Post,
+            "/shares",
+            Some(json!({ "playlist": playlist }))
+        )
+        .await
+        .status,
+        403
+    );
+    let wrong = h
+        .owner(
+            Method::Post,
+            "/confirmations",
+            Some(json!({ "action": "share_album", "album_id": "other" })),
+        )
+        .await
+        .body["token"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    assert_eq!(
+        h.owner(
+            Method::Post,
+            "/shares",
+            Some(json!({ "playlist": playlist, "confirmation": wrong }))
+        )
+        .await
+        .status,
+        403
+    );
+
+    // A TV-minted ShareAlbum token publishes the playlist for seven days and emails it.
+    let token = h
+        .owner(
+            Method::Post,
+            "/confirmations",
+            Some(json!({ "action": "share_album", "album_id": playlist })),
+        )
+        .await
+        .body["token"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    assert_eq!(
+        h.owner(
+            Method::Post,
+            "/shares",
+            Some(json!({ "playlist": playlist, "confirmation": token, "email": "grandma" }))
+        )
+        .await
+        .status,
+        400,
+        "bad email"
+    );
+    let made = h
+        .owner(
+            Method::Post,
+            "/shares",
+            Some(
+                json!({ "playlist": playlist, "confirmation": token, "email": "ruth@example.com" }),
+            ),
+        )
+        .await;
+    assert_eq!(made.status, 201, "{}", made.body);
+    let id = made.body["id"].as_str().unwrap().to_owned();
+    assert_eq!(
+        made.body["link"],
+        format!("https://upload.memorylane.test/s.html?s={id}")
+    );
+    assert_eq!(made.body["expires_at"], "2026-09-15T10:00:00Z");
+    let sent = h.mailer.sent.lock().unwrap().clone();
+    assert_eq!(sent.len(), 1);
+    assert_eq!(sent[0].to, "ruth@example.com");
+    assert!(sent[0].text.contains(&format!("s.html?s={id}")));
+    assert!(sent[0].subject.contains("Kyoto temples"));
+    // The token was single use.
+    assert_eq!(
+        h.owner(
+            Method::Post,
+            "/shares",
+            Some(json!({ "playlist": playlist, "confirmation": token }))
+        )
+        .await
+        .status,
+        403
+    );
+
+    // Public, no session: live unhidden photos with presigned renditions.
+    let open = h
+        .call(Method::Get, &format!("/s/{id}"), None, None, None)
+        .await;
+    assert_eq!(open.status, 200, "{}", open.body);
+    assert_eq!(open.body["name"], "Kyoto temples");
+    assert_eq!(open.body["shared_by"], "Living room");
+    let ids: Vec<&str> = open.body["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|i| i["id"].as_str().unwrap())
+        .collect();
+    assert_eq!(ids, vec![a.as_str(), b.as_str()]);
+    assert!(open.body["items"][0]["url"]
+        .as_str()
+        .unwrap()
+        .contains("tv.jpg"));
+    assert_eq!(
+        h.call(Method::Get, "/s/nope", None, None, None)
+            .await
+            .status,
+        404
+    );
+
+    // Listed for the owner; expired after a week; revocable before that.
+    assert_eq!(
+        h.owner(Method::Get, "/shares", None)
+            .await
+            .body
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+    *h.now.lock().unwrap() += time::Duration::days(8);
+    assert_eq!(
+        h.call(Method::Get, &format!("/s/{id}"), None, None, None)
+            .await
+            .status,
+        410
+    );
+    *h.now.lock().unwrap() -= time::Duration::days(8);
+    assert_eq!(
+        h.call(Method::Get, &format!("/s/{id}"), None, None, None)
+            .await
+            .status,
+        200
+    );
+    assert_eq!(
+        h.owner(Method::Delete, &format!("/shares/{id}"), None)
+            .await
+            .body["revoked"],
+        true
+    );
+    assert_eq!(
+        h.call(Method::Get, &format!("/s/{id}"), None, None, None)
+            .await
+            .status,
+        410
     );
 }
 

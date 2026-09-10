@@ -391,6 +391,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "aws-sdk-sesv2"
+version = "1.123.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d159e9d235e4d1089fb4993151e5e6f64fd028c3aae8a55becaee05e56361b63"
+dependencies = [
+ "arc-swap",
+ "aws-credential-types",
+ "aws-runtime",
+ "aws-smithy-async",
+ "aws-smithy-http",
+ "aws-smithy-json",
+ "aws-smithy-observability",
+ "aws-smithy-runtime",
+ "aws-smithy-runtime-api",
+ "aws-smithy-types",
+ "aws-types",
+ "bytes",
+ "fastrand",
+ "http 0.2.12",
+ "http 1.5.0",
+ "regex-lite",
+ "tracing",
+]
+
+[[package]]
 name = "aws-sdk-sfn"
 version = "1.108.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2028,6 +2053,7 @@ dependencies = [
  "aws-sdk-rekognition",
  "aws-sdk-s3",
  "aws-sdk-s3vectors",
+ "aws-sdk-sesv2",
  "aws-smithy-types",
  "memorylane-core",
  "serde",

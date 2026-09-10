@@ -9,6 +9,7 @@ use memorylane_api::tokens::Signer;
 use memorylane_store::bus::EventBridgeBus;
 use memorylane_store::dynamo::DynamoStorage;
 use memorylane_store::faces::RekognitionFaces;
+use memorylane_store::mailer::SesMailer;
 use memorylane_store::maps::LocationMaps;
 use memorylane_store::s3::S3Blobs;
 use memorylane_store::speech::PollySpeech;
@@ -92,6 +93,10 @@ async fn main() -> Result<(), Error> {
         maps: Arc::new(LocationMaps::from_config(&aws)),
         faces: Arc::new(RekognitionFaces::from_config(&aws)),
         speech: Arc::new(PollySpeech::from_config(&aws)),
+        mailer: Arc::new(SesMailer::from_config(
+            &aws,
+            std::env::var("SHARE_SENDER").ok(),
+        )),
         starter: Arc::new(SfnStarter::from_config(
             &aws,
             env("ORGANIZE_STATE_MACHINE_ARN")?,
