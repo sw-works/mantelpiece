@@ -6,6 +6,7 @@ Changes, the user confirms on the remote, and only that token unlocks the tool.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -283,19 +284,69 @@ def nightly(
     }
 
 
-def share(tools: Tools, model: Model, household: str, request: str) -> str | None:
-    """W5: "send Kyoto highlights to grandma" becomes an expiring link, after confirmation."""
-    result = ask_archive(tools, model, household, request)
+@dataclass
+class ShareResult:
+    playlist_id: str | None
+    """A join code for the recipient's own MemoryLane TV, offered before any link (W5)."""
+    join_code: str | None = None
+    link: str | None = None
+    recipient: str | None = None
+
+
+def known_contact(tools: Tools, household: str, request: str) -> tuple[str, dict[str, Any]] | None:
+    """The first remembered contact named in the request. Memory key ``contacts`` maps a
+    name to ``{"household": id?, "email": address?}``; the household id means they have a
+    TV of their own."""
+    contacts = tools.read_memory(household).get("contacts") or {}
+    words = request.lower()
+    for name, info in contacts.items():
+        if name.lower() in words and isinstance(info, dict):
+            return name, info
+    return None
+
+
+def trip_named_in(tools: Tools, household: str, request: str) -> str | None:
+    """The trip whose name shares a word of four letters or more with the request, so
+    "Kyoto, April 2026" matches "send the Kyoto trip to grandma"."""
+    words = set(re.findall(r"[a-z]{4,}", request.lower()))
+    for trip in tools.list_trips(household):
+        if words & set(re.findall(r"[a-z]{4,}", trip.name.lower())):
+            return trip.id
+    return None
+
+
+def share(tools: Tools, model: Model, household: str, request: str) -> ShareResult:
+    """W5: "send Kyoto highlights to grandma". A recipient with a MemoryLane TV gets the
+    trip's join code (their TV then shows the whole trip, F-162); anyone else gets an
+    expiring link after confirmation, emailed when the address is remembered."""
+    contact = known_contact(tools, household, request)
+    trip_id = trip_named_in(tools, household, request)
+    if contact and contact[1].get("household") and trip_id:
+        code = tools.get_trip_code(household, trip_id)
+        tools.push_event(
+            household,
+            {"type": "share.join_code", "trip": trip_id, "recipient": contact[0], "code": code},
+        )
+        return ShareResult(playlist_id=None, join_code=code, recipient=contact[0])
+    result = ask_archive(tools, model, household, request, trip_id)
     if not result.playlist_id:
-        return None
-    media = tools.search_media(household, result.query)
+        return ShareResult(playlist_id=None)
+    media = tools.search_media(household, result.query, trip_id)
     name = request[:60]
     token = tools.request_confirmation(
         household, {"action": "share_album", "album_id": result.playlist_id}
     )
     if not token:
-        return None
-    return tools.share_album(household, media, name, token)
+        return ShareResult(playlist_id=result.playlist_id)
+    email = contact[1].get("email") if contact else None
+    link = tools.share_album(
+        household, media, name, token, playlist=result.playlist_id, email=email
+    )
+    return ShareResult(
+        playlist_id=result.playlist_id,
+        link=link,
+        recipient=contact[0] if contact else None,
+    )
 
 
 def trip_merge(

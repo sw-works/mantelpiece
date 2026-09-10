@@ -89,7 +89,18 @@ class GatewayTools:
             )
         )
 
-    def share_album(self, household: str, media: list[str], name: str, confirmation: str) -> str:
+    def get_trip_code(self, household: str, trip_id: str) -> str:
+        return str(self._call("get_trip_code", household=household, trip_id=trip_id))
+
+    def share_album(
+        self,
+        household: str,
+        media: list[str],
+        name: str,
+        confirmation: str,
+        playlist: str | None = None,
+        email: str | None = None,
+    ) -> str:
         return str(
             self._call(
                 "share_album",
@@ -97,6 +108,8 @@ class GatewayTools:
                 media=media,
                 name=name,
                 confirmation=confirmation,
+                playlist=playlist,
+                email=email,
             )
         )
 

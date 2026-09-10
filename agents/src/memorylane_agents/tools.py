@@ -100,8 +100,19 @@ class Tools(Protocol):
 
     def apply_dedup(self, household: str, group_ids: list[str], confirmation: str) -> int: ...
     def share_album(
-        self, household: str, media: list[str], name: str, confirmation: str
+        self,
+        household: str,
+        media: list[str],
+        name: str,
+        confirmation: str,
+        playlist: str | None = None,
+        email: str | None = None,
     ) -> str: ...
+
+    def get_trip_code(self, household: str, trip_id: str) -> str:
+        """The trip's join code for another MemoryLane TV (F-162, W5)."""
+        ...
+
     def push_event(self, household: str, event: dict[str, Any]) -> None: ...
     def read_memory(self, household: str) -> dict[str, Any]: ...
     def write_memory(self, household: str, key: str, value: Any) -> None: ...
@@ -200,11 +211,25 @@ class InMemoryTools:
         self.duplicates = [g for g in self.duplicates if g.id not in group_ids]
         return removed
 
-    def share_album(self, household: str, media: list[str], name: str, confirmation: str) -> str:
+    def share_album(
+        self,
+        household: str,
+        media: list[str],
+        name: str,
+        confirmation: str,
+        playlist: str | None = None,
+        email: str | None = None,
+    ) -> str:
         if not confirmation:
             raise ConfirmationRequired("share_album")
-        self.log.append(f"share_album {name!r} {len(media)} {confirmation}")
+        self.log.append(
+            f"share_album {name!r} {len(media)} {confirmation}" + (f" to {email}" if email else "")
+        )
         return f"https://share.test/{name.lower().replace(' ', '-')}"
+
+    def get_trip_code(self, household: str, trip_id: str) -> str:
+        self.log.append(f"get_trip_code {trip_id}")
+        return f"CODE-{trip_id.upper()}"
 
     def push_event(self, household: str, event: dict[str, Any]) -> None:
         self.events.append(event)

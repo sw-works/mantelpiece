@@ -88,14 +88,31 @@ def test_household_patterns_learns_from_feedback(tools: InMemoryTools) -> None:
 
 def test_share_requires_confirmation_then_links(tools: InMemoryTools) -> None:
     tools.confirmations = [None]
-    assert (
-        workflows.share(tools, ScriptedModel(["beach"]), "h", "send beach photos to grandma")
-        is None
-    )
+    declined = workflows.share(tools, ScriptedModel(["beach"]), "h", "send beach photos to grandma")
+    assert declined.playlist_id == "pl-1" and declined.link is None
     tools.confirmations = ["conf-9"]
-    link = workflows.share(tools, ScriptedModel(["beach"]), "h", "send beach photos to grandma")
-    assert link == "https://share.test/send-beach-photos-to-grandma"
+    out = workflows.share(tools, ScriptedModel(["beach"]), "h", "send beach photos to grandma")
+    assert out.link == "https://share.test/send-beach-photos-to-grandma"
+    assert out.join_code is None
     assert "share_album 'send beach photos to grandma' 2 conf-9" in tools.log
+
+
+def test_share_offers_a_join_code_when_the_recipient_has_a_tv(
+    tools: InMemoryTools, kyoto: Trip
+) -> None:
+    tools.memory["contacts"] = {
+        "Grandma": {"household": "amzn-ruth"},
+        "Uncle Bo": {"email": "bo@example.com"},
+    }
+    out = workflows.share(tools, ScriptedModel(["temple"]), "h", "send the Kyoto trip to grandma")
+    assert out.join_code == "CODE-KYOTO" and out.recipient == "Grandma" and out.link is None
+    assert tools.events[-1]["type"] == "share.join_code"
+    assert "request_confirmation share_album" not in tools.log
+
+    tools.confirmations = ["conf-2"]
+    out = workflows.share(tools, ScriptedModel(["temple"]), "h", "send Kyoto temples to Uncle Bo")
+    assert out.link and out.recipient == "Uncle Bo"
+    assert "share_album 'send Kyoto temples to Uncle Bo' 2 conf-2 to bo@example.com" in tools.log
 
 
 def test_router_and_runtime_payloads(tools: InMemoryTools, kyoto: Trip) -> None:
