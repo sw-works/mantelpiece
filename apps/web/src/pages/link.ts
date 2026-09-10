@@ -18,6 +18,25 @@ export async function main(root: HTMLElement, location: Location, storage: Stora
     return;
   }
 
+  // ?join=<trip code>: scanned another household's Invite while this phone is linked to a
+  // TV, so that TV joins the trip (F-411, US7).
+  const join = url.searchParams.get("join");
+  if (join) {
+    const owner = storage.getItem(OWNER_TOKEN_KEY);
+    if (!owner) {
+      mount(root, el("h1", {}, "Link your TV first"), el("p", {}, "Scan the sign-in code on your own TV, then scan this invite again."));
+      return;
+    }
+    mount(root, el("h1", {}, `Joining ${join}…`));
+    try {
+      const r = await api.joinTrip(owner, join);
+      mount(root, el("h1", {}, r.already ? "Already joined" : "Your TV joined the trip"), el("p", {}, `${r.name ?? "The trip"} now shows on your Fire TV, live.`));
+    } catch (e) {
+      mount(root, el("h1", {}, "That code did not open a trip"), el("p", {}, e instanceof Error ? e.message : String(e)));
+    }
+    return;
+  }
+
   const code = url.searchParams.get("c");
   if (!code) {
     mount(root, el("h1", {}, "MemoryLane"), el("p", {}, "Open this page by scanning the code on your TV."));

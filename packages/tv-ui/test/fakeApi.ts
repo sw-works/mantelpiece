@@ -59,6 +59,22 @@ export class FakeApi extends TvApi {
   override async putPresence(_token: string, p: { device_id: string; media: string; paused: boolean }) {
     this.calls.push(`presence ${p.device_id} ${p.media} ${p.paused ? "paused" : "playing"}`);
   }
+  override async previewTrip(code: string) {
+    this.calls.push(`preview ${code}`);
+    if (code === "BADBAD") throw new Error("unknown code");
+    return { household_name: "Hanyu's living room", trip: { ...(this.tripDetail as Trip), id: "kyoto", name: "Kyoto, April 2026" } };
+  }
+  override async joinTrip(_token: string, code: string) {
+    this.calls.push(`join ${code}`);
+    return { joined: true, trip: "kyoto", owner: "amzn-owner", name: "Kyoto, April 2026" };
+  }
+  override async leaveTrip(_token: string, tripId: string) {
+    this.calls.push(`leave ${tripId}`);
+  }
+  override async setRole(_token: string, tripId: string, contributor: string, role: "co_editor" | "contributor") {
+    this.calls.push(`role ${tripId} ${contributor} ${role}`);
+    return { contributor, role };
+  }
   override async setKeeper(_token: string, mediaId: string) {
     this.calls.push(`keeper ${mediaId}`);
     return { keeper: mediaId, changed: true };

@@ -25,6 +25,7 @@ export function TripView({
   onInvite,
   onHighlights,
   onPlay,
+  canManage = true,
 }: {
   api: TvApi;
   token: string;
@@ -33,10 +34,13 @@ export function TripView({
   onInvite: (tripId: string) => void;
   onHighlights?: (tripId: string) => void;
   onPlay?: (trip: Trip) => void;
+  /** False on a joined trip: no promote, no rewrite (F-165). */
+  canManage?: boolean;
 }) {
   const [trip, setTrip] = useState<Trip | null>(null);
   const [day, setDay] = useState(0);
   const [rewriting, setRewriting] = useState(false);
+  const [roles, setRoles] = useState<Record<string, string>>({});
   useEffect(() => {
     let alive = true;
     api
@@ -53,6 +57,8 @@ export function TripView({
   const credits = current ? dayCredits(trip, current.media) : [];
   const hints = clockHints(trip);
   const story = storyOf(trip);
+  const roleOf = (id: string) => roles[id] ?? trip.contributor_roles?.[id] ?? "contributor";
+  const people = Object.entries(trip.contributor_names ?? {});
   return (
     <View style={{ flex: 1, backgroundColor: theme.bg, paddingHorizontal: theme.safe.x, paddingVertical: theme.safe.y, gap: theme.gap }}>
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
@@ -64,6 +70,30 @@ export function TripView({
           <FocusButton label="Back" onPress={onBack} testID="back" />
         </View>
       </View>
+      {trip.shared_by && (
+        <Text testID="shared-by" style={{ color: theme.accent, fontSize: theme.small }}>{`Shared by ${trip.shared_by}`}</Text>
+      )}
+      {people.length > 0 && (
+        <View testID="contributors" style={{ gap: 6 }}>
+          {people.map(([id, name]) => (
+            <View key={id} style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
+              <Text style={{ color: theme.muted, fontSize: theme.small }}>{`${name} · ${roleOf(id).replace("_", "-")}`}</Text>
+              {canManage && roleOf(id) === "contributor" && (
+                <FocusButton
+                  label="Promote to co-editor"
+                  testID={`promote-${id}`}
+                  onPress={() => {
+                    api
+                      .setRole(token, trip.id, id, "co_editor")
+                      .then((r) => setRoles((s) => ({ ...s, [id]: r.role })))
+                      .catch(() => undefined);
+                  }}
+                />
+              )}
+            </View>
+          ))}
+        </View>
+      )}
       <ScrollView horizontal contentContainerStyle={{ gap: 16 }}>
         {trip.days.map((d, i) => (
           <FocusButton key={d.index} label={d.title ?? `Day ${d.index}`} preferred={i === 0} onPress={() => setDay(i)} testID={`day-${d.index}`} />
@@ -94,6 +124,7 @@ export function TripView({
             {story && !rewriting ? (
               <>
                 <Text testID="narrative" style={{ color: theme.fg, fontSize: theme.small, lineHeight: 30 }}>{current.story ?? story}</Text>
+                {canManage && (
                 <FocusButton
                   label="Rewrite the story"
                   testID="regenerate"
@@ -102,6 +133,7 @@ export function TripView({
                     api.regenerateNarrative(token, trip.id).catch(() => setRewriting(false));
                   }}
                 />
+                )}
               </>
             ) : (
               <Text testID="writing" style={{ color: theme.muted, fontSize: theme.small }}>The story of this trip is being written.</Text>

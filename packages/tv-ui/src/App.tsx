@@ -7,6 +7,7 @@ import { useRemoteKeys } from "./hooks/useRemoteKeys";
 import { Ask } from "./screens/Ask";
 import { Highlights } from "./screens/Highlights";
 import { Invite } from "./screens/Invite";
+import { JoinTrip } from "./screens/JoinTrip";
 import { MemoriesHome } from "./screens/MemoriesHome";
 import { Onboarding } from "./screens/Onboarding";
 import { ReviewChanges } from "./screens/ReviewChanges";
@@ -16,7 +17,8 @@ import { MemorySessionStore, newDeviceId, type SessionStore } from "./session";
 
 export type Route =
   | { name: "home" }
-  | { name: "trip"; id: string }
+  | { name: "trip"; id: string; shared?: boolean }
+  | { name: "join" }
   | { name: "highlights"; id: string }
   | { name: "slideshow"; trip: Trip }
   | { name: "ask" }
@@ -49,7 +51,7 @@ export function App({ apiBase, api: injectedApi, sessionStore, tvName }: AppProp
       if (r.name === "trip") return { name: "home" };
       if (r.name === "highlights") return { name: "trip", id: r.id };
       if (r.name === "slideshow") return r.trip.id.startsWith("playlist:") ? { name: "ask" } : { name: "trip", id: r.trip.id };
-      if (r.name === "ask" || r.name === "review") return { name: "home" };
+      if (r.name === "ask" || r.name === "review" || r.name === "join") return { name: "home" };
       if (r.name === "invite") return r.tripId ? { name: "trip", id: r.tripId } : { name: "home" };
       return r;
     });
@@ -98,7 +100,9 @@ export function App({ apiBase, api: injectedApi, sessionStore, tvName }: AppProp
           api={api}
           token={session.token}
           tripsVersion={feed.tripsVersion}
-          onOpenTrip={(t) => setRoute({ name: "trip", id: t.id })}
+          onOpenTrip={(t) => setRoute({ name: "trip", id: t.id, shared: Boolean(t.shared_by) })}
+          onJoin={() => setRoute({ name: "join" })}
+          onLeave={(t) => api.leaveTrip(session.token, t.id).catch(() => undefined)}
           onInvite={() => setRoute({ name: "invite", tripId: null })}
           onAsk={() => setRoute({ name: "ask" })}
           onReview={() => setRoute({ name: "review" })}
@@ -116,8 +120,12 @@ export function App({ apiBase, api: injectedApi, sessionStore, tvName }: AppProp
           onInvite={(tripId) => setRoute({ name: "invite", tripId })}
           onHighlights={(id) => setRoute({ name: "highlights", id })}
           onPlay={(trip) => setRoute({ name: "slideshow", trip })}
+          canManage={!route.shared}
         />
       );
+      break;
+    case "join":
+      screen = <JoinTrip api={api} token={session.token} onJoined={(id) => setRoute({ name: "trip", id, shared: true })} onBack={goBack} />;
       break;
     case "slideshow":
       screen = <Slideshow api={api} token={session.token} trip={route.trip} onBack={goBack} onPresence={onPresence} answer={answer} />;

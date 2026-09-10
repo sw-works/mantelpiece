@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react-nativ
 import { Ask } from "../src/screens/Ask";
 import { Highlights } from "../src/screens/Highlights";
 import { Invite } from "../src/screens/Invite";
+import { JoinTrip } from "../src/screens/JoinTrip";
 import { MemoriesHome } from "../src/screens/MemoriesHome";
 import { Onboarding } from "../src/screens/Onboarding";
 import { ReviewChanges } from "../src/screens/ReviewChanges";
@@ -59,6 +60,34 @@ describe("screens", () => {
     await waitFor(() => expect(screen.queryByTestId("new-kyoto")).toBeNull());
   });
 
+  it("MemoriesHome badges trips shared from another TV and lets you leave them", async () => {
+    const api = new FakeApi();
+    api.tripList = [{ ...trip, id: "lisbon", name: "Lisbon", shared_by: "Ruth's living room" }, trip];
+    const onLeave = jest.fn(async () => undefined);
+    await render(<MemoriesHome api={api} token="t" tripsVersion={0} onOpenTrip={() => undefined} onInvite={() => undefined} onJoin={() => undefined} onLeave={onLeave} />);
+    await waitFor(() => expect(screen.getByTestId("shared-lisbon").props.children).toBe("Shared by Ruth's living room"));
+    expect(screen.queryByTestId("shared-kyoto")).toBeNull();
+    expect(screen.getByTestId("join")).toBeTruthy();
+    await fireEvent.press(screen.getByTestId("leave-lisbon"));
+    await waitFor(() => expect(screen.queryByTestId("trip-lisbon")).toBeNull());
+    expect(onLeave).toHaveBeenCalled();
+  });
+
+  it("JoinTrip previews the code from the grid and joins", async () => {
+    const api = new FakeApi();
+    api.tripDetail = { ...trip, days: [], narrative: null, route: { points: [], inferred: false, map_key: null } };
+    const onJoined = jest.fn();
+    await render(<JoinTrip api={api} token="t" onJoined={onJoined} onBack={() => undefined} />);
+    for (const c of ["T", "2", "C", "3", "D", "4"]) await fireEvent.press(screen.getByTestId(`key-${c}`));
+    await waitFor(() => expect(screen.getByTestId("preview-name").props.children).toBe("Kyoto, April 2026"));
+    expect(api.calls).toContain("preview T2C3D4");
+    await fireEvent.press(screen.getByTestId("join"));
+    await waitFor(() => expect(onJoined).toHaveBeenCalledWith("kyoto"));
+    await fireEvent.press(screen.getByTestId("clear"));
+    await fireEvent.changeText(screen.getByTestId("code"), "badbad");
+    await waitFor(() => expect(screen.getByTestId("error")).toBeTruthy());
+  });
+
   it("MemoriesHome explains the empty state", async () => {
     await render(<MemoriesHome api={new FakeApi()} token="t" tripsVersion={0} onOpenTrip={() => undefined} onInvite={() => undefined} />);
     await waitFor(() => expect(screen.getByTestId("empty")).toBeTruthy());
@@ -75,6 +104,7 @@ describe("screens", () => {
       narrative: { text: "We walked the golden pavilion.", model_id: "m", generated_at: "", check: "passed" },
       route: { points: [], inferred: false, map_key: null },
       contributor_names: { owner: "Hanyu", maya: "Maya" },
+      contributor_roles: { owner: "owner", maya: "contributor" },
       media_credits: { m1: "owner", m2: "maya", m3: "maya" },
       clock_offsets: [{ contributor: "maya", seconds: -184, samples: 6 }, { contributor: "owner", seconds: 2, samples: 9 }],
     };
@@ -98,9 +128,20 @@ describe("screens", () => {
     expect(onHighlights).toHaveBeenCalledWith("kyoto");
     await fireEvent.press(screen.getByTestId("play"));
     expect(onPlay).toHaveBeenCalledWith(expect.objectContaining({ id: "kyoto" }));
+    await fireEvent.press(screen.getByTestId("promote-maya"));
+    await waitFor(() => expect(api.calls).toContain("role kyoto maya co_editor"));
+    await waitFor(() => expect(screen.queryByTestId("promote-maya")).toBeNull());
     await fireEvent.press(screen.getByTestId("regenerate"));
     expect(api.calls).toContain("regenerate kyoto");
     await waitFor(() => expect(screen.getByTestId("writing")).toBeTruthy());
+  });
+
+  it("TripView hides management on a joined trip", async () => {
+    const api = new FakeApi();
+    api.tripDetail = { ...trip, days: [], route: { points: [], inferred: false, map_key: null }, narrative: { text: "Story.", model_id: "m", generated_at: "" }, contributor_names: { owner: "Hanyu" }, contributor_roles: { owner: "owner" }, shared_by: "Hanyu's living room" };
+    await render(<TripView api={api} token="t" tripId="kyoto" onBack={() => undefined} onInvite={() => undefined} canManage={false} />);
+    await waitFor(() => expect(screen.getByTestId("shared-by").props.children).toBe("Shared by Hanyu's living room"));
+    expect(screen.queryByTestId("regenerate")).toBeNull();
   });
 
   it("TripView keeps a withheld story off the screen", async () => {

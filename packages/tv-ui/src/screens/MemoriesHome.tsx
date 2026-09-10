@@ -15,6 +15,8 @@ export function MemoriesHome({
   onAsk,
   onReview,
   pendingReviews = 0,
+  onJoin,
+  onLeave,
 }: {
   api: TvApi;
   token: string;
@@ -24,6 +26,8 @@ export function MemoriesHome({
   onAsk?: () => void;
   onReview?: () => void;
   pendingReviews?: number;
+  onJoin?: () => void;
+  onLeave?: (trip: TripSummary) => Promise<void> | void;
 }) {
   const [trips, setTrips] = useState<TripSummary[] | null>(null);
   const [seen, setSeen] = useState<Set<string>>(new Set());
@@ -46,6 +50,7 @@ export function MemoriesHome({
           {onReview && (pendingReviews > 0 || true) && (
             <FocusButton label={pendingReviews > 0 ? `Review changes (${pendingReviews})` : "Review changes"} onPress={onReview} testID="review" />
           )}
+          {onJoin && <FocusButton label="Join a trip" onPress={onJoin} testID="join" />}
           {onAsk && <FocusButton label="Ask" onPress={onAsk} testID="ask" />}
           <FocusButton label="Add photos" onPress={onInvite} testID="invite" />
         </View>
@@ -68,7 +73,19 @@ export function MemoriesHome({
               {!seen.has(trip.id) && (
                 <Text testID={`new-${trip.id}`} style={{ color: theme.accent, fontSize: theme.small }}>New memory</Text>
               )}
+              {trip.shared_by && (
+                <Text testID={`shared-${trip.id}`} style={{ color: theme.accent, fontSize: theme.small }}>{`Shared by ${trip.shared_by}`}</Text>
+              )}
             </View>
+            {trip.shared_by && onLeave && (
+              <FocusButton
+                label="Leave"
+                testID={`leave-${trip.id}`}
+                onPress={() => {
+                  void Promise.resolve(onLeave(trip)).then(() => setTrips((t) => (t ?? []).filter((x) => x.id !== trip.id)));
+                }}
+              />
+            )}
             <FocusButton
               label="Open"
               preferred={i === 0}

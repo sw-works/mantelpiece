@@ -36,5 +36,8 @@ describe("read-only trip page", () => {
     expect(seen[0]!.headers["authorization"]).toBeUndefined();
     await api.joinAsGuest("T2C3D4", "Maya");
     expect(seen[1]!.url).toBe("https://api.test/join");
+    await api.joinTrip("owner-token", "T2C3D4");
+    expect(seen[2]!.url).toBe("https://api.test/memberships");
+    expect(seen[2]!.headers["authorization"]).toBe("Bearer owner-token");
   });
 });

@@ -20,6 +20,9 @@ export interface TripSummary {
   hero: string | null;
   highlights: string[];
   contributors: string[];
+  /** Set on trips joined from another TV: the owning household's name (F-162). */
+  shared_by?: string | null;
+  owner_household?: string;
 }
 
 export interface TripDay {
@@ -46,6 +49,8 @@ export interface Trip extends TripSummary {
   route: { points: unknown[]; inferred: boolean; map_key: string | null };
   /** Contributor id to display name (F-154). */
   contributor_names?: Record<string, string>;
+  /** Contributor id to owner | co_editor | contributor (F-164). */
+  contributor_roles?: Record<string, "owner" | "co_editor" | "contributor">;
   /** Media id to contributor id (F-154). */
   media_credits?: Record<string, string>;
   /** Whose clock was corrected, by how much (F-155). */
@@ -232,6 +237,23 @@ export class TvApi {
 
   codes(token: string) {
     return this.call<CodeView[]>("GET", "/codes", undefined, token);
+  }
+
+  /** Preview a trip by its code before joining (the read-only view). */
+  previewTrip(code: string) {
+    return this.call<{ household_name: string | null; trip: Trip }>("GET", `/view?code=${encodeURIComponent(code)}`);
+  }
+
+  joinTrip(token: string, code: string) {
+    return this.call<{ joined: boolean; trip: string; owner: string; name?: string; already?: boolean }>("POST", "/memberships", { code }, token);
+  }
+
+  leaveTrip(token: string, tripId: string) {
+    return this.call<void>("DELETE", `/memberships/${tripId}`, undefined, token);
+  }
+
+  setRole(token: string, tripId: string, contributor: string, role: "co_editor" | "contributor") {
+    return this.call<{ contributor: string; role: string }>("POST", `/trips/${tripId}/roles`, { contributor, role }, token);
   }
 
   rotateCode(token: string, code: string) {

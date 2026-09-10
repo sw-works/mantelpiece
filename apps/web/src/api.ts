@@ -96,6 +96,11 @@ export class Api {
     return this.call<Joined>("POST", "/join", { code, display_name: displayName, device_id: this.deviceId });
   }
 
+  /** Join a trip from another household by its code, for this phone's TV (F-411). */
+  joinTrip(bearer: string, code: string) {
+    return this.call<{ joined: boolean; trip: string; owner: string; name?: string; already?: boolean }>("POST", "/memberships", { code }, { bearer });
+  }
+
   /** What the TVs are showing right now (owner session). */
   presence(bearer: string) {
     return this.call<Array<{ device_id: string; media: string; trip: string | null; day: number | null; paused: boolean; at: string }>>("GET", "/presence", undefined, { bearer });
