@@ -15,6 +15,7 @@ from typing import Any
 from .model import Model, bedrock_model
 from .router import handle_event
 from .tools import Tools
+from .tracing import ATTR_HOUSEHOLD, ATTR_TRIGGER, ATTR_WORKFLOW, tracer, workflow_for
 from .workflows import ask_archive, describe_photo
 
 
@@ -23,18 +24,39 @@ def _plain(value: Any) -> Any:
 
 
 def invoke(payload: dict[str, Any], tools: Tools, model: Model) -> dict[str, Any]:
+    """One traced agent run (F-506): the span carries the household and the workflow."""
     if "detail-type" in payload:
-        result = handle_event(tools, model, payload["detail-type"], payload.get("detail", {}))
+        detail = payload.get("detail", {})
+        workflow = workflow_for(payload["detail-type"])
+        attrs = {
+            ATTR_HOUSEHOLD: detail.get("household"),
+            ATTR_WORKFLOW: workflow,
+            ATTR_TRIGGER: payload["detail-type"],
+        }
+        with tracer().span(f"agent.{workflow}", attrs):
+            result = handle_event(tools, model, payload["detail-type"], detail)
         return {"handled": result is not None, "result": _plain(result)}
     if "question" in payload:
-        result = describe_photo(
-            tools, model, payload["household"], payload["question"], payload.get("tv")
-        )
+        attrs = {
+            ATTR_HOUSEHOLD: payload["household"],
+            ATTR_WORKFLOW: "describe_photo",
+            ATTR_TRIGGER: "voice",
+        }
+        with tracer().span("agent.describe_photo", attrs):
+            result = describe_photo(
+                tools, model, payload["household"], payload["question"], payload.get("tv")
+            )
         return {"result": _plain(result)}
     if "prompt" in payload:
-        result = ask_archive(
-            tools, model, payload["household"], payload["prompt"], payload.get("trip")
-        )
+        attrs = {
+            ATTR_HOUSEHOLD: payload["household"],
+            ATTR_WORKFLOW: "ask_archive",
+            ATTR_TRIGGER: "prompt",
+        }
+        with tracer().span("agent.ask_archive", attrs):
+            result = ask_archive(
+                tools, model, payload["household"], payload["prompt"], payload.get("trip")
+            )
         return {"result": _plain(result)}
     return {"error": "unrecognised payload"}
 

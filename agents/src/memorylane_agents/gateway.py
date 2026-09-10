@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import Any
 
 from .tools import CleanupCandidate, DedupGroup, Memories, NowShowing, PhotoAnswer, Trip
+from .tracing import ATTR_HOUSEHOLD, ATTR_TOOL, tracer
 
 
 class GatewayTools:
@@ -27,7 +28,10 @@ class GatewayTools:
 
             self._client = MCPClient(lambda: streamablehttp_client(self.url))
             self._client.start()
-        result = self._client.call_tool_sync(tool_use_id=tool, name=tool, arguments=arguments)
+        # F-506: every tool call is a span under the run's span, tagged with the household.
+        attrs = {ATTR_TOOL: tool, ATTR_HOUSEHOLD: arguments.get("household")}
+        with tracer().span(f"tool.{tool}", attrs):
+            result = self._client.call_tool_sync(tool_use_id=tool, name=tool, arguments=arguments)
         return result["content"][0].get("json") or result["content"][0].get("text")
 
     def list_trips(self, household: str) -> list[Trip]:
