@@ -2,8 +2,11 @@
 //! keepers whose landmark is unknown (research R8), and the embedding for Ask (F-303).
 //! Non-keepers inherit from their keeper in `organize`.
 
+use memorylane_core::events::{Event, EventKind};
 use memorylane_core::ids::{HouseholdId, MediaId};
-use memorylane_core::media::{Description, Enrichment, MediaItem, ProcessingState, Tag};
+use memorylane_core::media::{
+    cleanup_reason, Description, Enrichment, MediaItem, ProcessingState, Tag,
+};
 use memorylane_core::narrative_check::{check, Allowed};
 use memorylane_ingest::embed;
 use memorylane_ingest::renditions::Rendition;
@@ -21,6 +24,7 @@ pub struct Output {
     pub state: ProcessingState,
     pub skipped: Option<String>,
     pub described: bool,
+    pub cleanup_reason: Option<String>,
 }
 
 /// The question put to the multimodal model. The answer's first line names the landmark
@@ -65,6 +69,7 @@ pub fn parse_description(raw: &str) -> (Option<String>, String) {
     }
 }
 
+#[allow(clippy::too_many_lines)]
 pub async fn run(ingest: &Ingest, household: &HouseholdId, media_id: &MediaId) -> Result<Output> {
     let mut media = ingest
         .storage
@@ -77,6 +82,7 @@ pub async fn run(ingest: &Ingest, household: &HouseholdId, media_id: &MediaId) -
             state: media.state,
             skipped: Some("already enriched".into()),
             described: false,
+            cleanup_reason: None,
         });
     }
     if !media.is_keeper {
@@ -85,6 +91,7 @@ pub async fn run(ingest: &Ingest, household: &HouseholdId, media_id: &MediaId) -
             state: media.state,
             skipped: Some("not a keeper".into()),
             described: false,
+            cleanup_reason: None,
         });
     }
     let key = Rendition::Tv.key(household.as_str(), media_id.as_str());
@@ -95,6 +102,30 @@ pub async fn run(ingest: &Ingest, household: &HouseholdId, media_id: &MediaId) -
     let lines = ingest.vision.detect_text(&jpeg).await?;
     let text = lines.join(" ").trim().to_owned();
     media.text = (!text.is_empty()).then_some(text);
+
+    // F-705: quick cleanup candidates, deterministic, announced to the Concierge only.
+    media.cleanup_reason = cleanup_reason(
+        media.captured.is_some(),
+        media.signals.width,
+        media.signals.height,
+        media.signals.sharpness,
+        &lines,
+    );
+    if let Some(reason) = media.cleanup_reason {
+        ingest
+            .bus
+            .publish(&Event {
+                household: household.clone(),
+                seq: 0,
+                at: ingest.now(),
+                kind: EventKind::CleanupCandidates {
+                    trip: media.trip.clone(),
+                    media: vec![media.id.clone()],
+                    reasons: vec![reason.as_str().to_owned()],
+                },
+            })
+            .await?;
+    }
 
     // Description when the landmark is unknown or weak and there is something to go on.
     let mut described = false;
@@ -164,6 +195,7 @@ pub async fn run(ingest: &Ingest, household: &HouseholdId, media_id: &MediaId) -
         state: media.state,
         skipped: None,
         described,
+        cleanup_reason: media.cleanup_reason.map(|r| r.as_str().to_owned()),
     })
 }
 

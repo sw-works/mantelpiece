@@ -102,6 +102,62 @@ pub enum CleanupReason {
     Blurry,
 }
 
+impl CleanupReason {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Screenshot => "screenshot",
+            Self::Document => "document",
+            Self::Receipt => "receipt",
+            Self::Blurry => "blurry",
+        }
+    }
+}
+
+/// Sharpness (variance of the Laplacian) below this is a blurry frame.
+pub const BLURRY_SHARPNESS: f64 = 20.0;
+/// Text lines at or above this make a document.
+pub const DOCUMENT_LINES: usize = 8;
+
+/// Why quick cleanup would flag this item, from signals and detected text (F-705). Only
+/// keepers are classified; screenshots are phone-shaped frames with no capture time.
+pub fn cleanup_reason(
+    captured: bool,
+    width: Option<u32>,
+    height: Option<u32>,
+    sharpness: Option<f64>,
+    text_lines: &[String],
+) -> Option<CleanupReason> {
+    let joined = text_lines.join(" ").to_lowercase();
+    let receipt_words = [
+        "total",
+        "receipt",
+        "subtotal",
+        "tax",
+        "change due",
+        "cash",
+        "visa",
+    ];
+    let receipt_hits = receipt_words.iter().filter(|w| joined.contains(*w)).count();
+    if text_lines.len() >= 3 && (receipt_hits >= 2 || joined.contains("receipt")) {
+        return Some(CleanupReason::Receipt);
+    }
+    if text_lines.len() >= DOCUMENT_LINES {
+        return Some(CleanupReason::Document);
+    }
+    if let (false, Some(w), Some(h)) = (captured, width, height) {
+        let (short, long) = (f64::from(w.min(h)), f64::from(w.max(h)));
+        let ratio = long / short;
+        // Phone screens run from 16:9 to about 22:9.
+        if (1.7..=2.5).contains(&ratio) {
+            return Some(CleanupReason::Screenshot);
+        }
+    }
+    if sharpness.is_some_and(|s| s < BLURRY_SHARPNESS) {
+        return Some(CleanupReason::Blurry);
+    }
+    None
+}
+
 /// A model-written description of a keeper, precomputed at ingest so `describe_photo`
 /// answers from storage (research R8). Checked against metadata before it is saved.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -359,6 +415,46 @@ mod tests {
         let json = serde_json::to_value(&m).unwrap();
         assert_eq!(json["hidden_by"], serde_json::json!(["h2"]));
         assert!(json.get("pinned_by").is_none());
+    }
+
+    #[test]
+    fn cleanup_reasons_from_signals_and_text() {
+        let lines = |n: usize| (0..n).map(|i| format!("line {i}")).collect::<Vec<_>>();
+        assert_eq!(
+            cleanup_reason(false, Some(1170), Some(2532), Some(300.0), &[]),
+            Some(CleanupReason::Screenshot)
+        );
+        assert_eq!(
+            cleanup_reason(true, Some(1170), Some(2532), Some(300.0), &[]),
+            None,
+            "a captured photo keeps its shape"
+        );
+        assert_eq!(
+            cleanup_reason(true, Some(4000), Some(3000), Some(5.0), &[]),
+            Some(CleanupReason::Blurry)
+        );
+        assert_eq!(
+            cleanup_reason(true, Some(4000), Some(3000), Some(300.0), &lines(9)),
+            Some(CleanupReason::Document)
+        );
+        assert_eq!(
+            cleanup_reason(
+                true,
+                None,
+                None,
+                None,
+                &[
+                    "Ichiran".into(),
+                    "Subtotal 1200".into(),
+                    "Total 1320".into()
+                ]
+            ),
+            Some(CleanupReason::Receipt)
+        );
+        assert_eq!(
+            cleanup_reason(true, Some(4000), Some(3000), Some(300.0), &[]),
+            None
+        );
     }
 
     #[test]

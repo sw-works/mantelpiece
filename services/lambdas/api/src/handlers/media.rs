@@ -1,13 +1,16 @@
 //! Media reads, contributor self-removal (F-157), pin and hide (F-209).
 
+use memorylane_core::confirmation::ConfirmedAction;
 use memorylane_core::events::EventKind;
 use memorylane_core::ids::{HouseholdId, MediaId};
 use memorylane_core::media::{MediaItem, ProcessingState};
 use memorylane_ingest::embed;
+use serde::Deserialize;
 use serde_json::json;
 
 use crate::app::{App, Caller};
 use crate::error::ApiError;
+use crate::handlers::confirmations::{redeem, subject_of};
 use crate::req::{Req, Resp};
 use crate::tokens::Session;
 
@@ -232,4 +235,220 @@ pub async fn set_keeper(app: &App, req: &Req, id: &str) -> Result<Resp, ApiError
     Resp::ok(
         json!({ "keeper": id, "group": group, "members": members.len(), "changed": true, "previous": old_keeper }),
     )
+}
+
+/// Soft-remove a set of items with the cascade and one feed event. Ids that are unknown
+/// or already removed are skipped.
+async fn remove_many(
+    app: &App,
+    household: &HouseholdId,
+    ids: &[MediaId],
+) -> Result<Vec<MediaId>, ApiError> {
+    let now = app.now();
+    let mut removed = Vec::new();
+    for id in ids {
+        let Some(mut m) = app.storage.get_media(household, id).await? else {
+            continue;
+        };
+        if m.is_removed() {
+            continue;
+        }
+        m.remove(now);
+        app.storage.put_media(&m).await?;
+        cascade(app, household, &m).await?;
+        removed.push(id.clone());
+    }
+    if !removed.is_empty() {
+        app.storage
+            .append_event(
+                household,
+                now,
+                EventKind::MediaRemoved {
+                    media: removed.clone(),
+                },
+            )
+            .await?;
+    }
+    Ok(removed)
+}
+
+/// `GET /media/cleanup` (the `list_cleanup_candidates` tool, F-705).
+pub async fn cleanup_candidates(app: &App, req: &Req) -> Result<Resp, ApiError> {
+    let household = app.owner(req)?;
+    let trip = req
+        .query
+        .get("trip")
+        .map(|t| memorylane_core::ids::TripId::new(t.as_str()));
+    let rows: Vec<serde_json::Value> = app
+        .storage
+        .list_media(&household)
+        .await?
+        .into_iter()
+        .filter(|m| !m.is_removed() && m.cleanup_reason.is_some())
+        .filter(|m| trip.as_ref().is_none_or(|t| m.trip.as_ref() == Some(t)))
+        .map(|m| json!({ "media": m.id, "reason": m.cleanup_reason.map(memorylane_core::media::CleanupReason::as_str), "trip": m.trip, "filename": m.original_filename }))
+        .collect();
+    Resp::ok(rows)
+}
+
+#[derive(Deserialize)]
+struct IdsBody {
+    media_ids: Vec<String>,
+}
+
+#[derive(Deserialize)]
+struct GroupsBody {
+    group_ids: Vec<String>,
+}
+
+/// `POST /media/cleanup/apply` (the `apply_cleanup` tool): token required (F-504).
+pub async fn apply_cleanup(app: &App, req: &Req) -> Result<Resp, ApiError> {
+    let household = app.owner(req)?;
+    let body: IdsBody = req.json()?;
+    redeem(
+        app,
+        req,
+        &household,
+        &ConfirmedAction::ApplyCleanup {
+            media_ids: body.media_ids.clone(),
+        },
+    )
+    .await?;
+    let ids: Vec<MediaId> = body
+        .media_ids
+        .iter()
+        .map(|s| MediaId::new(s.as_str()))
+        .collect();
+    let removed = remove_many(app, &household, &ids).await?;
+    Resp::ok(json!({ "removed": removed.len(), "media": removed }))
+}
+
+/// `POST /media/dedup/apply` (the `apply_dedup` tool): removes the non-keepers of the
+/// given burst groups; token required.
+pub async fn apply_dedup(app: &App, req: &Req) -> Result<Resp, ApiError> {
+    let household = app.owner(req)?;
+    let body: GroupsBody = req.json()?;
+    redeem(
+        app,
+        req,
+        &household,
+        &ConfirmedAction::ApplyDedup {
+            group_ids: body.group_ids.clone(),
+        },
+    )
+    .await?;
+    let ids: Vec<MediaId> = app
+        .storage
+        .list_media(&household)
+        .await?
+        .into_iter()
+        .filter(|m| {
+            !m.is_keeper
+                && !m.is_removed()
+                && m.burst_group
+                    .as_ref()
+                    .is_some_and(|g| body.group_ids.contains(g))
+        })
+        .map(|m| m.id)
+        .collect();
+    let removed = remove_many(app, &household, &ids).await?;
+    Resp::ok(json!({ "removed": removed.len(), "media": removed }))
+}
+
+/// `POST /media/delete` (the `delete_media` tool): the owner's token, or a co-editor's
+/// RemoveMedia token whose subject holds the role (F-164). Token required either way.
+pub async fn delete_many(app: &App, req: &Req) -> Result<Resp, ApiError> {
+    let caller = app.caller(req)?;
+    let household = caller.household().clone();
+    let body: IdsBody = req.json()?;
+    let subject = subject_of(app, req).await?;
+    let by = match &caller {
+        Caller::Owner { .. } => None,
+        Caller::Contributor(Session::Upload { contributor, .. }) => Some(contributor.to_string()),
+        Caller::Contributor(_) => return Err(ApiError::forbidden("owner only")),
+    };
+    let action = match by {
+        None => ConfirmedAction::DeleteMedia {
+            media_ids: body.media_ids.clone(),
+        },
+        Some(by) => {
+            let c = app
+                .storage
+                .get_contributor(
+                    &household,
+                    &memorylane_core::ids::ContributorId::new(by.as_str()),
+                )
+                .await?
+                .filter(memorylane_core::contributor::Contributor::can_edit)
+                .ok_or_else(|| ApiError::forbidden("co-editors only"))?;
+            if subject.as_deref() != Some(c.id.as_str()) {
+                return Err(ApiError::forbidden(
+                    "the token was not confirmed by this co-editor",
+                ));
+            }
+            ConfirmedAction::RemoveMedia {
+                media_ids: body.media_ids.clone(),
+                by,
+            }
+        }
+    };
+    redeem(app, req, &household, &action).await?;
+    let ids: Vec<MediaId> = body
+        .media_ids
+        .iter()
+        .map(|s| MediaId::new(s.as_str()))
+        .collect();
+    let removed = remove_many(app, &household, &ids).await?;
+    Resp::ok(json!({ "removed": removed.len(), "media": removed }))
+}
+
+/// `POST /media/{media}/restore`: undo a soft removal inside its window (US6).
+pub async fn restore(app: &App, req: &Req, id: &str) -> Result<Resp, ApiError> {
+    let household = app.owner(req)?;
+    let id = MediaId::new(id);
+    let mut media = app
+        .storage
+        .get_media(&household, &id)
+        .await?
+        .ok_or_else(|| ApiError::not_found("unknown media"))?;
+    if !media.restore(app.now()) {
+        return Err(ApiError::gone("the restore window has closed"));
+    }
+    app.storage.put_media(&media).await?;
+    // Back into its trip's last day; organize re-places it properly on the next run.
+    if let Some(trip_id) = &media.trip {
+        if let Some(mut trip) = app.storage.get_trip(&household, trip_id).await? {
+            if let Some(last) = trip.days.last_mut() {
+                if !last.media.contains(&id) {
+                    last.media.push(id.clone());
+                }
+            }
+            app.storage.put_trip(&trip).await?;
+        }
+    }
+    Resp::ok(json!({ "restored": id, "state": media.state }))
+}
+
+/// `POST /media/purge` (the `purge_expired` tool, nightly): delete originals, renditions
+/// and records of items past their restore window.
+pub async fn purge_expired(app: &App, req: &Req) -> Result<Resp, ApiError> {
+    let household = app.owner(req)?;
+    let now = app.now();
+    let mut purged = Vec::new();
+    for m in app.storage.list_media(&household).await? {
+        if !m.is_removed() || m.restore_until.is_none_or(|t| now < t) {
+            continue;
+        }
+        let keys = vec![
+            m.original_key.clone(),
+            format!("renditions/{}/{}/thumb.jpg", m.household, m.id),
+            format!("renditions/{}/{}/tv.jpg", m.household, m.id),
+            format!("renditions/{}/{}/poster.jpg", m.household, m.id),
+        ];
+        app.blobs.delete(&keys).await?;
+        app.vectors.delete(&household, &m.id).await?;
+        app.storage.delete_media(&household, &m.id).await?;
+        purged.push(m.id);
+    }
+    Resp::ok(json!({ "purged": purged.len(), "media": purged }))
 }

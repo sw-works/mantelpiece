@@ -206,6 +206,21 @@ impl App {
             // Read-only web view by trip code, no session (F-159).
             (Method::Get, ["view"]) => handlers::trips::view(self, req).await,
 
+            // Literal media routes come before the `{media}` patterns.
+            (Method::Get, ["media", "cleanup"]) => {
+                handlers::media::cleanup_candidates(self, req).await
+            }
+            (Method::Post, ["media", "cleanup", "apply"]) => {
+                handlers::media::apply_cleanup(self, req).await
+            }
+            (Method::Post, ["media", "dedup", "apply"]) => {
+                handlers::media::apply_dedup(self, req).await
+            }
+            (Method::Post, ["media", "delete"]) => handlers::media::delete_many(self, req).await,
+            (Method::Post, ["media", "purge"]) => handlers::media::purge_expired(self, req).await,
+            (Method::Post, ["media", media, "restore"]) => {
+                handlers::media::restore(self, req, media).await
+            }
             (Method::Get, ["media", media, "url"]) => handlers::media::url(self, req, media).await,
             (Method::Delete, ["media", media]) => handlers::media::delete(self, req, media).await,
             (Method::Post, ["media", media, "pin"]) => {
@@ -227,6 +242,12 @@ impl App {
             }
 
             (Method::Post, ["confirmations"]) => handlers::confirmations::mint(self, req).await,
+            (Method::Post, ["proposals"]) => handlers::proposals::create(self, req).await,
+            (Method::Get, ["proposals"]) => handlers::proposals::list(self, req).await,
+            (Method::Get, ["proposals", id]) => handlers::proposals::get(self, req, id).await,
+            (Method::Post, ["proposals", id, "cancel"]) => {
+                handlers::proposals::cancel(self, req, id).await
+            }
 
             _ => Err(ApiError::not_found("no such route")),
         }

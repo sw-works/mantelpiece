@@ -140,6 +140,320 @@ async fn enriched(
 }
 
 #[tokio::test]
+async fn proposals_wait_for_the_remote_and_tokens_close_them() {
+    let h = harness();
+    // Two bursts: a keeper and a non-keeper each.
+    let mut ids = Vec::new();
+    for (i, (group, keeper)) in [("g1", true), ("g1", false), ("g2", true), ("g2", false)]
+        .iter()
+        .enumerate()
+    {
+        let init = h
+            .owner(Method::Post, "/uploads/init", Some(json!({ "filename": format!("{i}.jpg"), "bytes": 10, "sha256": sha(40 + u8::try_from(i).unwrap()) })))
+            .await;
+        let id = MediaId::new(init.body["media_id"].as_str().unwrap());
+        let mut m = h
+            .storage
+            .get_media(&HouseholdId::new("amzn-owner"), &id)
+            .await
+            .unwrap()
+            .unwrap();
+        m.burst_group = Some((*group).to_owned());
+        m.is_keeper = *keeper;
+        h.storage.put_media(&m).await.unwrap();
+        ids.push(id);
+    }
+    let action = json!({ "action": "apply_dedup", "group_ids": ["g1", "g2"] });
+
+    // Without a token the tool is refused (F-504).
+    let denied = h
+        .owner(
+            Method::Post,
+            "/media/dedup/apply",
+            Some(json!({ "group_ids": ["g1", "g2"] })),
+        )
+        .await;
+    assert_eq!(denied.status, 403);
+
+    // The agent opens a proposal: counts and samples computed server-side.
+    let opened = h
+        .owner(
+            Method::Post,
+            "/proposals",
+            Some(json!({ "action": action, "trip": null })),
+        )
+        .await;
+    assert_eq!(opened.status, 201, "{}", opened.body);
+    assert_eq!(opened.body["before"], 4);
+    assert_eq!(opened.body["after"], 2);
+    assert_eq!(opened.body["samples"].as_array().unwrap().len(), 2);
+    assert_eq!(opened.body["samples"][0]["keep"], ids[0].as_str());
+    assert_eq!(opened.body["state"], "open");
+    let pid = opened.body["id"].as_str().unwrap().to_owned();
+    let feed = h.owner(Method::Get, "/events?since=0", None).await;
+    assert!(feed.body["events"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|e| e["type"] == "dedup.proposal" && e["removable"] == 2));
+    assert_eq!(
+        h.owner(Method::Get, "/proposals", None)
+            .await
+            .body
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+
+    // Keep everything: nothing changes, and the proposal cannot be confirmed afterwards.
+    let cancelled = h
+        .owner(Method::Post, &format!("/proposals/{pid}/cancel"), None)
+        .await;
+    assert_eq!(cancelled.body["state"], "cancelled");
+    let late = h
+        .owner(
+            Method::Post,
+            "/confirmations",
+            Some(json!({ "action": "apply_dedup", "group_ids": ["g1", "g2"], "proposal": pid })),
+        )
+        .await;
+    assert_eq!(late.status, 409);
+    assert!(h
+        .owner(Method::Get, "/proposals", None)
+        .await
+        .body
+        .as_array()
+        .unwrap()
+        .is_empty());
+
+    // A second proposal, confirmed on the remote, applied by the tool, then closed.
+    let opened = h
+        .owner(
+            Method::Post,
+            "/proposals",
+            Some(json!({ "action": action })),
+        )
+        .await;
+    let pid = opened.body["id"].as_str().unwrap().to_owned();
+    let mismatch = h
+        .owner(
+            Method::Post,
+            "/confirmations",
+            Some(json!({ "action": "apply_dedup", "group_ids": ["g1"], "proposal": pid })),
+        )
+        .await;
+    assert_eq!(mismatch.status, 400);
+    let minted = h
+        .owner(
+            Method::Post,
+            "/confirmations",
+            Some(json!({ "action": "apply_dedup", "group_ids": ["g1", "g2"], "proposal": pid })),
+        )
+        .await;
+    assert_eq!(minted.status, 201, "{}", minted.body);
+    let token = minted.body["token"].as_str().unwrap().to_owned();
+    let polled = h
+        .owner(Method::Get, &format!("/proposals/{pid}"), None)
+        .await;
+    assert_eq!(polled.body["state"], "confirmed");
+    assert_eq!(polled.body["confirmation"], token);
+    let applied = h
+        .owner(
+            Method::Post,
+            "/media/dedup/apply",
+            Some(json!({ "group_ids": ["g1", "g2"], "confirmation": token })),
+        )
+        .await;
+    assert_eq!(applied.status, 200, "{}", applied.body);
+    assert_eq!(applied.body["removed"], 2);
+    assert_eq!(
+        h.owner(Method::Get, &format!("/proposals/{pid}"), None)
+            .await
+            .body["state"],
+        "applied"
+    );
+    // The token is single use.
+    let reused = h
+        .owner(
+            Method::Post,
+            "/media/dedup/apply",
+            Some(json!({ "group_ids": ["g1", "g2"], "confirmation": token })),
+        )
+        .await;
+    assert_eq!(reused.status, 403);
+    // Removed items are restorable for 30 days, then purged.
+    let gone = &ids[1];
+    let restored = h
+        .owner(Method::Post, &format!("/media/{gone}/restore"), None)
+        .await;
+    assert_eq!(restored.status, 200, "{}", restored.body);
+    assert!(!h
+        .storage
+        .get_media(&HouseholdId::new("amzn-owner"), gone)
+        .await
+        .unwrap()
+        .unwrap()
+        .is_removed());
+    let purged = h.owner(Method::Post, "/media/purge", None).await;
+    assert_eq!(purged.body["purged"], 0);
+    h.advance(Duration::days(31));
+    let purged = h.owner(Method::Post, "/media/purge", None).await;
+    assert_eq!(purged.body["purged"], 1, "{}", purged.body);
+    assert!(h
+        .storage
+        .get_media(&HouseholdId::new("amzn-owner"), &ids[3])
+        .await
+        .unwrap()
+        .is_none());
+    assert!(h
+        .blobs
+        .log
+        .lock()
+        .unwrap()
+        .iter()
+        .any(|l| l.starts_with("delete originals/")));
+    assert_eq!(
+        h.owner(Method::Post, &format!("/media/{}/restore", ids[3]), None)
+            .await
+            .status,
+        404
+    );
+}
+
+#[tokio::test]
+async fn cleanup_and_delete_tools_need_tokens_and_open_proposals() {
+    let h = harness();
+    let init = h
+        .owner(
+            Method::Post,
+            "/uploads/init",
+            Some(json!({ "filename": "shot.png", "bytes": 10, "sha256": sha(50) })),
+        )
+        .await;
+    let shot = MediaId::new(init.body["media_id"].as_str().unwrap());
+    let mut m = h
+        .storage
+        .get_media(&HouseholdId::new("amzn-owner"), &shot)
+        .await
+        .unwrap()
+        .unwrap();
+    m.cleanup_reason = Some(memorylane_core::media::CleanupReason::Screenshot);
+    h.storage.put_media(&m).await.unwrap();
+    let candidates = h.owner(Method::Get, "/media/cleanup", None).await;
+    assert_eq!(candidates.body[0]["reason"], "screenshot");
+
+    assert_eq!(
+        h.owner(
+            Method::Post,
+            "/media/cleanup/apply",
+            Some(json!({ "media_ids": [shot] }))
+        )
+        .await
+        .status,
+        403
+    );
+    assert_eq!(
+        h.owner(
+            Method::Post,
+            "/media/delete",
+            Some(json!({ "media_ids": [shot] }))
+        )
+        .await
+        .status,
+        403
+    );
+    let opened = h
+        .owner(
+            Method::Post,
+            "/proposals",
+            Some(json!({ "action": { "action": "apply_cleanup", "media_ids": [shot] } })),
+        )
+        .await;
+    assert_eq!(opened.status, 201, "{}", opened.body);
+    assert_eq!(opened.body["kind"], "cleanup");
+    assert_eq!(opened.body["samples"][0]["reason"], "screenshot");
+    let feed = h.owner(Method::Get, "/events?since=0", None).await;
+    assert!(feed.body["events"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|e| e["type"] == "cleanup.proposal" && e["count"] == 1));
+    let pid = opened.body["id"].as_str().unwrap().to_owned();
+    let minted = h
+        .owner(
+            Method::Post,
+            "/confirmations",
+            Some(json!({ "action": "apply_cleanup", "media_ids": [shot], "proposal": pid })),
+        )
+        .await;
+    let token = minted.body["token"].as_str().unwrap().to_owned();
+    let applied = h
+        .owner(
+            Method::Post,
+            "/media/cleanup/apply",
+            Some(json!({ "media_ids": [shot], "confirmation": token })),
+        )
+        .await;
+    assert_eq!(applied.body["removed"], 1, "{}", applied.body);
+    assert!(h
+        .owner(Method::Get, "/media/cleanup", None)
+        .await
+        .body
+        .as_array()
+        .unwrap()
+        .is_empty());
+
+    // delete_media by the owner needs its own token; a guest cannot use the tool at all.
+    let init = h
+        .owner(
+            Method::Post,
+            "/uploads/init",
+            Some(json!({ "filename": "x.jpg", "bytes": 10, "sha256": sha(51) })),
+        )
+        .await;
+    let x = MediaId::new(init.body["media_id"].as_str().unwrap());
+    let minted = h
+        .owner(
+            Method::Post,
+            "/confirmations",
+            Some(json!({ "action": "delete_media", "media_ids": [x] })),
+        )
+        .await;
+    let token = minted.body["token"].as_str().unwrap().to_owned();
+    let (maya, _) = h.guest("Maya").await;
+    assert_eq!(
+        h.bearer(
+            Method::Post,
+            "/media/delete",
+            Some(json!({ "media_ids": [x], "confirmation": token })),
+            &maya
+        )
+        .await
+        .status,
+        403
+    );
+    let deleted = h
+        .owner(
+            Method::Post,
+            "/media/delete",
+            Some(json!({ "media_ids": [x], "confirmation": token })),
+        )
+        .await;
+    assert_eq!(deleted.body["removed"], 1, "{}", deleted.body);
+    assert_eq!(
+        h.owner(
+            Method::Post,
+            "/media/delete",
+            Some(json!({ "media_ids": [x], "confirmation": token }))
+        )
+        .await
+        .status,
+        403
+    );
+}
+
+#[tokio::test]
 async fn search_ranks_by_meaning_and_falls_back_to_keywords() {
     let h = harness();
     let ramen = enriched(&h, "ramen.jpg", 21, &["Ramen", "Restaurant", "Food"], None).await;

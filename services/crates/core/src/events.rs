@@ -73,6 +73,14 @@ pub enum EventKind {
         day: u32,
         audio_key: String,
     },
+    /// Enrich flagged keepers for quick cleanup; EventBridge only, the Concierge turns it
+    /// into a proposal (F-705).
+    #[serde(rename = "cleanup.candidates")]
+    CleanupCandidates {
+        trip: Option<TripId>,
+        media: Vec<MediaId>,
+        reasons: Vec<String>,
+    },
     /// Nightly memories were computed (F-701, F-702).
     #[serde(rename = "memories.ready")]
     MemoriesReady {
@@ -110,6 +118,7 @@ impl Event {
             EventKind::AnswerCard { .. } => "answer.card",
             EventKind::NarrationReady { .. } => "narration.ready",
             EventKind::MemoriesReady { .. } => "memories.ready",
+            EventKind::CleanupCandidates { .. } => "cleanup.candidates",
         }
     }
 
@@ -134,7 +143,8 @@ impl Event {
             | EventKind::NarrationReady { trip, .. } => Some(trip),
             EventKind::DedupProposal { trip, .. }
             | EventKind::ContributionReceived { trip, .. }
-            | EventKind::CleanupProposal { trip, .. } => trip.as_ref(),
+            | EventKind::CleanupProposal { trip, .. }
+            | EventKind::CleanupCandidates { trip, .. } => trip.as_ref(),
             EventKind::PlaylistCreated { .. }
             | EventKind::UploadProgress { .. }
             | EventKind::MediaRemoved { .. }

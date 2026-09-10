@@ -7,6 +7,7 @@ pub mod events;
 pub mod media;
 pub mod playlists;
 pub mod presence;
+pub mod proposals;
 pub mod search;
 pub mod session;
 pub mod trips;

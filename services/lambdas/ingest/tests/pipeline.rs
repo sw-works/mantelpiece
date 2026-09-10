@@ -457,6 +457,10 @@ async fn enrich_runs_on_keepers_and_organize_propagates_to_burst() {
         .unwrap();
     assert_eq!(done["state"], "enriched");
     assert_eq!(done["described"], true);
+    assert!(
+        done["cleanup_reason"].is_null(),
+        "a sharp captured photo with two lines of text is kept"
+    );
     let b = h
         .storage
         .get_media(&HouseholdId::new(H), &MediaId::new("b"))
