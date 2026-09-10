@@ -1,9 +1,13 @@
+pub mod ask;
 pub mod codes;
 pub mod confirmations;
 pub mod contributors;
 pub mod device;
 pub mod events;
 pub mod media;
+pub mod playlists;
+pub mod presence;
+pub mod search;
 pub mod session;
 pub mod trips;
 pub mod uploads;

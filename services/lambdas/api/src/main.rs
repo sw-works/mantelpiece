@@ -21,6 +21,7 @@ fn to_req(event: Request) -> Req {
     let method = match *event.method() {
         http::Method::GET => Some(Method::Get),
         http::Method::POST => Some(Method::Post),
+        http::Method::PUT => Some(Method::Put),
         http::Method::DELETE => Some(Method::Delete),
         _ => None,
     };

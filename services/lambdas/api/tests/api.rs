@@ -11,7 +11,7 @@ use memorylane_core::trip::{Route, Trip};
 use memorylane_store::bus::MemoryBus;
 use memorylane_store::memory::{MemoryBlobs, MemoryStorage};
 use memorylane_store::vectors::MemoryVectors;
-use memorylane_store::Storage;
+use memorylane_store::{Storage, Vectors};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -23,6 +23,7 @@ struct Harness {
     storage: Arc<MemoryStorage>,
     blobs: Arc<MemoryBlobs>,
     bus: Arc<MemoryBus>,
+    vectors: Arc<MemoryVectors>,
     starter: Arc<MemoryStarter>,
     now: Arc<Mutex<OffsetDateTime>>,
 }
@@ -31,13 +32,14 @@ fn harness() -> Harness {
     let storage = Arc::new(MemoryStorage::new());
     let blobs = Arc::new(MemoryBlobs::default());
     let bus = Arc::new(MemoryBus::default());
+    let vectors = Arc::new(MemoryVectors::default());
     let starter = Arc::new(MemoryStarter::default());
     let now = Arc::new(Mutex::new(datetime!(2026-09-08 10:00:00 UTC)));
     let clock_now = now.clone();
     let app = App {
         storage: storage.clone(),
         blobs: blobs.clone(),
-        vectors: Arc::new(MemoryVectors::default()),
+        vectors: vectors.clone(),
         bus: bus.clone(),
         starter: starter.clone(),
         signer: Signer::new("test-secret"),
@@ -48,14 +50,300 @@ fn harness() -> Harness {
         },
         clock: Arc::new(move || *clock_now.lock().unwrap()),
     };
-    Harness {
+    let h = Harness {
         app,
         storage,
         blobs,
         bus,
+        vectors,
         starter,
         now,
+    };
+    // The owner exists once they approved a TV; tests that skip that flow still need them.
+    futures_block(
+        h.storage
+            .put_contributor(&memorylane_core::contributor::Contributor::owner(
+                HouseholdId::new("amzn-owner"),
+                "Hanyu",
+                h.app.now(),
+            )),
+    );
+    h
+}
+
+fn futures_block<F: std::future::Future<Output = memorylane_store::Result<()>>>(f: F) {
+    // MemoryStorage never awaits anything real, so a no-op waker drives it to completion.
+    let mut f = std::pin::pin!(f);
+    let waker = std::task::Waker::noop();
+    let mut cx = std::task::Context::from_waker(waker);
+    match f.as_mut().poll(&mut cx) {
+        std::task::Poll::Ready(r) => r.unwrap(),
+        std::task::Poll::Pending => panic!("memory storage should not pend"),
     }
+}
+
+/// Seed an owner-uploaded, enriched photo with tags and an optional description.
+async fn enriched(
+    h: &Harness,
+    filename: &str,
+    seed: u8,
+    tags: &[&str],
+    description: Option<(&str, &str)>,
+) -> MediaId {
+    let init = h
+        .owner(
+            Method::Post,
+            "/uploads/init",
+            Some(json!({ "filename": filename, "bytes": 10, "sha256": sha(seed) })),
+        )
+        .await;
+    let id = MediaId::new(init.body["media_id"].as_str().unwrap());
+    let mut m = h
+        .storage
+        .get_media(&HouseholdId::new("amzn-owner"), &id)
+        .await
+        .unwrap()
+        .unwrap();
+    m.state = memorylane_core::media::ProcessingState::Enriched;
+    m.is_keeper = true;
+    m.captured = Some(memorylane_core::media::CaptureTime::new(
+        datetime!(2026-04-04 05:00:00 UTC),
+        None,
+    ));
+    m.enrichment.scene_tags = tags
+        .iter()
+        .map(|t| memorylane_core::media::Tag {
+            name: (*t).to_owned(),
+            confidence: 0.9,
+        })
+        .collect();
+    if let Some((landmark, text)) = description {
+        m.description = Some(memorylane_core::media::Description {
+            text: text.into(),
+            landmark: Some(landmark.into()),
+            model_id: "test".into(),
+            generated_at: h.app.now(),
+        });
+    }
+    h.storage.put_media(&m).await.unwrap();
+    let vector = memorylane_ingest::embed::embed_media(
+        &m.enrichment.scene_tags,
+        description.map(|d| d.0),
+        None,
+        description.map(|d| d.1),
+    );
+    h.vectors
+        .upsert(&HouseholdId::new("amzn-owner"), None, &id, &vector)
+        .await
+        .unwrap();
+    id
+}
+
+#[tokio::test]
+async fn search_ranks_by_meaning_and_falls_back_to_keywords() {
+    let h = harness();
+    let ramen = enriched(&h, "ramen.jpg", 21, &["Ramen", "Restaurant", "Food"], None).await;
+    let temple = enriched(
+        &h,
+        "temple.jpg",
+        22,
+        &["Temple", "Architecture"],
+        Some(("Kinkaku-ji", "The golden pavilion.")),
+    )
+    .await;
+    let unindexed = enriched(&h, "beach.jpg", 23, &["Beach", "Sea"], None).await;
+    h.vectors
+        .delete(&HouseholdId::new("amzn-owner"), &unindexed)
+        .await
+        .unwrap();
+
+    let found = h
+        .owner(
+            Method::Post,
+            "/search",
+            Some(json!({ "query": "the ramen place" })),
+        )
+        .await;
+    assert_eq!(found.status, 200, "{}", found.body);
+    assert_eq!(found.body["results"][0]["media"], ramen.as_str());
+    let golden = h
+        .owner(
+            Method::Post,
+            "/search",
+            Some(json!({ "query": "golden pavilion" })),
+        )
+        .await;
+    assert_eq!(golden.body["results"][0]["media"], temple.as_str());
+    // No vector: the keyword fallback still finds it.
+    let beach = h
+        .owner(Method::Post, "/search", Some(json!({ "query": "beach" })))
+        .await;
+    assert_eq!(beach.body["results"][0]["media"], unindexed.as_str());
+    let none = h
+        .owner(
+            Method::Post,
+            "/search",
+            Some(json!({ "query": "snowmobile" })),
+        )
+        .await;
+    assert!(none.body["results"].as_array().unwrap().is_empty());
+    assert_eq!(
+        h.owner(Method::Post, "/search", Some(json!({ "query": " " })))
+            .await
+            .status,
+        400
+    );
+    // Hidden items never come back.
+    h.owner(Method::Post, &format!("/media/{ramen}/hide"), None)
+        .await;
+    let hidden = h
+        .owner(Method::Post, "/search", Some(json!({ "query": "ramen" })))
+        .await;
+    assert!(hidden.body["results"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .all(|r| r["media"] != ramen.as_str()));
+}
+
+#[tokio::test]
+async fn ask_describes_the_photo_on_screen_or_searches_or_admits_nothing() {
+    let h = harness();
+    let statue = enriched(
+        &h,
+        "statue.jpg",
+        31,
+        &["Statue", "Temple"],
+        Some(("Todai-ji", "The Great Buddha at Todai-ji in Nara.")),
+    )
+    .await;
+    let ramen = enriched(&h, "ramen.jpg", 32, &["Ramen"], None).await;
+
+    // Nothing on screen yet: a search that becomes a playlist.
+    let searched = h
+        .owner(
+            Method::Post,
+            "/ask",
+            Some(json!({ "question": "the ramen place" })),
+        )
+        .await;
+    assert_eq!(searched.status, 200, "{}", searched.body);
+    assert_eq!(searched.body["mode"], "search");
+    assert_eq!(searched.body["count"], 1);
+    let playlist = searched.body["playlist"].as_str().unwrap().to_owned();
+    let got = h
+        .owner(Method::Get, &format!("/playlists/{playlist}"), None)
+        .await;
+    assert_eq!(got.body["media"][0], ramen.as_str());
+    let nothing = h
+        .owner(
+            Method::Post,
+            "/ask",
+            Some(json!({ "question": "snowmobiles" })),
+        )
+        .await;
+    assert_eq!(nothing.body["mode"], "nothing");
+    assert_eq!(
+        h.owner(Method::Get, "/playlists", None)
+            .await
+            .body
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+
+    // The TV reports the statue on screen, paused.
+    let put = h
+        .owner(Method::Put, "/presence", Some(json!({ "device_id": "tv-1", "media": statue, "trip": null, "day": 2, "paused": true })))
+        .await;
+    assert_eq!(put.status, 204, "{}", put.body);
+    let listed = h.owner(Method::Get, "/presence", None).await;
+    assert_eq!(listed.body[0]["device_id"], "tv-1");
+    let asked = h
+        .owner(
+            Method::Post,
+            "/ask",
+            Some(json!({ "question": "what's that statue" })),
+        )
+        .await;
+    assert_eq!(asked.body["mode"], "describe", "{}", asked.body);
+    assert_eq!(asked.body["tv"], "tv-1");
+    assert_eq!(asked.body["card"]["landmark"], "Todai-ji");
+    assert_eq!(
+        asked.body["card"]["answer"],
+        "The Great Buddha at Todai-ji in Nara."
+    );
+    assert_eq!(asked.body["card"]["taken_by"], "Hanyu");
+    assert_eq!(asked.body["card"]["when"], "2026-04-04");
+    let feed = h.owner(Method::Get, "/events?since=0", None).await;
+    let card = feed.body["events"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|e| e["type"] == "answer.card")
+        .unwrap();
+    assert_eq!(card["media"], statue.as_str());
+
+    // Two TVs: the named one wins; a stale one counts as nothing showing.
+    h.owner(
+        Method::Put,
+        "/presence",
+        Some(json!({ "device_id": "tv-2", "media": ramen, "paused": false })),
+    )
+    .await;
+    let named = h
+        .owner(
+            Method::Post,
+            "/ask",
+            Some(json!({ "question": "what is this", "tv": "tv-1" })),
+        )
+        .await;
+    assert_eq!(named.body["card"]["media"], statue.as_str());
+    let freshest = h
+        .owner(
+            Method::Post,
+            "/ask",
+            Some(json!({ "question": "what is this" })),
+        )
+        .await;
+    assert_eq!(freshest.body["card"]["media"], ramen.as_str());
+    assert!(freshest.body["card"]["answer"]
+        .as_str()
+        .unwrap()
+        .starts_with("Taken by Hanyu on 2026-04-04"));
+    h.advance(Duration::minutes(11));
+    let stale = h
+        .owner(Method::Post, "/ask", Some(json!({ "question": "ramen" })))
+        .await;
+    assert_eq!(stale.body["mode"], "search");
+    assert!(h
+        .owner(Method::Get, "/presence", None)
+        .await
+        .body
+        .as_array()
+        .unwrap()
+        .is_empty());
+
+    // Playlists are created explicitly too (the create_playlist tool).
+    let created = h
+        .owner(
+            Method::Post,
+            "/playlists",
+            Some(json!({ "name": "Best of Nara", "media": [statue], "source": "trip_curator" })),
+        )
+        .await;
+    assert_eq!(created.status, 201, "{}", created.body);
+    assert_eq!(
+        h.owner(
+            Method::Post,
+            "/playlists",
+            Some(json!({ "name": "x", "media": [], "source": "s" }))
+        )
+        .await
+        .status,
+        400
+    );
 }
 
 #[tokio::test]

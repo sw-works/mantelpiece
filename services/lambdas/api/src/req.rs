@@ -10,6 +10,7 @@ use crate::ApiError;
 pub enum Method {
     Get,
     Post,
+    Put,
     Delete,
 }
 

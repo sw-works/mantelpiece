@@ -186,6 +186,14 @@ impl App {
 
             (Method::Get, ["events"]) => handlers::events::list(self, req).await,
 
+            (Method::Post, ["search"]) => handlers::search::search(self, req).await,
+            (Method::Post, ["playlists"]) => handlers::playlists::create(self, req).await,
+            (Method::Get, ["playlists"]) => handlers::playlists::list(self, req).await,
+            (Method::Get, ["playlists", id]) => handlers::playlists::get(self, req, id).await,
+            (Method::Put, ["presence"]) => handlers::presence::put(self, req).await,
+            (Method::Get, ["presence"]) => handlers::presence::list(self, req).await,
+            (Method::Post, ["ask"]) => handlers::ask::ask(self, req).await,
+
             (Method::Get, ["trips"]) => handlers::trips::list(self, req).await,
             (Method::Get, ["trips", trip]) => handlers::trips::get(self, req, trip).await,
             (Method::Get, ["trips", trip, "map"]) => handlers::trips::map(self, req, trip).await,
