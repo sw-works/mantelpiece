@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from .tools import DedupGroup, Trip
+from .tools import CleanupCandidate, DedupGroup, Memories, NowShowing, PhotoAnswer, Trip
 
 
 class GatewayTools:
@@ -86,3 +86,35 @@ class GatewayTools:
 
     def write_memory(self, household: str, key: str, value: Any) -> None:
         self._call("write_memory", household=household, key=key, value=value)
+
+    def get_now_showing(self, household: str, tv: str | None = None) -> NowShowing | None:
+        out = self._call("get_now_showing", household=household, tv=tv)
+        return NowShowing(**out) if out else None
+
+    def describe_photo(self, household: str, media_id: str, question: str) -> PhotoAnswer:
+        return PhotoAnswer(
+            **self._call(
+                "describe_photo", household=household, media_id=media_id, question=question
+            )
+        )
+
+    def list_cleanup_candidates(
+        self, household: str, trip_id: str | None = None
+    ) -> list[CleanupCandidate]:
+        return [
+            CleanupCandidate(**c)
+            for c in self._call("list_cleanup_candidates", household=household, trip_id=trip_id)
+        ]
+
+    def memories_for(self, household: str, date: str | None = None) -> Memories:
+        return Memories(**self._call("memories_for", household=household, date=date))
+
+    def apply_cleanup(self, household: str, media_ids: list[str], confirmation: str) -> int:
+        return int(
+            self._call(
+                "apply_cleanup",
+                household=household,
+                media_ids=media_ids,
+                confirmation=confirmation,
+            )
+        )

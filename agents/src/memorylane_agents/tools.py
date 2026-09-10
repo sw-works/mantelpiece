@@ -36,6 +36,46 @@ class DedupGroup:
     members: list[str]
 
 
+@dataclass
+class NowShowing:
+    """What a TV is showing right now (research R3). ``None`` when nothing is fresh."""
+
+    media: str
+    trip: str | None
+    day: int | None
+    paused: bool
+    at: str
+
+
+@dataclass
+class PhotoAnswer:
+    """``describe_photo`` result: the answer comes from the stored description and the
+    photo's metadata, never from a fresh model call on the Alexa+ path (research R8)."""
+
+    answer: str
+    landmark: str | None
+    taken_by: str
+    when: str
+    related: list[str] = field(default_factory=list)
+
+
+@dataclass
+class CleanupCandidate:
+    media: str
+    reason: str  # screenshot | document | receipt | blurry
+    trip: str | None = None
+
+
+@dataclass
+class Memories:
+    """Nightly resurfacing sets (F-701 to F-703)."""
+
+    date: str
+    on_this_day: list[str] = field(default_factory=list)
+    then_and_now: list[dict[str, Any]] = field(default_factory=list)
+    best_of: list[str] = field(default_factory=list)
+
+
 class Tools(Protocol):
     def list_trips(self, household: str) -> list[Trip]: ...
     def get_trip(self, household: str, trip_id: str) -> Trip: ...
@@ -54,6 +94,13 @@ class Tools(Protocol):
     def push_event(self, household: str, event: dict[str, Any]) -> None: ...
     def read_memory(self, household: str) -> dict[str, Any]: ...
     def write_memory(self, household: str, key: str, value: Any) -> None: ...
+    def get_now_showing(self, household: str, tv: str | None = None) -> NowShowing | None: ...
+    def describe_photo(self, household: str, media_id: str, question: str) -> PhotoAnswer: ...
+    def list_cleanup_candidates(
+        self, household: str, trip_id: str | None = None
+    ) -> list[CleanupCandidate]: ...
+    def memories_for(self, household: str, date: str | None = None) -> Memories: ...
+    def apply_cleanup(self, household: str, media_ids: list[str], confirmation: str) -> int: ...
 
 
 @dataclass
@@ -68,6 +115,11 @@ class InMemoryTools:
     log: list[str] = field(default_factory=list)
     playlists: dict[str, list[str]] = field(default_factory=dict)
     events: list[dict[str, Any]] = field(default_factory=list)
+    now_showing: dict[str, NowShowing] = field(default_factory=dict)
+    descriptions: dict[str, PhotoAnswer] = field(default_factory=dict)
+    cleanup: list[CleanupCandidate] = field(default_factory=list)
+    memories: dict[str, Memories] = field(default_factory=dict)
+    removed: list[str] = field(default_factory=list)
 
     def list_trips(self, household: str) -> list[Trip]:
         self.log.append(f"list_trips {household}")
@@ -127,3 +179,37 @@ class InMemoryTools:
     def write_memory(self, household: str, key: str, value: Any) -> None:
         self.memory[key] = value
         self.log.append(f"write_memory {key}")
+
+    def get_now_showing(self, household: str, tv: str | None = None) -> NowShowing | None:
+        self.log.append(f"get_now_showing tv={tv}")
+        if tv is not None:
+            return self.now_showing.get(tv)
+        if not self.now_showing:
+            return None
+        return max(self.now_showing.values(), key=lambda p: p.at)
+
+    def describe_photo(self, household: str, media_id: str, question: str) -> PhotoAnswer:
+        self.log.append(f"describe_photo {media_id} {question!r}")
+        if media_id not in self.descriptions:
+            raise KeyError(media_id)
+        return self.descriptions[media_id]
+
+    def list_cleanup_candidates(
+        self, household: str, trip_id: str | None = None
+    ) -> list[CleanupCandidate]:
+        self.log.append(f"list_cleanup_candidates trip={trip_id}")
+        return [c for c in self.cleanup if trip_id is None or c.trip == trip_id]
+
+    def memories_for(self, household: str, date: str | None = None) -> Memories:
+        self.log.append(f"memories_for {date}")
+        key = date or "today"
+        return self.memories.get(key, Memories(date=key))
+
+    def apply_cleanup(self, household: str, media_ids: list[str], confirmation: str) -> int:
+        if not confirmation:
+            raise ConfirmationRequired("apply_cleanup")
+        self.log.append(f"apply_cleanup {len(media_ids)} {confirmation}")
+        before = len(self.cleanup)
+        self.cleanup = [c for c in self.cleanup if c.media not in media_ids]
+        self.removed.extend(media_ids)
+        return before - len(self.cleanup)
