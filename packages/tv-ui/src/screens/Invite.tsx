@@ -41,11 +41,30 @@ export function Invite({
           Photos land in this {tripId ? "trip" : "household"}, credited to whoever sends them. No app to install.
         </Text>
         {code && (
-          <Text testID="code" style={{ color: theme.accent, fontSize: 72, fontWeight: "800", letterSpacing: 6 }}>{code.code}</Text>
+          <>
+            <Text testID="code" style={{ color: theme.accent, fontSize: 72, fontWeight: "800", letterSpacing: 6 }}>{code.code}</Text>
+            <Text testID="counts" style={{ color: theme.muted, fontSize: theme.small }}>
+              {`${code.contributors ?? 0} contributors · ${code.member_households ?? 0} households watching`}
+            </Text>
+          </>
         )}
         {ticker && <Text testID="ticker" style={{ color: theme.accent, fontSize: theme.body }}>{ticker}</Text>}
         {error && <Text testID="error" style={{ color: "#ff7a7a", fontSize: theme.body }}>{error}</Text>}
-        <FocusButton label="Done" onPress={onBack} preferred testID="done" />
+        <View style={{ flexDirection: "row", gap: 16 }}>
+          <FocusButton label="Done" onPress={onBack} preferred testID="done" />
+          {code && (
+            <FocusButton
+              label="New code"
+              testID="rotate"
+              onPress={() => {
+                api
+                  .rotateCode(token, code.code)
+                  .then(setCode)
+                  .catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)));
+              }}
+            />
+          )}
+        </View>
       </View>
       {code && <QrView text={code.link} size={480} />}
     </View>

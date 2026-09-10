@@ -4,13 +4,14 @@ import { TvApi } from "./api/client";
 import { Ticker } from "./components/Ticker";
 import { useEvents } from "./hooks/useEvents";
 import { useRemoteKeys } from "./hooks/useRemoteKeys";
+import { Highlights } from "./screens/Highlights";
 import { Invite } from "./screens/Invite";
 import { MemoriesHome } from "./screens/MemoriesHome";
 import { Onboarding } from "./screens/Onboarding";
 import { TripView } from "./screens/TripView";
 import { MemorySessionStore, newDeviceId, type SessionStore } from "./session";
 
-export type Route = { name: "home" } | { name: "trip"; id: string } | { name: "invite"; tripId: string | null };
+export type Route = { name: "home" } | { name: "trip"; id: string } | { name: "highlights"; id: string } | { name: "invite"; tripId: string | null };
 
 export interface AppProps {
   apiBase?: string;
@@ -36,6 +37,7 @@ export function App({ apiBase, api: injectedApi, sessionStore, tvName }: AppProp
   const goBack = useCallback(() => {
     setRoute((r) => {
       if (r.name === "trip") return { name: "home" };
+      if (r.name === "highlights") return { name: "trip", id: r.id };
       if (r.name === "invite") return r.tripId ? { name: "trip", id: r.tripId } : { name: "home" };
       return r;
     });
@@ -76,8 +78,18 @@ export function App({ apiBase, api: injectedApi, sessionStore, tvName }: AppProp
       break;
     case "trip":
       screen = (
-        <TripView api={api} token={session.token} tripId={route.id} onBack={() => setRoute({ name: "home" })} onInvite={(tripId) => setRoute({ name: "invite", tripId })} />
+        <TripView
+          api={api}
+          token={session.token}
+          tripId={route.id}
+          onBack={() => setRoute({ name: "home" })}
+          onInvite={(tripId) => setRoute({ name: "invite", tripId })}
+          onHighlights={(id) => setRoute({ name: "highlights", id })}
+        />
       );
+      break;
+    case "highlights":
+      screen = <Highlights api={api} token={session.token} tripId={route.id} onBack={() => setRoute({ name: "trip", id: route.id })} />;
       break;
     case "invite":
       screen = <Invite api={api} token={session.token} tripId={route.tripId} ticker={feed.ticker} onBack={() => setRoute(route.tripId ? { name: "trip", id: route.tripId } : { name: "home" })} />;

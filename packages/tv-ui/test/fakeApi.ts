@@ -49,7 +49,11 @@ export class FakeApi extends TvApi {
   }
   override async tripCode(_token: string, tripId: string) {
     this.calls.push(`tripCode ${tripId}`);
-    return { code: "T2C3D4", scope: "trip" as const, trip: tripId, link: "https://upload.test/?t=T2C3D4", accepts_uploads: true };
+    return { code: "T2C3D4", scope: "trip" as const, trip: tripId, link: "https://upload.test/?t=T2C3D4", accepts_uploads: true, contributors: 3, member_households: 1 };
+  }
+  override async rotateCode(_token: string, code: string) {
+    this.calls.push(`rotate ${code}`);
+    return { code: "R2C3D4", scope: "trip" as const, trip: "kyoto", link: "https://upload.test/?t=R2C3D4", accepts_uploads: true, contributors: 3, member_households: 1 };
   }
   override async mintConfirmation(_token: string, action: Record<string, unknown>) {
     this.calls.push(`confirm ${String(action.action)}`);

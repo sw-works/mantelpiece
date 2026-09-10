@@ -30,10 +30,36 @@ export interface TripDay {
   route: { points: unknown[]; inferred: boolean; map_key: string | null };
 }
 
+export interface ClockOffset {
+  contributor: string;
+  seconds: number;
+  samples: number;
+}
+
 export interface Trip extends TripSummary {
   days: TripDay[];
   narrative: { text: string; model_id: string; generated_at: string } | null;
   route: { points: unknown[]; inferred: boolean; map_key: string | null };
+  /** Contributor id to display name (F-154). */
+  contributor_names?: Record<string, string>;
+  /** Media id to contributor id (F-154). */
+  media_credits?: Record<string, string>;
+  /** Whose clock was corrected, by how much (F-155). */
+  clock_offsets?: ClockOffset[];
+}
+
+/** Display name for a media item's contributor, or null when unknown. */
+export function creditFor(trip: Trip, mediaId: string): string | null {
+  const contributor = trip.media_credits?.[mediaId];
+  if (!contributor) return null;
+  return trip.contributor_names?.[contributor] ?? contributor;
+}
+
+/** "Ken's clock corrected by 3 min" lines for offsets over a minute (F-155). */
+export function clockHints(trip: Trip): string[] {
+  return (trip.clock_offsets ?? [])
+    .filter((o) => Math.abs(o.seconds) >= 60)
+    .map((o) => `${trip.contributor_names?.[o.contributor] ?? o.contributor}'s clock corrected by ${Math.round(Math.abs(o.seconds) / 60)} min`);
 }
 
 export interface FeedEvent {
@@ -49,6 +75,8 @@ export interface CodeView {
   trip: string | null;
   link: string;
   accepts_uploads: boolean;
+  contributors?: number;
+  member_households?: number;
 }
 
 export class ApiError extends Error {
@@ -116,6 +144,10 @@ export class TvApi {
 
   codes(token: string) {
     return this.call<CodeView[]>("GET", "/codes", undefined, token);
+  }
+
+  rotateCode(token: string, code: string) {
+    return this.call<CodeView>("POST", `/codes/${code}/rotate`, undefined, token);
   }
 
   mintConfirmation(token: string, action: Record<string, unknown>) {

@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react-native";
+import { Highlights } from "../src/screens/Highlights";
 import { Invite } from "../src/screens/Invite";
 import { MemoriesHome } from "../src/screens/MemoriesHome";
 import { Onboarding } from "../src/screens/Onboarding";
@@ -71,14 +72,40 @@ describe("screens", () => {
       ],
       narrative: { text: "We walked the golden pavilion.", model_id: "m", generated_at: "" },
       route: { points: [], inferred: false, map_key: null },
+      contributor_names: { owner: "Hanyu", maya: "Maya" },
+      media_credits: { m1: "owner", m2: "maya", m3: "maya" },
+      clock_offsets: [{ contributor: "maya", seconds: -184, samples: 6 }, { contributor: "owner", seconds: 2, samples: 9 }],
     };
     const onInvite = jest.fn();
-    await render(<TripView api={api} token="t" tripId="kyoto" onBack={() => undefined} onInvite={onInvite} />);
+    const onHighlights = jest.fn();
+    await render(<TripView api={api} token="t" tripId="kyoto" onBack={() => undefined} onInvite={onInvite} onHighlights={onHighlights} />);
     await waitFor(() => expect(screen.getByTestId("narrative")).toBeTruthy());
+    expect(screen.getByTestId("day-summary").props.children).toBe("2026-04-03 · 2 photos from Hanyu, Maya");
+    expect(screen.getByTestId("credit-m2").props.children).toBe("Maya");
+    expect(screen.getByTestId("clock-hints").props.children).toBe("Maya's clock corrected by 3 min");
     await fireEvent.press(screen.getByTestId("day-2"));
-    expect(screen.getByTestId("day-summary").props.children).toBe("2026-04-04 · 1 photos · route inferred");
+    expect(screen.getByTestId("day-summary").props.children).toBe("2026-04-04 · 1 photos from Maya · route inferred");
     await fireEvent.press(screen.getByTestId("invite"));
     expect(onInvite).toHaveBeenCalledWith("kyoto");
+    await fireEvent.press(screen.getByTestId("highlights"));
+    expect(onHighlights).toHaveBeenCalledWith("kyoto");
+  });
+
+  it("Highlights shows the trip's picks with credits", async () => {
+    const api = new FakeApi();
+    api.tripDetail = {
+      ...trip,
+      highlights: ["m1", "m2"],
+      days: [],
+      narrative: null,
+      route: { points: [], inferred: false, map_key: null },
+      contributor_names: { owner: "Hanyu" },
+      media_credits: { m1: "owner" },
+    };
+    await render(<Highlights api={api} token="t" tripId="kyoto" onBack={() => undefined} />);
+    await waitFor(() => expect(screen.getByTestId("highlight-m1")).toBeTruthy());
+    expect(screen.getByTestId("highlight-m2")).toBeTruthy();
+    expect(screen.getByText("Hanyu")).toBeTruthy();
   });
 
   it("Invite asks for a trip code when scoped and shows the ticker", async () => {
@@ -88,6 +115,10 @@ describe("screens", () => {
     expect(api.calls).toContain("tripCode kyoto");
     expect(screen.getByTestId("ticker")).toBeTruthy();
     expect(screen.getByTestId("qr")).toBeTruthy();
+    expect(screen.getByTestId("counts").props.children).toBe("3 contributors · 1 households watching");
+    await fireEvent.press(screen.getByTestId("rotate"));
+    await waitFor(() => expect(screen.getByTestId("code").props.children).toBe("R2C3D4"));
+    expect(api.calls).toContain("rotate T2C3D4");
   });
 
   it("ReviewChanges mints a confirmation only when the user applies", async () => {
