@@ -47,6 +47,14 @@ pub async fn init(app: &App, req: &Req) -> Result<Resp, ApiError> {
     let caller = app.caller(req)?;
     let household = caller.household().clone();
     let contributor = contributor_of(&caller)?;
+    if app
+        .storage
+        .get_household(&household)
+        .await?
+        .is_some_and(|h| h.is_deleting())
+    {
+        return Err(ApiError::gone("this household is being deleted"));
+    }
     if let Some(c) = app
         .storage
         .get_contributor(&household, &contributor)
@@ -122,6 +130,7 @@ pub async fn init(app: &App, req: &Req) -> Result<Resp, ApiError> {
         text: None,
         description: None,
         cleanup_reason: None,
+        people: vec![],
         removed_at: None,
         restore_until: None,
         state: ProcessingState::Uploaded,

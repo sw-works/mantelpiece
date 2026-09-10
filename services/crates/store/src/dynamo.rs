@@ -143,6 +143,34 @@ impl DynamoStorage {
             .collect()
     }
 
+    /// Whole rows (keys included) under a partition, for deletions.
+    async fn query_rows<T: DeserializeOwned>(
+        &self,
+        pk: String,
+        sk_prefix: &str,
+    ) -> Result<Vec<Row<T>>> {
+        let out = self
+            .client
+            .query()
+            .table_name(&self.table)
+            .key_condition_expression("#pk = :pk AND begins_with(#sk, :prefix)")
+            .expression_attribute_names("#pk", "pk")
+            .expression_attribute_names("#sk", "sk")
+            .expression_attribute_values(":pk", AttributeValue::S(pk))
+            .expression_attribute_values(":prefix", AttributeValue::S(sk_prefix.to_owned()))
+            .send()
+            .await
+            .map_err(backend)?;
+        out.items
+            .unwrap_or_default()
+            .into_iter()
+            .map(|item| {
+                serde_dynamo::from_item::<_, Row<T>>(item)
+                    .map_err(|e| StorageError::Serde(e.to_string()))
+            })
+            .collect()
+    }
+
     async fn delete(&self, pk: String, sk: String) -> Result<()> {
         self.client
             .delete_item()
@@ -196,6 +224,28 @@ impl Storage for DynamoStorage {
     }
     async fn get_household(&self, id: &HouseholdId) -> Result<Option<Household>> {
         self.get(household_pk(id), "HH".into()).await
+    }
+    async fn purge_household(&self, id: &HouseholdId) -> Result<()> {
+        // Every row under the household partition except the household row itself.
+        let rows: Vec<Row<serde_json::Value>> = self.query_rows(household_pk(id), "").await?;
+        for row in rows {
+            if row.sk != "HH" {
+                self.delete(row.pk, row.sk).await?;
+            }
+        }
+        // Rows keyed elsewhere that point at the household.
+        for code in self.list_trip_codes(id).await? {
+            self.delete(format!("TC#{}", code.code), "TC".into())
+                .await?;
+        }
+        for link in self.list_share_links(id).await? {
+            self.delete(format!("SL#{}", link.id), "SL".into()).await?;
+        }
+        let events: Vec<Row<serde_json::Value>> = self.query_rows(format!("E#{id}"), "").await?;
+        for row in events {
+            self.delete(row.pk, row.sk).await?;
+        }
+        Ok(())
     }
 
     async fn put_device_code(&self, code: &DeviceCode) -> Result<()> {

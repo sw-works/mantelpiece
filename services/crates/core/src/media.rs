@@ -218,6 +218,9 @@ pub struct MediaItem {
     pub description: Option<Description>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cleanup_reason: Option<CleanupReason>,
+    /// People recognised on this item while People was enabled (F-704).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub people: Vec<crate::ids::PersonId>,
     #[serde(default, with = "time::serde::rfc3339::option")]
     pub removed_at: Option<OffsetDateTime>,
     #[serde(default, with = "time::serde::rfc3339::option")]
@@ -380,6 +383,7 @@ mod tests {
             text: None,
             description: None,
             cleanup_reason: None,
+            people: vec![],
             removed_at: None,
             restore_until: None,
             state: ProcessingState::Signalled,

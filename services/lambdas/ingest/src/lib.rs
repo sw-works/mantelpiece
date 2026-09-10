@@ -17,7 +17,7 @@ pub mod organize;
 pub mod signal;
 
 use memorylane_core::ids::{HouseholdId, MediaId};
-use memorylane_store::{Blobs, Bus, Maps, Storage, StorageError, Vectors, Vision};
+use memorylane_store::{Blobs, Bus, Faces, Maps, Storage, StorageError, Vectors, Vision};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use thiserror::Error;
@@ -58,6 +58,7 @@ pub struct Ingest {
     pub blobs: Arc<dyn Blobs>,
     pub vision: Arc<dyn Vision>,
     pub vectors: Arc<dyn Vectors>,
+    pub faces: Arc<dyn Faces>,
     pub maps: Arc<dyn Maps>,
     pub bus: Arc<dyn Bus>,
     pub clock: Clock,

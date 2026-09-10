@@ -9,6 +9,7 @@ use memorylane_api::tokens::Signer;
 use memorylane_core::ids::{HouseholdId, MediaId, TripId};
 use memorylane_core::trip::{Route, Trip};
 use memorylane_store::bus::MemoryBus;
+use memorylane_store::faces::MemoryFaces;
 use memorylane_store::maps::MemoryMaps;
 use memorylane_store::memory::{MemoryBlobs, MemoryStorage};
 use memorylane_store::vectors::MemoryVectors;
@@ -43,6 +44,7 @@ fn harness() -> Harness {
         vectors: vectors.clone(),
         bus: bus.clone(),
         maps: Arc::new(MemoryMaps::default()),
+        faces: Arc::new(MemoryFaces::with_faces_per_image(1)),
         starter: starter.clone(),
         signer: Signer::new("test-secret"),
         config: Config {
@@ -967,6 +969,169 @@ async fn memories_home_and_the_all_trips_map() {
             .count(),
         1
     );
+}
+
+#[tokio::test]
+async fn people_opt_in_naming_merging_search_and_deletion() {
+    let h = harness();
+    let house = HouseholdId::new("amzn-owner");
+    let listed = h.owner(Method::Get, "/people", None).await;
+    assert_eq!(listed.body["people_enabled"], false);
+    assert_eq!(
+        h.owner(Method::Post, "/people/enable", None).await.body["people_enabled"],
+        true
+    );
+    assert_eq!(
+        h.owner(Method::Get, "/me", None).await.body["people_enabled"],
+        true
+    );
+
+    // Two clusters from ingest (simulated), on a beach photo and a temple photo.
+    let beach = enriched(&h, "beach.jpg", 91, &["Beach"], None).await;
+    let temple = enriched(&h, "temple.jpg", 92, &["Temple"], None).await;
+    let maya =
+        memorylane_core::person::Person::new(house.clone(), "f1", beach.clone(), h.app.now());
+    let mut maya_again =
+        memorylane_core::person::Person::new(house.clone(), "f2", temple.clone(), h.app.now());
+    maya_again.add_face("f3", beach.clone());
+    h.storage.put_person(&maya).await.unwrap();
+    h.storage.put_person(&maya_again).await.unwrap();
+    for (id, people) in [
+        (&beach, vec![maya.id.clone(), maya_again.id.clone()]),
+        (&temple, vec![maya_again.id.clone()]),
+    ] {
+        let mut m = h.storage.get_media(&house, id).await.unwrap().unwrap();
+        m.people = people;
+        h.storage.put_media(&m).await.unwrap();
+    }
+    let listed = h.owner(Method::Get, "/people", None).await;
+    assert_eq!(listed.body["people"].as_array().unwrap().len(), 2);
+    assert_eq!(
+        listed.body["people"][0]["media_count"], 2,
+        "{}",
+        listed.body
+    );
+
+    // Name one, merge the other into it: one person, media re-pointed.
+    let named = h
+        .owner(
+            Method::Patch,
+            &format!("/people/{}", maya.id),
+            Some(json!({ "name": "Maya" })),
+        )
+        .await;
+    assert_eq!(named.body["name"], "Maya");
+    assert_eq!(
+        h.owner(
+            Method::Patch,
+            &format!("/people/{}", maya.id),
+            Some(json!({ "merge_into": maya.id }))
+        )
+        .await
+        .status,
+        400
+    );
+    let merged = h
+        .owner(
+            Method::Patch,
+            &format!("/people/{}", maya_again.id),
+            Some(json!({ "merge_into": maya.id })),
+        )
+        .await;
+    assert_eq!(merged.status, 200, "{}", merged.body);
+    assert_eq!(merged.body["media_count"], 3);
+    assert_eq!(
+        h.owner(Method::Get, "/people", None).await.body["people"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+    assert_eq!(
+        h.storage
+            .get_media(&house, &temple)
+            .await
+            .unwrap()
+            .unwrap()
+            .people,
+        vec![maya.id.clone()]
+    );
+
+    // "Maya at the beach" returns only her photos; an unknown name is a 404.
+    let found = h
+        .owner(
+            Method::Post,
+            "/search",
+            Some(json!({ "query": "beach temple", "people": ["maya"] })),
+        )
+        .await;
+    assert_eq!(found.status, 200, "{}", found.body);
+    let ids: Vec<&str> = found.body["results"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|r| r["media"].as_str().unwrap())
+        .collect();
+    assert!(ids.contains(&beach.as_str()) && ids.contains(&temple.as_str()));
+    assert_eq!(
+        h.owner(
+            Method::Post,
+            "/search",
+            Some(json!({ "query": "beach", "people": ["Ken"] }))
+        )
+        .await
+        .status,
+        404
+    );
+
+    // Turning People off deletes the collection and every person; media forget them.
+    assert_eq!(
+        h.owner(Method::Post, "/people/disable", None).await.body["people_enabled"],
+        false
+    );
+    assert!(h.owner(Method::Get, "/people", None).await.body["people"]
+        .as_array()
+        .unwrap()
+        .is_empty());
+    assert!(h
+        .storage
+        .get_media(&house, &beach)
+        .await
+        .unwrap()
+        .unwrap()
+        .people
+        .is_empty());
+
+    // Account deletion: uploads answer 410 while it runs, and everything is gone after.
+    let deleted = h.owner(Method::Delete, "/me", None).await;
+    assert_eq!(deleted.status, 200, "{}", deleted.body);
+    assert_eq!(deleted.body["media"], 2);
+    assert_eq!(
+        h.owner(
+            Method::Post,
+            "/uploads/init",
+            Some(json!({ "filename": "late.jpg", "bytes": 10, "sha256": sha(93) }))
+        )
+        .await
+        .status,
+        410
+    );
+    assert!(h.storage.list_media(&house).await.unwrap().is_empty());
+    assert!(h.storage.list_trips(&house).await.unwrap().is_empty());
+    assert!(h
+        .blobs
+        .log
+        .lock()
+        .unwrap()
+        .iter()
+        .any(|l| l.starts_with("delete originals/")));
+    assert!(h
+        .storage
+        .get_household(&house)
+        .await
+        .unwrap()
+        .unwrap()
+        .is_deleting());
 }
 
 #[tokio::test]

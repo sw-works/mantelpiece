@@ -8,6 +8,7 @@ use memorylane_core::media::{
     cleanup_reason, Description, Enrichment, MediaItem, ProcessingState, Tag,
 };
 use memorylane_core::narrative_check::{check, Allowed};
+use memorylane_core::person::Person;
 use memorylane_ingest::embed;
 use memorylane_ingest::renditions::Rendition;
 use serde::Serialize;
@@ -176,6 +177,16 @@ pub async fn run(ingest: &Ingest, household: &HouseholdId, media_id: &MediaId) -
         }
     }
 
+    // F-704: opt-in face grouping on keepers only (research R9).
+    let people_enabled = ingest
+        .storage
+        .get_household(household)
+        .await?
+        .is_some_and(|h| h.people_enabled);
+    if people_enabled && enrichment.face_count > 0 {
+        media.people = group_faces(ingest, household, &media.id, &jpeg).await?;
+    }
+
     let vector = embed::embed_media(
         &enrichment.scene_tags,
         enrichment.landmark.as_ref().map(|t| t.name.as_str()),
@@ -197,6 +208,39 @@ pub async fn run(ingest: &Ingest, household: &HouseholdId, media_id: &MediaId) -
         described,
         cleanup_reason: media.cleanup_reason.map(|r| r.as_str().to_owned()),
     })
+}
+
+/// Index the faces on this keeper and attach each to an existing person when the
+/// collection already knows the face, else open a new unnamed person.
+async fn group_faces(
+    ingest: &Ingest,
+    household: &HouseholdId,
+    media: &MediaId,
+    jpeg: &[u8],
+) -> Result<Vec<memorylane_core::ids::PersonId>> {
+    let matches = ingest.faces.search(household, jpeg).await?;
+    let indexed = ingest.faces.index(household, media, jpeg).await?;
+    let mut people = ingest.storage.list_people(household).await?;
+    let mut out = Vec::new();
+    for (i, face_id) in indexed.into_iter().enumerate() {
+        let known = matches.get(i).and_then(|m| {
+            people
+                .iter()
+                .position(|p| p.face_ids.contains(&m.face_id) && !p.is_merged())
+        });
+        if let Some(pos) = known {
+            let person = &mut people[pos];
+            person.add_face(face_id, media.clone());
+            ingest.storage.put_person(person).await?;
+            out.push(person.id.clone());
+        } else {
+            let person = Person::new(household.clone(), face_id, media.clone(), ingest.now());
+            ingest.storage.put_person(&person).await?;
+            out.push(person.id.clone());
+            people.push(person);
+        }
+    }
+    Ok(out)
 }
 
 #[cfg(test)]

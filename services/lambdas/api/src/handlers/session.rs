@@ -43,3 +43,39 @@ pub async fn me(app: &App, req: &Req) -> Result<Resp, ApiError> {
         }
     }
 }
+
+/// `DELETE /me` (F-604): the household is marked deleting first so uploads answer 410,
+/// then originals, renditions, embeddings, faces, people and every record go. The
+/// household row stays with `deleting_since` as the tombstone.
+pub async fn delete_account(app: &App, req: &Req) -> Result<Resp, ApiError> {
+    let household = app.owner(req)?;
+    let now = app.now();
+    let mut record = app
+        .storage
+        .get_household(&household)
+        .await?
+        .unwrap_or_else(|| {
+            memorylane_core::household::Household::new(household.clone(), "My TV", now)
+        });
+    record.deleting_since = Some(now);
+    record.people_enabled = false;
+    app.storage.put_household(&record).await?;
+
+    crate::handlers::people::forget_people(app, &household).await?;
+    let media = app.storage.list_media(&household).await?;
+    let mut keys = Vec::new();
+    for m in &media {
+        keys.push(m.original_key.clone());
+        for r in ["thumb", "tv", "poster"] {
+            keys.push(format!("renditions/{}/{}/{r}.jpg", m.household, m.id));
+        }
+        app.vectors.delete(&household, &m.id).await?;
+    }
+    if !keys.is_empty() {
+        app.blobs.delete(&keys).await?;
+    }
+    app.storage.purge_household(&household).await?;
+    // The tombstone survives the purge.
+    app.storage.put_household(&record).await?;
+    Resp::ok(json!({ "deleted": true, "media": media.len(), "household": household }))
+}

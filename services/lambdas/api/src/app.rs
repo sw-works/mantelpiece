@@ -9,7 +9,7 @@ use crate::error::ApiError;
 use crate::handlers;
 use crate::req::{Method, Req, Resp};
 use crate::tokens::{Claims, Session, Signer};
-use memorylane_store::{Blobs, Bus, Maps, Storage, Vectors};
+use memorylane_store::{Blobs, Bus, Faces, Maps, Storage, Vectors};
 
 #[derive(Clone, Debug)]
 pub struct Config {
@@ -45,6 +45,7 @@ pub struct App {
     pub vectors: Arc<dyn Vectors>,
     pub bus: Arc<dyn Bus>,
     pub maps: Arc<dyn Maps>,
+    pub faces: Arc<dyn Faces>,
     pub starter: Arc<dyn crate::starter::Starter>,
     pub signer: Signer,
     pub config: Config,
@@ -166,6 +167,7 @@ impl App {
         }
     }
 
+    #[allow(clippy::too_many_lines)]
     async fn route(&self, req: &Req) -> Result<Resp, ApiError> {
         let segs = req.segments();
         let method = req
@@ -177,6 +179,11 @@ impl App {
             (Method::Get, ["device", "poll"]) => handlers::device::poll(self, req).await,
 
             (Method::Get, ["me"]) => handlers::session::me(self, req).await,
+            (Method::Delete, ["me"]) => handlers::session::delete_account(self, req).await,
+            (Method::Post, ["people", "enable"]) => handlers::people::enable(self, req).await,
+            (Method::Post, ["people", "disable"]) => handlers::people::disable(self, req).await,
+            (Method::Get, ["people"]) => handlers::people::list(self, req).await,
+            (Method::Patch, ["people", id]) => handlers::people::update(self, req, id).await,
             // `/join/amazon` sits behind the Cognito JWT authorizer; `/join` is open for guests.
             (Method::Post, ["join"] | ["join", "amazon"]) => handlers::codes::join(self, req).await,
 

@@ -10,11 +10,12 @@ use memorylane_core::media::{
 use memorylane_ingest::checksum::sha256_hex;
 use memorylane_ingest_lambda::{Ingest, Task};
 use memorylane_store::bus::MemoryBus;
+use memorylane_store::faces::{FaceMatch, MemoryFaces};
 use memorylane_store::maps::MemoryMaps;
 use memorylane_store::memory::{MemoryBlobs, MemoryStorage};
 use memorylane_store::vectors::MemoryVectors;
 use memorylane_store::vision::MemoryVision;
-use memorylane_store::{Blobs, Storage, Vectors};
+use memorylane_store::{Blobs, Faces, Storage, Vectors};
 use std::collections::BTreeSet;
 use std::sync::Arc;
 use time::macros::datetime;
@@ -27,6 +28,7 @@ struct Harness {
     bus: Arc<MemoryBus>,
     vectors: Arc<MemoryVectors>,
     maps: Arc<MemoryMaps>,
+    faces: Arc<MemoryFaces>,
 }
 
 fn harness(enrichment: Enrichment) -> Harness {
@@ -39,11 +41,13 @@ fn harness_with(vision: MemoryVision) -> Harness {
     let bus = Arc::new(MemoryBus::default());
     let vectors = Arc::new(MemoryVectors::default());
     let maps = Arc::new(MemoryMaps::default());
+    let faces = Arc::new(MemoryFaces::with_faces_per_image(1));
     let ingest = Ingest {
         storage: storage.clone(),
         blobs: blobs.clone(),
         vision: Arc::new(vision),
         vectors: vectors.clone(),
+        faces: faces.clone(),
         maps: maps.clone(),
         bus: bus.clone(),
         clock: Arc::new(|| datetime!(2026-09-08 10:00:00 UTC)),
@@ -55,6 +59,7 @@ fn harness_with(vision: MemoryVision) -> Harness {
         bus,
         vectors,
         maps,
+        faces,
     }
 }
 
@@ -96,6 +101,7 @@ fn media(id: &str, contributor: &str, filename: &str, sha: &str) -> MediaItem {
         text: None,
         description: None,
         cleanup_reason: None,
+        people: vec![],
         removed_at: None,
         restore_until: None,
         state: ProcessingState::Uploaded,
@@ -528,4 +534,86 @@ async fn enrich_runs_on_keepers_and_organize_propagates_to_burst() {
         "keeper with faces outscores its burst sibling"
     );
     assert_eq!(b.enrichment.inherited_from, None);
+}
+
+#[tokio::test]
+async fn people_are_grouped_only_when_enabled_and_faces_are_matched() {
+    let h = harness(Enrichment {
+        face_count: 1,
+        ..Enrichment::default()
+    });
+    let house = HouseholdId::new(H);
+    let mut items = vec![
+        signalled("p1", "owner", 0.0, None, 0x1111_0000_0000_0000, 100.0),
+        signalled("p2", "owner", 48.0, None, 0x2222_0000_0000_0000, 100.0),
+    ];
+    for m in &mut items {
+        m.is_keeper = true;
+        h.storage.put_media(m).await.unwrap();
+        h.blobs
+            .put(
+                &format!("renditions/house/{}/tv.jpg", m.id),
+                jpeg(64, 64, 5),
+                "image/jpeg",
+            )
+            .await
+            .unwrap();
+    }
+    // Off by default: nothing indexed.
+    h.ingest
+        .run(Task::Enrich {
+            household: house.clone(),
+            media_id: MediaId::new("p1"),
+        })
+        .await
+        .unwrap();
+    assert!(h.storage.list_people(&house).await.unwrap().is_empty());
+    assert!(h.faces.log.lock().unwrap().is_empty());
+
+    // On: the first face opens a person, a match on the second photo joins them.
+    let mut household =
+        memorylane_core::household::Household::new(house.clone(), "Living room", base());
+    household.people_enabled = true;
+    h.storage.put_household(&household).await.unwrap();
+    h.faces.create_collection(&house).await.unwrap();
+    let mut p1 = h
+        .storage
+        .get_media(&house, &MediaId::new("p1"))
+        .await
+        .unwrap()
+        .unwrap();
+    p1.state = ProcessingState::Signalled;
+    h.storage.put_media(&p1).await.unwrap();
+    h.ingest
+        .run(Task::Enrich {
+            household: house.clone(),
+            media_id: MediaId::new("p1"),
+        })
+        .await
+        .unwrap();
+    let people = h.storage.list_people(&house).await.unwrap();
+    assert_eq!(people.len(), 1);
+    assert_eq!(people[0].face_ids, vec!["face-1"]);
+    h.faces.matches.lock().unwrap().push_back(vec![FaceMatch {
+        face_id: "face-1".into(),
+        similarity: 0.97,
+    }]);
+    h.ingest
+        .run(Task::Enrich {
+            household: house.clone(),
+            media_id: MediaId::new("p2"),
+        })
+        .await
+        .unwrap();
+    let people = h.storage.list_people(&house).await.unwrap();
+    assert_eq!(people.len(), 1, "the matched face joined the same person");
+    assert_eq!(people[0].media_count, 2);
+    assert_eq!(people[0].face_ids, vec!["face-1", "face-2"]);
+    let p2 = h
+        .storage
+        .get_media(&house, &MediaId::new("p2"))
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(p2.people, vec![people[0].id.clone()]);
 }

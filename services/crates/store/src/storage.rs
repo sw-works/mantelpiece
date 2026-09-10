@@ -27,6 +27,9 @@ use crate::Result;
 pub trait Storage: Send + Sync {
     async fn put_household(&self, household: &Household) -> Result<()>;
     async fn get_household(&self, id: &HouseholdId) -> Result<Option<Household>>;
+    /// Account deletion (F-604): every record under the household except the household
+    /// row itself, which keeps `deleting_since` so late uploads answer 410.
+    async fn purge_household(&self, id: &HouseholdId) -> Result<()>;
 
     async fn put_device_code(&self, code: &DeviceCode) -> Result<()>;
     async fn get_device_code(&self, code: &str) -> Result<Option<DeviceCode>>;

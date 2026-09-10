@@ -71,6 +71,24 @@ impl Storage for MemoryStorage {
     async fn get_household(&self, id: &HouseholdId) -> Result<Option<Household>> {
         Ok(self.tables.lock().unwrap().households.get(id).cloned())
     }
+    async fn purge_household(&self, id: &HouseholdId) -> Result<()> {
+        let mut t = self.tables.lock().unwrap();
+        t.trip_codes.retain(|_, c| &c.household != id);
+        t.contributors.retain(|(h, _), _| h != id);
+        t.media.retain(|(h, _), _| h != id);
+        t.trips.retain(|(h, _), _| h != id);
+        t.events.retain(|(h, _), _| h != id);
+        t.seq.remove(id);
+        t.confirmations.retain(|_, c| &c.household != id);
+        t.memberships.retain(|(m, o, _), _| m != id && o != id);
+        t.presence.retain(|(h, _), _| h != id);
+        t.proposals.retain(|(h, _), _| h != id);
+        t.reactions.retain(|(h, _), _| h != id);
+        t.people.retain(|(h, _), _| h != id);
+        t.share_links.retain(|_, l| &l.household != id);
+        t.playlists.retain(|(h, _), _| h != id);
+        Ok(())
+    }
 
     async fn put_device_code(&self, code: &DeviceCode) -> Result<()> {
         self.tables

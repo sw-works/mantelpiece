@@ -132,13 +132,25 @@ pub async fn search(app: &App, req: &Req) -> Result<Resp, ApiError> {
         return Err(ApiError::bad_request("query required"));
     }
     let limit = body.limit.unwrap_or(DEFAULT_LIMIT).clamp(1, 200);
-    let hits = run(
+    let mut hits = run(
         app,
         caller.household(),
         &body.query,
         body.trip.as_ref(),
-        limit,
+        limit * 4,
     )
     .await?;
+    // F-704: "Maya at the beach" keeps only photos every named person is on.
+    if !body.people.is_empty() {
+        let wanted =
+            crate::handlers::people::resolve_names(app, caller.household(), &body.people).await?;
+        let all = app.storage.list_media(caller.household()).await?;
+        hits.retain(|h| {
+            all.iter()
+                .find(|m| m.id == h.media)
+                .is_some_and(|m| wanted.iter().all(|p| m.people.contains(p)))
+        });
+    }
+    hits.truncate(limit);
     Resp::ok(json!({ "query": body.query, "people": body.people, "results": hits }))
 }

@@ -4,6 +4,7 @@ use lambda_runtime::{run, service_fn, Error, LambdaEvent};
 use memorylane_ingest_lambda::{Ingest, Task};
 use memorylane_store::bus::EventBridgeBus;
 use memorylane_store::dynamo::DynamoStorage;
+use memorylane_store::faces::RekognitionFaces;
 use memorylane_store::maps::LocationMaps;
 use memorylane_store::s3::S3Blobs;
 use memorylane_store::vectors::DynamoVectors;
@@ -36,6 +37,7 @@ async fn main() -> Result<(), Error> {
         blobs: Arc::new(S3Blobs::from_config(&aws, env("MEDIA_BUCKET")?)),
         vision,
         vectors: Arc::new(DynamoVectors::from_config(&aws, env("TABLE_NAME")?)),
+        faces: Arc::new(RekognitionFaces::from_config(&aws)),
         maps: Arc::new(LocationMaps::from_config(&aws)),
         bus: Arc::new(EventBridgeBus::from_config(&aws, env("EVENT_BUS")?)),
         clock: Arc::new(OffsetDateTime::now_utc),

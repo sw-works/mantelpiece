@@ -54,6 +54,7 @@ fn media(id: &str, kind: MediaKind) -> MediaItem {
         text: None,
         description: None,
         cleanup_reason: None,
+        people: vec![],
         removed_at: None,
         restore_until: None,
         state: ProcessingState::Signalled,
