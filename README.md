@@ -49,8 +49,20 @@ make deploy      # cdk deploy (needs AWS credentials and Login with Amazon clien
 ```
 
 Everything under `make test` runs without AWS. The DynamoDB, S3, Step Functions,
-Rekognition, EventBridge and AgentCore Gateway backends are compile-checked only until the
-stack is deployed.
+Rekognition, Bedrock, Polly, Location, SES, EventBridge and AgentCore Gateway backends are
+compile-checked only until the stack is deployed.
+
+### What shipped (2026-09-09)
+
+The baseline in `specs/001-memorylane-baseline/` is code-complete with in-memory tests:
+TV sign-in and persisted sessions, contributor and member-household codes, resumable
+uploads, ingest with bursts, clocks, trips, routes and keepers, stories checked against
+metadata, search and playlists, Ask by voice with `describe_photo`, dedup and quick-cleanup
+proposals behind the Review Changes token, People opt-in, resurfacing memories, reactions,
+the ambient and narrated slideshow, expiring shares, the Alexa+ OAuth surface, the audit
+log and tracing spans. Not verified: anything on a Vega device or the Virtual Device (no
+SDK on the build machine), every AWS-backed implementation (no deploy yet), the Alexa+
+registration (preview not granted). See `docs/friction-log.md` and `docs/alexa-plus.md`.
 
 ### Fire TV app
 

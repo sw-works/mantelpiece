@@ -18,6 +18,7 @@ Drawn from the code as built on 2026-09-08. Dense by design; for checking a clai
 | 05 | Workflow #4 Dedup Steward: propose, Review Changes on the remote, Cedar policy, apply only with the token | `workflows.py::dedup_steward`, `core::confirmation`, `api handlers/confirmations.rs` |
 | 06 | Workflow #5 Share: Workflow #2 path plus the same token gate as deletion | `workflows.py::share` |
 | 07 | Workflow #6 Trip Merge: clock alignment and regrouping in Rust ingest, agent re-tells the story with credits | `lambdas/ingest/src/organize.rs`, `workflows.py::trip_merge` |
+| 08 | Baseline delta 2026-09-09: member TV, phone reactions and voice, shared album page, nightly path, Alexa+ OAuth context path, the wider token gate and the audit log. Drawn from the spec and code, not from device runs | `specs/001-memorylane-baseline/`, `lambdas/api/src/app.rs`, `infra/lib/memorylane-stack.ts` |
 
 Shared grid for 02 to 07 lives in `src/_grid.mjs`.
 

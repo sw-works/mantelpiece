@@ -47,6 +47,12 @@ modal on the TV can mint the token that lets the tool run.
 - Agents on Bedrock AgentCore: a Strands Concierge with Memory, six workflows (Trip
   Curator, Ask Your Archive, Household Patterns, Dedup Steward, Share, Trip Merge), tools
   through AgentCore Gateway with Lambda targets, Cedar policy on irreversible tools.
+- Phone pages for reactions, hold-to-talk questions and the People consent switch; a second
+  Fire TV joins a trip by code and gets its own feed, pins and hides.
+- Expiring share links with an optional email, an ambient slideshow after idle, story
+  captions with narration behind a flag, nightly On this day and Then and now.
+- Every agent run and tool call is a span tagged with the household; every sign-in,
+  share, deletion and gated tool leaves an audit entry with the confirmation it carried.
 - One CDK stack. Everything under `make test` runs without AWS.
 
 ### Challenges
@@ -62,9 +68,12 @@ modal on the TV can mint the token that lets the tool run.
 
 ### What's next
 
-Alexa+ on Echo Show through the Gateway MCP endpoint, S3 Vectors for cross-trip search,
-Amazon Location static route maps, and a home node that syncs metadata for households
-that want originals to stay local.
+Verify on the Virtual Device and a Fire TV Stick once the Vega SDK is installed, deploy
+the stack and time the 15-minute organise target on a real archive, register the Alexa+
+add-on when the preview opens (the OAuth metadata, PKCE client and scope are already
+served), and a home node that syncs metadata for households that want originals to stay
+local. What stayed unverified on 2026-09-09 is listed in the README and
+`docs/friction-log.md`.
 
 ## Built with
 
@@ -76,3 +85,4 @@ EventBridge, Cognito, Login with Amazon, Rekognition, Amazon Bedrock, Bedrock Ag
 
 - Repository: https://github.com/hanyuxiao/memory-lane (public before submission)
 - Architecture: `specs/architecture.md`, diagrams in `docs/diagrams/`
+- Friction log: `docs/friction-log.md`; Alexa+ add-on: `docs/alexa-plus.md`
