@@ -68,30 +68,30 @@ policy that every story builds on.
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T008 Add `Role { Contributor, CoEditor }` and `role` field to `Contributor` in `services/crates/core/src/contributor.rs`; validation: a guest never has `role = CoEditor`
-- [ ] T009 [P] Add `Membership { member_household, owner_household, trip, joined_at, left_at }` in `services/crates/core/src/membership.rs`; validation: member and owner households differ
-- [ ] T010 [P] Add `Presence { device_id, media, trip, day, paused, at }` with a 10-minute staleness rule in `services/crates/core/src/presence.rs`
-- [ ] T011 [P] Add `Proposal { id, kind, action, before, after, samples, state, requested_by, confirmation }` with transitions open → cancelled | confirmed → applied and open → expired after 24 h in `services/crates/core/src/proposal.rs`
-- [ ] T012 [P] Add `Reaction { trip, target: Day | Media, id, actor, kind: Like | Comment, text (comment, max 200 chars) }` in `services/crates/core/src/reaction.rs`; one like per actor per target
-- [ ] T013 [P] Add `Person { id, name: Option, face_ids, media_count, sample_media, merged_into }` in `services/crates/core/src/person.rs`
-- [ ] T014 [P] Add `ShareLink { id, target: Album | Playlist, url, expires_at (7 days default), confirmation, revoked_at }` in `services/crates/core/src/share_link.rs`
-- [ ] T015 Add `ConfirmedAction::ApplyCleanup { media_ids }` and `ConfirmedAction::RemoveMedia { media_ids, by }` with `tool_name()` values `apply_cleanup` and `delete_media`, plus `subject` on `ConfirmationToken`, in `services/crates/core/src/confirmation.rs`
-- [ ] T016 Add Media fields `pinned_by: BTreeSet<HouseholdId>`, `hidden_by`, `text`, `description { text, landmark, model_id, generated_at }`, `cleanup_reason`, `restore_until` and state `Removed` in `services/crates/core/src/media.rs`; add `owner_household`, `members`, `narrative.check: Passed | Withheld`, `TripDay.story` in `services/crates/core/src/trip.rs`
-- [ ] T017 Add feed kinds `cleanup.proposal`, `reaction.received`, `membership.joined`, `answer.card`, `narration.ready`, `memories.ready` to `EventKind` in `services/crates/core/src/events.rs` per contracts/events.md
-- [ ] T018 Extend the `Storage` trait in `services/crates/store/src/storage.rs` with membership, presence, proposal, reaction, person, share link, playlist and per-household pin/hide operations; implement in `services/crates/store/src/memory.rs` and `services/crates/store/src/dynamo.rs` (sort-key layouts from data-model.md)
-- [ ] T019 [P] Add `Vectors` trait (upsert, query within trip, query across household) with `MemoryVectors` in `services/crates/store/src/vectors.rs`; DynamoDB per-trip cache plus S3 Vectors implementation behind a feature flag (research R7)
-- [ ] T020 [P] Add `Faces` trait (create/delete collection, index, search) with `MemoryFaces` and a Rekognition implementation in `services/crates/store/src/faces.rs` (research R9)
-- [ ] T021 [P] Add `Vision` trait (labels, text, describe) with `MemoryVision`, moving the Rekognition client out of `services/lambdas/ingest/src/vision.rs` and adding a Bedrock multimodal `describe` in `services/crates/store/src/vision.rs` (research R8)
-- [ ] T022 [P] Add `Maps` trait (static route map, pins map) with `MemoryMaps` and an Amazon Location implementation in `services/crates/store/src/maps.rs`
-- [ ] T023 [P] Add `Speech` trait (synthesize to S3 key) with `MemorySpeech` and a Polly implementation in `services/crates/store/src/speech.rs` (research R10)
-- [ ] T024 Extend `caller()` in `services/lambdas/api/src/app.rs` to resolve `Caller::Member { household, trip }` from memberships and `Caller::CoEditor` from contributor role; add `owner_or_co_editor(trip)` and `member_or_owner(trip)` guards
-- [ ] T025 [P] Write the Cedar policy set in `infra/policy/tools.cedar` requiring a confirmation token for `apply_dedup`, `apply_cleanup`, `delete_media`, `share_album`, `remove_contributor`, and role `co_editor` or owner for `RemoveMedia`; load it in `infra/lib/memorylane-stack.ts`
-- [ ] T026 [P] Add `pytest` fakes for the new tools (`get_now_showing`, `describe_photo`, `list_cleanup_candidates`, `memories_for`, `apply_cleanup`) to `InMemoryTools` and the `Tools` protocol in `agents/src/memorylane_agents/tools.py`
-- [ ] T027 Wire new Gateway tool targets and the nightly `events.Rule` (`nightly.tick`) in `infra/lib/memorylane-stack.ts`; extend `infra/test/stack.test.ts`
-- [ ] T028 Extend `services/lambdas/api/tests/api.rs` with role and membership fixtures (owner, co-editor, guest, member household) used by every later story
-- [ ] T029 Run `make test` and tick each row of the "Already built" table above against its named test, recording any row that fails as a new task in this file
+- [X] T008 Add `Role { Contributor, CoEditor }` and `role` field to `Contributor` in `services/crates/core/src/contributor.rs`; validation: a guest never has `role = CoEditor`
+- [X] T009 [P] Add `Membership { member_household, owner_household, trip, joined_at, left_at }` in `services/crates/core/src/membership.rs`; validation: member and owner households differ
+- [X] T010 [P] Add `Presence { device_id, media, trip, day, paused, at }` with a 10-minute staleness rule in `services/crates/core/src/presence.rs`
+- [X] T011 [P] Add `Proposal { id, kind, action, before, after, samples, state, requested_by, confirmation }` with transitions open → cancelled | confirmed → applied and open → expired after 24 h in `services/crates/core/src/proposal.rs`
+- [X] T012 [P] Add `Reaction { trip, target: Day | Media, id, actor, kind: Like | Comment, text (comment, max 200 chars) }` in `services/crates/core/src/reaction.rs`; one like per actor per target
+- [X] T013 [P] Add `Person { id, name: Option, face_ids, media_count, sample_media, merged_into }` in `services/crates/core/src/person.rs`
+- [X] T014 [P] Add `ShareLink { id, target: Album | Playlist, url, expires_at (7 days default), confirmation, revoked_at }` in `services/crates/core/src/share_link.rs`
+- [X] T015 Add `ConfirmedAction::ApplyCleanup { media_ids }` and `ConfirmedAction::RemoveMedia { media_ids, by }` with `tool_name()` values `apply_cleanup` and `delete_media`, plus `subject` on `ConfirmationToken`, in `services/crates/core/src/confirmation.rs`
+- [X] T016 Add Media fields `pinned_by: BTreeSet<HouseholdId>`, `hidden_by`, `text`, `description { text, landmark, model_id, generated_at }`, `cleanup_reason`, `restore_until` and state `Removed` in `services/crates/core/src/media.rs`; add `owner_household`, `members`, `narrative.check: Passed | Withheld`, `TripDay.story` in `services/crates/core/src/trip.rs`
+- [X] T017 Add feed kinds `cleanup.proposal`, `reaction.received`, `membership.joined`, `answer.card`, `narration.ready`, `memories.ready` to `EventKind` in `services/crates/core/src/events.rs` per contracts/events.md
+- [X] T018 Extend the `Storage` trait in `services/crates/store/src/storage.rs` with membership, presence, proposal, reaction, person, share link, playlist and per-household pin/hide operations; implement in `services/crates/store/src/memory.rs` and `services/crates/store/src/dynamo.rs` (sort-key layouts from data-model.md)
+- [X] T019 [P] Add `Vectors` trait (upsert, query within trip, query across household) with `MemoryVectors` in `services/crates/store/src/vectors.rs`; DynamoDB per-trip cache plus S3 Vectors implementation behind a feature flag (research R7)
+- [X] T020 [P] Add `Faces` trait (create/delete collection, index, search) with `MemoryFaces` and a Rekognition implementation in `services/crates/store/src/faces.rs` (research R9)
+- [X] T021 [P] Add `Vision` trait (labels, text, describe) with `MemoryVision`, moving the Rekognition client out of `services/lambdas/ingest/src/vision.rs` and adding a Bedrock multimodal `describe` in `services/crates/store/src/vision.rs` (research R8)
+- [X] T022 [P] Add `Maps` trait (static route map, pins map) with `MemoryMaps` and an Amazon Location implementation in `services/crates/store/src/maps.rs`
+- [X] T023 [P] Add `Speech` trait (synthesize to S3 key) with `MemorySpeech` and a Polly implementation in `services/crates/store/src/speech.rs` (research R10)
+- [X] T024 Extend `caller()` in `services/lambdas/api/src/app.rs` to resolve `Caller::Member { household, trip }` from memberships and `Caller::CoEditor` from contributor role; add `owner_or_co_editor(trip)` and `member_or_owner(trip)` guards
+- [X] T025 [P] Write the Cedar policy set in `infra/policy/tools.cedar` requiring a confirmation token for `apply_dedup`, `apply_cleanup`, `delete_media`, `share_album`, `remove_contributor`, and role `co_editor` or owner for `RemoveMedia`; load it in `infra/lib/memorylane-stack.ts`
+- [X] T026 [P] Add `pytest` fakes for the new tools (`get_now_showing`, `describe_photo`, `list_cleanup_candidates`, `memories_for`, `apply_cleanup`) to `InMemoryTools` and the `Tools` protocol in `agents/src/memorylane_agents/tools.py`
+- [X] T027 Wire new Gateway tool targets and the nightly `events.Rule` (`nightly.tick`) in `infra/lib/memorylane-stack.ts`; extend `infra/test/stack.test.ts`
+- [X] T028 Extend `services/lambdas/api/tests/api.rs` with role and membership fixtures (owner, co-editor, guest, member household) used by every later story
+- [X] T029 Run `make test` and tick each row of the "Already built" table above against its named test, recording any row that fails as a new task in this file (2026-09-09: every named test file exists and passes; the FR-056 row stays open until T035 runs on a device)
 
-**Checkpoint**: `make test` green with the new types, traits and fakes
+**Checkpoint**: `make test` green with the new types, traits and fakes (reached 2026-09-09)
 
 ---
 

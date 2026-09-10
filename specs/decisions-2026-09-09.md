@@ -212,3 +212,37 @@ code (headline alongside F-151), per-household pin and hide, a co-editor role ga
 Review Changes and Cedar, and no edits for guests or from the web view. W5 now prefers a
 join code over an emailed link when the recipient has a TV. Demo beat sheet gains the
 second-TV moment.
+
+## 11. Phase 2 foundations (Spec Kit tasks T008 to T029)
+
+Domain types, storage, model backends, roles and the Gateway policy that every user story
+builds on. All of it runs under `make test` with no AWS; the AWS backends are
+compile-checked only.
+
+- Core: `Role` on `Contributor` (guests never co-edit), `Membership`, `Presence` (10
+  minute staleness), `Proposal` (open, cancelled, confirmed, applied, expired after 24 h),
+  `Reaction` (one like per actor per target, comments at most 200 characters), `Person`,
+  `ShareLink` (7 days), `Household` (people and narration flags, deletion marker),
+  `ConfirmedAction::{ApplyCleanup, RemoveMedia}` with a token `subject`, soft removal on
+  `MediaItem` with a 30 day restore window and per-household pins and hides, six new feed
+  kinds plus the member-household filter, `NarrativeCheck` and per-day stories on trips.
+- Store: the `Storage` trait grew memberships, presence, proposals, reactions, people,
+  share links and playlists (sort keys in `dynamo.rs`). New traits with in-memory fakes:
+  `Vectors` (cosine ranking; `DynamoVectors` per-household rows; `S3Vectors` with a
+  household and trip metadata filter), `Faces` (Rekognition collections), `Vision`
+  (moved out of the ingest Lambda; Rekognition labels, faces and text plus a Bedrock
+  Converse description, default model `amazon.nova-lite-v1:0`), `Maps` (Amazon Location
+  Maps v2 `GetStaticMap` with a GeoJSON overlay) and `Speech` (Polly neural, MP3).
+- API: `App::trip_access` resolves Owner, Member, CoEditor or Contributor for one trip,
+  with `owner_or_co_editor` and `member_or_owner` guards; co-editors mint confirmation
+  tokens for the actions their role allows and the token records who confirmed.
+- Infra: AgentCore Gateway (MCP, Cognito JWT authorizer) with one Lambda target listing
+  all 22 tools from contracts/tools.md, a Policy Engine loading `infra/policy/tools.cedar`
+  in enforce mode, and an EventBridge Scheduler schedule that puts `nightly.tick` on the
+  bus at 03:00 UTC (per-household local time is the Concierge's job). *Unverified*: the
+  Cedar entity and action naming (`AgentCore::Action::"api___<tool>"`, `context.input`)
+  and the L1 property values (`supportedVersions`, `searchType`, `GATEWAY_IAM_ROLE`)
+  follow the CloudFormation schema shipped in CDK 2.268 and have not been deployed.
+- Agents: `InMemoryTools` fakes for `get_now_showing`, `describe_photo`,
+  `list_cleanup_candidates`, `memories_for` and `apply_cleanup`, mirrored on
+  `GatewayTools`.
