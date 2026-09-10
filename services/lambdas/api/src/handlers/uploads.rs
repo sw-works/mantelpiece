@@ -11,6 +11,7 @@ use crate::error::ApiError;
 use crate::req::{Req, Resp};
 use crate::tokens::Session;
 use memorylane_store::CompletedPart;
+use std::collections::BTreeSet;
 
 #[derive(Deserialize)]
 struct InitBody {
@@ -116,6 +117,13 @@ pub async fn init(app: &App, req: &Req) -> Result<Resp, ApiError> {
         trip: None,
         pinned: false,
         hidden: false,
+        pinned_by: BTreeSet::default(),
+        hidden_by: BTreeSet::default(),
+        text: None,
+        description: None,
+        cleanup_reason: None,
+        removed_at: None,
+        restore_until: None,
         state: ProcessingState::Uploaded,
         uploaded_at: app.now(),
     };

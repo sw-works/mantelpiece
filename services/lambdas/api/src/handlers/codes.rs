@@ -1,6 +1,6 @@
 //! Trip and household codes (F-151 to F-153) and joining by code (F-152).
 
-use memorylane_core::contributor::{Contributor, ContributorKind};
+use memorylane_core::contributor::{Contributor, ContributorKind, Role};
 use memorylane_core::ids::{ContributorId, HouseholdId, TripId};
 use memorylane_core::trip_code::{CodeScope, TripCode};
 use serde::{Deserialize, Serialize};
@@ -183,6 +183,8 @@ pub async fn join(app: &App, req: &Req) -> Result<Resp, ApiError> {
                 kind,
                 joined_at: now,
                 removed_at: None,
+                grace_until: None,
+                role: Role::Contributor,
             };
             app.storage.put_contributor(&c).await?;
             c

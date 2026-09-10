@@ -6,8 +6,9 @@
 //!   renditions. Cheap, runs for every upload.
 //! - `organize`: per household. Burst groups and keepers, scores, clock alignment,
 //!   trips, days, routes, highlights. Idempotent; runs after every batch.
-//! - `enrich`: per keeper. Rekognition labels and faces. Only keepers pay for models;
-//!   `organize` copies a keeper's enrichment onto the rest of its burst.
+//! - `enrich`: per keeper. Labels, faces and text through the store's `Vision` trait.
+//!   Only keepers pay for models; `organize` copies a keeper's enrichment onto the rest
+//!   of its burst.
 
 #![allow(clippy::cast_precision_loss)]
 
@@ -15,10 +16,9 @@ pub mod bus;
 pub mod enrich;
 pub mod organize;
 pub mod signal;
-pub mod vision;
 
 use memorylane_core::ids::{HouseholdId, MediaId};
-use memorylane_store::{Blobs, Storage, StorageError};
+use memorylane_store::{Blobs, Storage, StorageError, Vision};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use thiserror::Error;
@@ -57,7 +57,7 @@ pub type Clock = Arc<dyn Fn() -> OffsetDateTime + Send + Sync>;
 pub struct Ingest {
     pub storage: Arc<dyn Storage>,
     pub blobs: Arc<dyn Blobs>,
-    pub vision: Arc<dyn vision::Vision>,
+    pub vision: Arc<dyn Vision>,
     pub bus: Arc<dyn bus::Bus>,
     pub clock: Clock,
 }

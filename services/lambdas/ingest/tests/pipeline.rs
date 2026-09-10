@@ -9,10 +9,11 @@ use memorylane_core::media::{
 };
 use memorylane_ingest::checksum::sha256_hex;
 use memorylane_ingest_lambda::bus::MemoryBus;
-use memorylane_ingest_lambda::vision::FixedVision;
 use memorylane_ingest_lambda::{Ingest, Task};
 use memorylane_store::memory::{MemoryBlobs, MemoryStorage};
+use memorylane_store::vision::MemoryVision;
 use memorylane_store::{Blobs, Storage};
+use std::collections::BTreeSet;
 use std::sync::Arc;
 use time::macros::datetime;
 use time::{Duration, OffsetDateTime};
@@ -31,7 +32,7 @@ fn harness(enrichment: Enrichment) -> Harness {
     let ingest = Ingest {
         storage: storage.clone(),
         blobs: blobs.clone(),
-        vision: Arc::new(FixedVision { enrichment }),
+        vision: Arc::new(MemoryVision::with_enrichment(enrichment)),
         bus: bus.clone(),
         clock: Arc::new(|| datetime!(2026-09-08 10:00:00 UTC)),
     };
@@ -76,6 +77,13 @@ fn media(id: &str, contributor: &str, filename: &str, sha: &str) -> MediaItem {
         trip: None,
         pinned: false,
         hidden: false,
+        pinned_by: BTreeSet::default(),
+        hidden_by: BTreeSet::default(),
+        text: None,
+        description: None,
+        cleanup_reason: None,
+        removed_at: None,
+        restore_until: None,
         state: ProcessingState::Uploaded,
         uploaded_at: base(),
     }
@@ -298,6 +306,8 @@ async fn organize_groups_bursts_builds_trip_and_is_idempotent() {
             kind: memorylane_core::contributor::ContributorKind::Guest,
             joined_at: base(),
             removed_at: None,
+            grace_until: None,
+            role: memorylane_core::contributor::Role::Contributor,
         })
         .await
         .unwrap();

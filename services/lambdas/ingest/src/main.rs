@@ -2,10 +2,11 @@
 
 use lambda_runtime::{run, service_fn, Error, LambdaEvent};
 use memorylane_ingest_lambda::bus::EventBridgeBus;
-use memorylane_ingest_lambda::vision::{FixedVision, RekognitionVision, Vision};
 use memorylane_ingest_lambda::{Ingest, Task};
 use memorylane_store::dynamo::DynamoStorage;
 use memorylane_store::s3::S3Blobs;
+use memorylane_store::vision::{AwsVision, MemoryVision};
+use memorylane_store::Vision;
 use std::sync::Arc;
 use time::OffsetDateTime;
 
@@ -21,9 +22,12 @@ async fn main() -> Result<(), Error> {
         .init();
     let aws = aws_config::load_from_env().await;
     let vision: Arc<dyn Vision> = if std::env::var("VISION").is_ok_and(|v| v == "off") {
-        Arc::new(FixedVision::default())
+        Arc::new(MemoryVision::default())
     } else {
-        Arc::new(RekognitionVision::from_config(&aws))
+        Arc::new(AwsVision::from_config(
+            &aws,
+            std::env::var("DESCRIBE_MODEL_ID").ok(),
+        ))
     };
     let ingest = Arc::new(Ingest {
         storage: Arc::new(DynamoStorage::from_config(&aws, env("TABLE_NAME")?)),

@@ -1,6 +1,7 @@
 //! Router and dependencies shared by all handlers.
 
-use memorylane_core::ids::HouseholdId;
+use memorylane_core::contributor::Contributor;
+use memorylane_core::ids::{ContributorId, HouseholdId, TripId};
 use std::sync::Arc;
 use time::{Duration, OffsetDateTime};
 
@@ -72,6 +73,68 @@ impl Caller {
         match self {
             Self::Owner { household, .. } => household,
             Self::Contributor(s) => s.household(),
+        }
+    }
+}
+
+/// The caller's standing on one trip (data-model access rules).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum TripAccess {
+    /// The trip's own household.
+    Owner {
+        household: HouseholdId,
+        subject: String,
+    },
+    /// A contributor holding the co-editor role on the trip's household (F-164).
+    CoEditor {
+        household: HouseholdId,
+        contributor: ContributorId,
+    },
+    /// A plain contributor whose code names this trip.
+    Contributor {
+        household: HouseholdId,
+        contributor: ContributorId,
+    },
+    /// Another household that joined the trip by code (F-162).
+    Member {
+        household: HouseholdId,
+        owner_household: HouseholdId,
+    },
+}
+
+impl TripAccess {
+    /// The household whose partition holds the trip.
+    pub fn owner_household(&self) -> &HouseholdId {
+        match self {
+            Self::Owner { household, .. }
+            | Self::CoEditor { household, .. }
+            | Self::Contributor { household, .. } => household,
+            Self::Member {
+                owner_household, ..
+            } => owner_household,
+        }
+    }
+
+    /// The household whose pins and hides apply (F-163).
+    pub fn viewing_household(&self) -> &HouseholdId {
+        match self {
+            Self::Member { household, .. } => household,
+            other => other.owner_household(),
+        }
+    }
+
+    pub fn can_edit(&self) -> bool {
+        matches!(self, Self::Owner { .. } | Self::CoEditor { .. })
+    }
+
+    /// Who a confirmation token names when this caller confirms.
+    pub fn subject(&self) -> String {
+        match self {
+            Self::Owner { subject, .. } => subject.clone(),
+            Self::CoEditor { contributor, .. } | Self::Contributor { contributor, .. } => {
+                contributor.to_string()
+            }
+            Self::Member { household, .. } => household.to_string(),
         }
     }
 }
@@ -181,6 +244,84 @@ impl App {
         match self.caller(req)? {
             Caller::Owner { household, .. } => Ok(household),
             Caller::Contributor(_) => Err(ApiError::forbidden("owner only")),
+        }
+    }
+
+    /// Resolve what the caller may do on `trip`: owner of the trip's household, member
+    /// household that joined it, co-editor, or plain contributor bound to it. 404 when the
+    /// owner has no such trip, 403 when a contributor's code names another trip.
+    pub async fn trip_access(&self, req: &Req, trip: &TripId) -> Result<TripAccess, ApiError> {
+        match self.caller(req)? {
+            Caller::Owner { household, subject } => {
+                if self.storage.get_trip(&household, trip).await?.is_some() {
+                    return Ok(TripAccess::Owner { household, subject });
+                }
+                let joined = self
+                    .storage
+                    .list_memberships(&household)
+                    .await?
+                    .into_iter()
+                    .find(|m| &m.trip == trip && m.is_active());
+                match joined {
+                    Some(m) => Ok(TripAccess::Member {
+                        household,
+                        owner_household: m.owner_household,
+                    }),
+                    None => Err(ApiError::not_found("no such trip")),
+                }
+            }
+            Caller::Contributor(Session::Upload {
+                household,
+                contributor,
+                trip: bound,
+                ..
+            }) => {
+                if bound.as_ref() != Some(trip) {
+                    return Err(ApiError::forbidden("not your trip"));
+                }
+                let c = self
+                    .storage
+                    .get_contributor(&household, &contributor)
+                    .await?
+                    .filter(Contributor::is_active)
+                    .ok_or_else(|| ApiError::forbidden("contributor removed"))?;
+                Ok(if c.can_edit() {
+                    TripAccess::CoEditor {
+                        household,
+                        contributor,
+                    }
+                } else {
+                    TripAccess::Contributor {
+                        household,
+                        contributor,
+                    }
+                })
+            }
+            Caller::Contributor(
+                Session::Tv { household, subject } | Session::Phone { household, subject },
+            ) => Ok(TripAccess::Owner { household, subject }),
+        }
+    }
+
+    /// Edits on a trip: owner or co-editor (F-164). Guests and members never edit (F-165).
+    pub async fn owner_or_co_editor(
+        &self,
+        req: &Req,
+        trip: &TripId,
+    ) -> Result<TripAccess, ApiError> {
+        let access = self.trip_access(req, trip).await?;
+        if access.can_edit() {
+            Ok(access)
+        } else {
+            Err(ApiError::forbidden("owner or co-editor only"))
+        }
+    }
+
+    /// Reads and per-household choices on a trip: the owner or a joined household.
+    pub async fn member_or_owner(&self, req: &Req, trip: &TripId) -> Result<TripAccess, ApiError> {
+        match self.trip_access(req, trip).await? {
+            access @ (TripAccess::Owner { .. } | TripAccess::Member { .. }) => Ok(access),
+            _ => Err(ApiError::forbidden("owner or member household only")),
         }
     }
 }

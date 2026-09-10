@@ -244,6 +244,7 @@ fn build_trip(b: BuildTrip<'_>) -> (Trip, usize, Vec<ContributorId>) {
                 media: d.media.clone(),
                 route: route::from_gps(&day_samples, route::Params::default()),
                 title: Some(naming::day_title(day_index(i), landmark.as_deref())),
+                story: None,
             }
         })
         .collect();
@@ -294,6 +295,7 @@ fn build_trip(b: BuildTrip<'_>) -> (Trip, usize, Vec<ContributorId>) {
             .collect(),
         contributors,
         narrative: b.previous.and_then(|t| t.narrative.clone()),
+        members: b.previous.map(|t| t.members.clone()).unwrap_or_default(),
     };
     (trip, new_media, new_contributors)
 }
