@@ -5,9 +5,18 @@ use memorylane_core::confirmation::ConfirmationToken;
 use memorylane_core::contributor::Contributor;
 use memorylane_core::device_code::DeviceCode;
 use memorylane_core::events::{Event, EventKind};
-use memorylane_core::ids::{ContributorId, HouseholdId, MediaId, TripId};
+use memorylane_core::household::Household;
+use memorylane_core::ids::{
+    ContributorId, HouseholdId, MediaId, PersonId, PlaylistId, ProposalId, ShareLinkId, TripId,
+};
 use memorylane_core::media::MediaItem;
-use memorylane_core::trip::Trip;
+use memorylane_core::membership::Membership;
+use memorylane_core::person::Person;
+use memorylane_core::presence::Presence;
+use memorylane_core::proposal::Proposal;
+use memorylane_core::reaction::Reaction;
+use memorylane_core::share_link::ShareLink;
+use memorylane_core::trip::{Playlist, Trip};
 use memorylane_core::trip_code::TripCode;
 use std::collections::{BTreeMap, HashMap};
 use std::sync::Mutex;
@@ -27,6 +36,15 @@ struct Tables {
     events: BTreeMap<(HouseholdId, u64), Event>,
     seq: HashMap<HouseholdId, u64>,
     confirmations: HashMap<String, ConfirmationToken>,
+    households: HashMap<HouseholdId, Household>,
+    memberships: HashMap<(HouseholdId, HouseholdId, TripId), Membership>,
+    presence: HashMap<(HouseholdId, String), Presence>,
+    proposals: HashMap<(HouseholdId, ProposalId), Proposal>,
+    /// Keyed by like key for likes, by id for comments.
+    reactions: HashMap<(HouseholdId, String), Reaction>,
+    people: HashMap<(HouseholdId, PersonId), Person>,
+    share_links: HashMap<ShareLinkId, ShareLink>,
+    playlists: HashMap<(HouseholdId, PlaylistId), Playlist>,
 }
 
 #[derive(Debug, Default)]
@@ -42,6 +60,18 @@ impl MemoryStorage {
 
 #[async_trait]
 impl Storage for MemoryStorage {
+    async fn put_household(&self, h: &Household) -> Result<()> {
+        self.tables
+            .lock()
+            .unwrap()
+            .households
+            .insert(h.id.clone(), h.clone());
+        Ok(())
+    }
+    async fn get_household(&self, id: &HouseholdId) -> Result<Option<Household>> {
+        Ok(self.tables.lock().unwrap().households.get(id).cloned())
+    }
+
     async fn put_device_code(&self, code: &DeviceCode) -> Result<()> {
         self.tables
             .lock()
@@ -245,6 +275,229 @@ impl Storage for MemoryStorage {
             .confirmations
             .get(token)
             .cloned())
+    }
+
+    async fn put_membership(&self, m: &Membership) -> Result<()> {
+        self.tables.lock().unwrap().memberships.insert(
+            (
+                m.member_household.clone(),
+                m.owner_household.clone(),
+                m.trip.clone(),
+            ),
+            m.clone(),
+        );
+        Ok(())
+    }
+    async fn get_membership(
+        &self,
+        member: &HouseholdId,
+        owner: &HouseholdId,
+        trip: &TripId,
+    ) -> Result<Option<Membership>> {
+        Ok(self
+            .tables
+            .lock()
+            .unwrap()
+            .memberships
+            .get(&(member.clone(), owner.clone(), trip.clone()))
+            .cloned())
+    }
+    async fn list_memberships(&self, member: &HouseholdId) -> Result<Vec<Membership>> {
+        let t = self.tables.lock().unwrap();
+        let mut v: Vec<Membership> = t
+            .memberships
+            .values()
+            .filter(|m| &m.member_household == member)
+            .cloned()
+            .collect();
+        v.sort_by_key(|m| m.joined_at);
+        Ok(v)
+    }
+    async fn list_trip_members(
+        &self,
+        owner: &HouseholdId,
+        trip: &TripId,
+    ) -> Result<Vec<Membership>> {
+        let t = self.tables.lock().unwrap();
+        let mut v: Vec<Membership> = t
+            .memberships
+            .values()
+            .filter(|m| &m.owner_household == owner && &m.trip == trip)
+            .cloned()
+            .collect();
+        v.sort_by_key(|m| m.joined_at);
+        Ok(v)
+    }
+
+    async fn put_presence(&self, p: &Presence) -> Result<()> {
+        self.tables
+            .lock()
+            .unwrap()
+            .presence
+            .insert((p.household.clone(), p.device_id.to_string()), p.clone());
+        Ok(())
+    }
+    async fn list_presence(&self, household: &HouseholdId) -> Result<Vec<Presence>> {
+        let t = self.tables.lock().unwrap();
+        let mut v: Vec<Presence> = t
+            .presence
+            .values()
+            .filter(|p| &p.household == household)
+            .cloned()
+            .collect();
+        v.sort_by_key(|p| p.device_id.to_string());
+        Ok(v)
+    }
+
+    async fn put_proposal(&self, p: &Proposal) -> Result<()> {
+        self.tables
+            .lock()
+            .unwrap()
+            .proposals
+            .insert((p.household.clone(), p.id.clone()), p.clone());
+        Ok(())
+    }
+    async fn get_proposal(
+        &self,
+        household: &HouseholdId,
+        id: &ProposalId,
+    ) -> Result<Option<Proposal>> {
+        Ok(self
+            .tables
+            .lock()
+            .unwrap()
+            .proposals
+            .get(&(household.clone(), id.clone()))
+            .cloned())
+    }
+    async fn list_proposals(&self, household: &HouseholdId) -> Result<Vec<Proposal>> {
+        let t = self.tables.lock().unwrap();
+        let mut v: Vec<Proposal> = t
+            .proposals
+            .values()
+            .filter(|p| &p.household == household)
+            .cloned()
+            .collect();
+        v.sort_by_key(|p| (p.opened_at, p.id.clone()));
+        Ok(v)
+    }
+
+    async fn put_reaction(&self, r: &Reaction) -> Result<()> {
+        let key = r.like_key().unwrap_or_else(|| r.id.to_string());
+        self.tables
+            .lock()
+            .unwrap()
+            .reactions
+            .insert((r.household.clone(), key), r.clone());
+        Ok(())
+    }
+    async fn list_reactions(
+        &self,
+        household: &HouseholdId,
+        trip: &TripId,
+    ) -> Result<Vec<Reaction>> {
+        let t = self.tables.lock().unwrap();
+        let mut v: Vec<Reaction> = t
+            .reactions
+            .values()
+            .filter(|r| &r.household == household && &r.trip == trip)
+            .cloned()
+            .collect();
+        v.sort_by_key(|r| (r.created_at, r.id.clone()));
+        Ok(v)
+    }
+
+    async fn put_person(&self, p: &Person) -> Result<()> {
+        self.tables
+            .lock()
+            .unwrap()
+            .people
+            .insert((p.household.clone(), p.id.clone()), p.clone());
+        Ok(())
+    }
+    async fn get_person(&self, household: &HouseholdId, id: &PersonId) -> Result<Option<Person>> {
+        Ok(self
+            .tables
+            .lock()
+            .unwrap()
+            .people
+            .get(&(household.clone(), id.clone()))
+            .cloned())
+    }
+    async fn list_people(&self, household: &HouseholdId) -> Result<Vec<Person>> {
+        let t = self.tables.lock().unwrap();
+        let mut v: Vec<Person> = t
+            .people
+            .values()
+            .filter(|p| &p.household == household)
+            .cloned()
+            .collect();
+        v.sort_by_key(|p| (std::cmp::Reverse(p.media_count), p.id.clone()));
+        Ok(v)
+    }
+    async fn delete_people(&self, household: &HouseholdId) -> Result<()> {
+        self.tables
+            .lock()
+            .unwrap()
+            .people
+            .retain(|(h, _), _| h != household);
+        Ok(())
+    }
+
+    async fn put_share_link(&self, l: &ShareLink) -> Result<()> {
+        self.tables
+            .lock()
+            .unwrap()
+            .share_links
+            .insert(l.id.clone(), l.clone());
+        Ok(())
+    }
+    async fn get_share_link(&self, id: &ShareLinkId) -> Result<Option<ShareLink>> {
+        Ok(self.tables.lock().unwrap().share_links.get(id).cloned())
+    }
+    async fn list_share_links(&self, household: &HouseholdId) -> Result<Vec<ShareLink>> {
+        let t = self.tables.lock().unwrap();
+        let mut v: Vec<ShareLink> = t
+            .share_links
+            .values()
+            .filter(|l| &l.household == household)
+            .cloned()
+            .collect();
+        v.sort_by_key(|l| (l.created_at, l.id.clone()));
+        Ok(v)
+    }
+
+    async fn put_playlist(&self, p: &Playlist) -> Result<()> {
+        self.tables
+            .lock()
+            .unwrap()
+            .playlists
+            .insert((p.household.clone(), p.id.clone()), p.clone());
+        Ok(())
+    }
+    async fn get_playlist(
+        &self,
+        household: &HouseholdId,
+        id: &PlaylistId,
+    ) -> Result<Option<Playlist>> {
+        Ok(self
+            .tables
+            .lock()
+            .unwrap()
+            .playlists
+            .get(&(household.clone(), id.clone()))
+            .cloned())
+    }
+    async fn list_playlists(&self, household: &HouseholdId) -> Result<Vec<Playlist>> {
+        let t = self.tables.lock().unwrap();
+        let mut v: Vec<Playlist> = t
+            .playlists
+            .values()
+            .filter(|p| &p.household == household)
+            .cloned()
+            .collect();
+        v.sort_by_key(|p| (std::cmp::Reverse(p.created_at), p.id.clone()));
+        Ok(v)
     }
 }
 

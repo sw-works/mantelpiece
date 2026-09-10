@@ -1,15 +1,28 @@
-//! Persistence behind every Lambda: one [`Storage`] trait and one [`Blobs`] trait, each
-//! with an AWS backend and an in-memory backend for tests.
+//! Persistence and model backends behind every Lambda. Every trait has an AWS backend
+//! and an in-memory backend, so `make test` runs without credentials (constitution VI):
+//! [`Storage`] (DynamoDB), [`Blobs`] (S3), [`Vectors`] (DynamoDB cache and S3 Vectors),
+//! [`Faces`] (Rekognition collections), [`Vision`] (Rekognition labels and text, Bedrock
+//! descriptions), [`Maps`] (Amazon Location static maps) and [`Speech`] (Polly).
 
 pub mod blobs;
 pub mod dynamo;
+pub mod faces;
+pub mod maps;
 pub mod memory;
 pub mod s3;
+pub mod speech;
 pub mod storage;
+pub mod vectors;
+pub mod vision;
 
 pub use blobs::{Blobs, CompletedPart};
+pub use faces::Faces;
+pub use maps::Maps;
+pub use speech::Speech;
 pub use storage::Storage;
 use thiserror::Error;
+pub use vectors::Vectors;
+pub use vision::Vision;
 
 /// Backend failures. Every storage and blob backend maps onto this.
 #[derive(Debug, Error)]
