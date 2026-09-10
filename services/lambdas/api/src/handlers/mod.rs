@@ -1,4 +1,5 @@
 pub mod ask;
+pub mod audit;
 pub mod codes;
 pub mod confirmations;
 pub mod contributors;
@@ -18,3 +19,4 @@ pub mod session;
 pub mod shares;
 pub mod trips;
 pub mod uploads;
+pub mod wellknown;

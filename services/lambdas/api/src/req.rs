@@ -15,6 +15,19 @@ pub enum Method {
     Delete,
 }
 
+impl Method {
+    #[must_use]
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Get => "GET",
+            Self::Post => "POST",
+            Self::Put => "PUT",
+            Self::Patch => "PATCH",
+            Self::Delete => "DELETE",
+        }
+    }
+}
+
 /// Identity established by API Gateway's JWT authorizer, when the caller signed in with
 /// Login with Amazon through Cognito.
 #[derive(Clone, Debug, PartialEq, Eq, Default)]

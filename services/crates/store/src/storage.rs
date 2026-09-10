@@ -2,6 +2,7 @@
 //! an in-memory map for tests.
 
 use async_trait::async_trait;
+use memorylane_core::audit::AuditEntry;
 use memorylane_core::confirmation::ConfirmationToken;
 use memorylane_core::contributor::Contributor;
 use memorylane_core::device_code::DeviceCode;
@@ -126,6 +127,10 @@ pub trait Storage: Send + Sync {
     /// Global lookup for the public share page.
     async fn get_share_link(&self, id: &ShareLinkId) -> Result<Option<ShareLink>>;
     async fn list_share_links(&self, household: &HouseholdId) -> Result<Vec<ShareLink>>;
+
+    async fn put_audit(&self, entry: &AuditEntry) -> Result<()>;
+    /// Newest first.
+    async fn list_audit(&self, household: &HouseholdId) -> Result<Vec<AuditEntry>>;
 
     async fn put_playlist(&self, playlist: &Playlist) -> Result<()>;
     async fn get_playlist(

@@ -1296,6 +1296,112 @@ async fn reactions_from_contributors_viewers_and_members_reach_the_ticker() {
 }
 
 #[tokio::test]
+async fn audit_log_records_sign_in_shares_and_gated_tools_with_their_tokens() {
+    let h = harness();
+    let a = enriched(&h, "a.jpg", 111, &["Temple"], None).await;
+    let playlist = h
+        .owner(
+            Method::Post,
+            "/playlists",
+            Some(json!({ "name": "Temples", "media": [a], "source": "ask:temple" })),
+        )
+        .await
+        .body["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    assert_eq!(
+        h.owner(
+            Method::Post,
+            "/shares",
+            Some(json!({ "playlist": playlist }))
+        )
+        .await
+        .status,
+        403
+    );
+    let token = h
+        .owner(
+            Method::Post,
+            "/confirmations",
+            Some(json!({ "action": "share_album", "album_id": playlist })),
+        )
+        .await
+        .body["token"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    assert_eq!(
+        h.owner(
+            Method::Post,
+            "/shares",
+            Some(json!({ "playlist": playlist, "confirmation": token }))
+        )
+        .await
+        .status,
+        201
+    );
+    h.owner(Method::Get, "/trips", None).await;
+    h.owner(Method::Get, "/shares", None).await;
+
+    let log = h.owner(Method::Get, "/audit", None).await;
+    assert_eq!(log.status, 200);
+    let entries = log.body.as_array().unwrap();
+    let actions: Vec<&str> = entries
+        .iter()
+        .map(|e| e["action"].as_str().unwrap())
+        .collect();
+    // Newest first; reads are not logged.
+    assert_eq!(
+        actions,
+        vec!["share.create", "confirmation.mint", "share.create"]
+    );
+    assert_eq!(entries[0]["confirmation"], token);
+    assert_eq!(entries[0]["outcome"], 201);
+    assert_eq!(entries[0]["actor"], "amzn-owner");
+    assert_eq!(entries[2]["outcome"], 403);
+    assert!(entries[2]["confirmation"].is_null());
+    // Nobody but the owner reads it.
+    let (guest, _) = h.guest("Maya").await;
+    assert_eq!(
+        h.bearer(Method::Get, "/audit", None, &guest).await.status,
+        403
+    );
+
+    // OAuth metadata for the Alexa+ add-on (R6): PKCE only, one scope, points at the Gateway.
+    let doc = h
+        .call(
+            Method::Get,
+            "/.well-known/oauth-authorization-server",
+            None,
+            None,
+            None,
+        )
+        .await;
+    assert_eq!(doc.status, 200);
+    assert_eq!(
+        doc.body["code_challenge_methods_supported"],
+        json!(["S256"])
+    );
+    assert_eq!(
+        doc.body["authorization_endpoint"],
+        "https://memorylane-test.auth.us-east-1.amazoncognito.com/oauth2/authorize"
+    );
+    assert_eq!(doc.body["scopes_supported"][0], "memorylane/tools");
+    let res = h
+        .call(
+            Method::Get,
+            "/.well-known/oauth-protected-resource",
+            None,
+            None,
+            None,
+        )
+        .await;
+    assert_eq!(res.body["resource"], "https://gateway.memorylane.test/mcp");
+    assert_eq!(res.body["mcp_protocol_version"], "2025-11-25");
+}
+
+#[tokio::test]
 async fn share_links_need_a_confirmation_and_open_publicly_until_they_expire() {
     let h = harness();
     h.storage

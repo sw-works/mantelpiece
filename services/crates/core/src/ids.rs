@@ -78,6 +78,7 @@ uuid_id!(ProposalId);
 uuid_id!(ReactionId);
 uuid_id!(PersonId);
 uuid_id!(ShareLinkId);
+uuid_id!(AuditId);
 
 #[cfg(test)]
 mod tests {

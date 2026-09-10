@@ -105,6 +105,9 @@ async fn main() -> Result<(), Error> {
         config: Config {
             link_base: env("LINK_BASE")?,
             upload_base: env("UPLOAD_BASE")?,
+            oauth_issuer: std::env::var("OAUTH_ISSUER").unwrap_or_default(),
+            oauth_domain: std::env::var("OAUTH_DOMAIN").unwrap_or_default(),
+            gateway_url: std::env::var("GATEWAY_URL").unwrap_or_default(),
             poll_hold: Duration::seconds(
                 std::env::var("POLL_HOLD_SECONDS")
                     .ok()

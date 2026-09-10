@@ -1,6 +1,7 @@
 //! In-memory backends for tests and local runs.
 
 use async_trait::async_trait;
+use memorylane_core::audit::AuditEntry;
 use memorylane_core::confirmation::ConfirmationToken;
 use memorylane_core::contributor::Contributor;
 use memorylane_core::device_code::DeviceCode;
@@ -39,6 +40,7 @@ struct Tables {
     households: HashMap<HouseholdId, Household>,
     memberships: HashMap<(HouseholdId, HouseholdId, TripId), Membership>,
     presence: HashMap<(HouseholdId, String), Presence>,
+    audit: Vec<AuditEntry>,
     proposals: HashMap<(HouseholdId, ProposalId), Proposal>,
     /// Keyed by like key for likes, by id for comments.
     reactions: HashMap<(HouseholdId, String), Reaction>,
@@ -82,6 +84,7 @@ impl Storage for MemoryStorage {
         t.confirmations.retain(|_, c| &c.household != id);
         t.memberships.retain(|(m, o, _), _| m != id && o != id);
         t.presence.retain(|(h, _), _| h != id);
+        t.audit.retain(|a| &a.household != id);
         t.proposals.retain(|(h, _), _| h != id);
         t.reactions.retain(|(h, _), _| h != id);
         t.people.retain(|(h, _), _| h != id);
@@ -460,6 +463,25 @@ impl Storage for MemoryStorage {
             .people
             .retain(|(h, _), _| h != household);
         Ok(())
+    }
+
+    async fn put_audit(&self, entry: &AuditEntry) -> Result<()> {
+        self.tables.lock().unwrap().audit.push(entry.clone());
+        Ok(())
+    }
+    async fn list_audit(&self, household: &HouseholdId) -> Result<Vec<AuditEntry>> {
+        let t = self.tables.lock().unwrap();
+        let mut v: Vec<AuditEntry> = t
+            .audit
+            .iter()
+            .filter(|a| &a.household == household)
+            .cloned()
+            .collect();
+        // Newest first; a stable sort keeps insertion order among equal timestamps once
+        // the list is reversed, which matters under a frozen test clock.
+        v.reverse();
+        v.sort_by(|a, b| b.at.cmp(&a.at));
+        Ok(v)
     }
 
     async fn put_share_link(&self, l: &ShareLink) -> Result<()> {

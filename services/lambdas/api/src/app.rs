@@ -23,6 +23,12 @@ pub struct Config {
     pub part_size: u64,
     /// Largest accepted original (F-101: 2 GB).
     pub max_file_bytes: u64,
+    /// Cognito issuer, e.g. `https://cognito-idp.us-east-1.amazonaws.com/us-east-1_abc`.
+    pub oauth_issuer: String,
+    /// Cognito hosted UI base, e.g. `https://memorylane-123.auth.us-east-1.amazoncognito.com`.
+    pub oauth_domain: String,
+    /// The AgentCore Gateway MCP endpoint Alexa+ calls (research R6).
+    pub gateway_url: String,
 }
 
 impl Default for Config {
@@ -33,6 +39,9 @@ impl Default for Config {
             poll_hold: Duration::seconds(25),
             part_size: 8 * 1024 * 1024,
             max_file_bytes: 2 * 1024 * 1024 * 1024,
+            oauth_issuer: "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_test".into(),
+            oauth_domain: "https://memorylane-test.auth.us-east-1.amazoncognito.com".into(),
+            gateway_url: "https://gateway.memorylane.test/mcp".into(),
         }
     }
 }
@@ -163,10 +172,16 @@ impl App {
     }
 
     pub async fn handle(&self, req: Req) -> Resp {
-        match self.route(&req).await {
+        let resp = match self.route(&req).await {
             Ok(resp) => resp,
             Err(e) => e.into(),
+        };
+        // F-605: sign-in, shares, deletions, memberships and every gated tool route leave
+        // an entry, whatever the outcome; a failed write here never fails the request.
+        if let Err(e) = handlers::audit::record(self, &req, &resp).await {
+            tracing::warn!(error = %e, "audit entry not written");
         }
+        resp
     }
 
     #[allow(clippy::too_many_lines)]
@@ -180,6 +195,13 @@ impl App {
             (Method::Post, ["device", "approve"]) => handlers::device::approve(self, req).await,
             (Method::Get, ["device", "poll"]) => handlers::device::poll(self, req).await,
 
+            (Method::Get, [".well-known", "oauth-authorization-server"]) => {
+                Ok(handlers::wellknown::authorization_server(self))
+            }
+            (Method::Get, [".well-known", "oauth-protected-resource"]) => {
+                Ok(handlers::wellknown::protected_resource(self))
+            }
+            (Method::Get, ["audit"]) => handlers::audit::list(self, req).await,
             (Method::Get, ["me"]) => handlers::session::me(self, req).await,
             (Method::Delete, ["me"]) => handlers::session::delete_account(self, req).await,
             (Method::Patch, ["me"]) => handlers::session::settings(self, req).await,

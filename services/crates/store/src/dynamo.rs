@@ -13,6 +13,7 @@
 use async_trait::async_trait;
 use aws_sdk_dynamodb::types::AttributeValue;
 use aws_sdk_dynamodb::Client;
+use memorylane_core::audit::AuditEntry;
 use memorylane_core::confirmation::ConfirmationToken;
 use memorylane_core::contributor::Contributor;
 use memorylane_core::device_code::DeviceCode;
@@ -492,6 +493,25 @@ impl Storage for DynamoStorage {
     }
     async fn list_presence(&self, household: &HouseholdId) -> Result<Vec<Presence>> {
         self.query(household_pk(household), "TV#", None, None).await
+    }
+
+    async fn put_audit(&self, a: &AuditEntry) -> Result<()> {
+        self.put(Row {
+            pk: household_pk(&a.household),
+            sk: format!("AU#{}#{}", a.at.unix_timestamp(), a.id),
+            gsi1pk: None,
+            gsi1sk: None,
+            ttl: Some(a.expires_at().unix_timestamp()),
+            data: a,
+        })
+        .await
+    }
+    async fn list_audit(&self, household: &HouseholdId) -> Result<Vec<AuditEntry>> {
+        let mut v: Vec<AuditEntry> = self
+            .query(household_pk(household), "AU#", None, None)
+            .await?;
+        v.sort_by(|a, b| b.at.cmp(&a.at));
+        Ok(v)
     }
 
     async fn put_proposal(&self, p: &Proposal) -> Result<()> {
