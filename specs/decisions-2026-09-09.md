@@ -285,3 +285,28 @@ compile-checked only.
   household execution. Synth-checked in the CDK tests, not deployed.
 - F-106: the pipeline test now asserts that re-running organize over a completed batch
   adds no media, trips or feed events and rewrites the same manifest shape.
+
+## 14. US3 shared trip (tasks T042 to T048)
+
+- Codes carry live `contributors` and `member_households` counts; the Invite screen shows
+  them and has a "New code" button that rotates in place.
+- Guest sessions are bound to a browser install: the phone sends a random `x-device-id`
+  it keeps in local storage, `/join` stores it in the token, and any call from another
+  device is refused. A guest token also expires with its trip code (F-153), so an expired
+  code answers 401 rather than 410 on upload. Amazon-account contributors are not bound;
+  they can always re-join.
+- `GET /trips/{trip}` adds `contributor_names` and `media_credits`, so every thumbnail on
+  the TV and the phone carries a name (F-154), and the day summary reads "from Hanyu,
+  Maya". Clock offsets over a minute render as "Maya's clock corrected by 3 min" (F-155).
+  A Highlights screen shows the trip's picks with credits.
+- Removing media is a soft removal (state `removed`, 30-day `restore_until`) that cascades
+  out of the trip's days, highlights and hero, every playlist and the embedding index;
+  originals and renditions stay until `purge_expired` (US6). Contributor removal does the
+  same for all their media with `restore_until` set to a 30-day `grace_until`, and
+  `GET /contributors/{id}/export` gives the removed contributor (or the owner) presigned
+  links to the originals until then (F-158).
+- Read-only web view (F-159): `GET /view?code=` and `GET /media/{id}/url?code=` open a
+  trip by its trip-scoped code with no session; household codes and rotated codes are
+  refused. The phone page `trip.html?t=<code>` renders name, story, days with credits and
+  thumbnails. The API Lambda now holds a `Vectors` backend (DynamoDB rows) for the
+  cascade.

@@ -135,15 +135,15 @@ policy that every story builds on.
 
 **Independent Test**: two phones scan the same trip QR (one Amazon, one guest "Maya"); both contributors' names show on their photos; ticker announces arrivals; expired code refuses uploads.
 
-- [ ] T042 [P] [US3] Return live `contributors` and `member_households` counts on `POST /trips/{trip}/code` and `GET /codes` in `services/lambdas/api/src/handlers/codes.rs`; show them on `packages/tv-ui/src/screens/Invite.tsx` with a Rotate code button
-- [ ] T043 [P] [US3] Bind guest sessions to `{code, device}` and reject a guest token used from another device or after code expiry in `services/lambdas/api/src/tokens.rs` and `handlers/codes.rs`; test in `services/lambdas/api/tests/api.rs`
-- [ ] T044 [P] [US3] Show contributor name on every thumbnail and in the day summary in `packages/tv-ui/src/screens/TripView.tsx` and `packages/tv-ui/src/screens/Highlights.tsx` (F-154)
-- [ ] T045 [US3] Expose `clock_offsets` per contributor on `GET /trips/{trip}` and render "corrected by N min" hints in `packages/tv-ui/src/screens/TripView.tsx` (F-155)
-- [ ] T046 [US3] Cascade `DELETE /media/{media}` by a contributor to renditions, embeddings, albums, playlists, highlights and hero in `services/lambdas/api/src/handlers/media.rs`; test in `services/lambdas/api/tests/api.rs` (F-157, edge case: hero recomputed)
-- [ ] T047 [US3] Implement contributor removal grace period and export link in `services/lambdas/api/src/handlers/contributors.rs` (`grace_until`, purge after) (F-158)
-- [ ] T048 [US3] Add the read-only trip page `apps/web/src/pages/trip.ts` and `apps/web/trip.html` gated by the trip code (narrative, days, highlights, route) (F-159); test in `apps/web/test/trip.test.ts`
+- [X] T042 [P] [US3] Return live `contributors` and `member_households` counts on `POST /trips/{trip}/code` and `GET /codes` in `services/lambdas/api/src/handlers/codes.rs`; show them on `packages/tv-ui/src/screens/Invite.tsx` with a Rotate code button
+- [X] T043 [P] [US3] Bind guest sessions to `{code, device}` and reject a guest token used from another device or after code expiry in `services/lambdas/api/src/tokens.rs` and `handlers/codes.rs`; test in `services/lambdas/api/tests/api.rs`
+- [X] T044 [P] [US3] Show contributor name on every thumbnail and in the day summary in `packages/tv-ui/src/screens/TripView.tsx` and `packages/tv-ui/src/screens/Highlights.tsx` (F-154)
+- [X] T045 [US3] Expose `clock_offsets` per contributor on `GET /trips/{trip}` and render "corrected by N min" hints in `packages/tv-ui/src/screens/TripView.tsx` (F-155)
+- [X] T046 [US3] Cascade `DELETE /media/{media}` by a contributor to renditions, embeddings, albums, playlists, highlights and hero in `services/lambdas/api/src/handlers/media.rs`; test in `services/lambdas/api/tests/api.rs` (F-157, edge case: hero recomputed)
+- [X] T047 [US3] Implement contributor removal grace period and export link in `services/lambdas/api/src/handlers/contributors.rs` (`grace_until`, purge after) (F-158)
+- [X] T048 [US3] Add the read-only trip page `apps/web/src/pages/trip.ts` and `apps/web/trip.html` gated by the trip code (narrative, days, highlights, route) (F-159); test in `apps/web/test/trip.test.ts`
 
-**Checkpoint**: multi-phone trip with credits and ticker
+**Checkpoint**: multi-phone trip with credits and ticker (code complete 2026-09-09)
 
 ---
 
