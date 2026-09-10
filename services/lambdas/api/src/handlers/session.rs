@@ -79,3 +79,29 @@ pub async fn delete_account(app: &App, req: &Req) -> Result<Resp, ApiError> {
     app.storage.put_household(&record).await?;
     Resp::ok(json!({ "deleted": true, "media": media.len(), "household": household }))
 }
+
+#[derive(serde::Deserialize)]
+struct SettingsBody {
+    narration_enabled: Option<bool>,
+}
+
+/// `PATCH /me`: household flags the TV or phone can flip. People has its own routes
+/// because turning it off deletes data.
+pub async fn settings(app: &App, req: &Req) -> Result<Resp, ApiError> {
+    let household = app.owner(req)?;
+    let body: SettingsBody = req.json()?;
+    let mut record = app
+        .storage
+        .get_household(&household)
+        .await?
+        .unwrap_or_else(|| {
+            memorylane_core::household::Household::new(household.clone(), "My TV", app.now())
+        });
+    if let Some(v) = body.narration_enabled {
+        record.narration_enabled = v;
+    }
+    app.storage.put_household(&record).await?;
+    Resp::ok(
+        json!({ "narration_enabled": record.narration_enabled, "people_enabled": record.people_enabled }),
+    )
+}

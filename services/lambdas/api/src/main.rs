@@ -11,6 +11,7 @@ use memorylane_store::dynamo::DynamoStorage;
 use memorylane_store::faces::RekognitionFaces;
 use memorylane_store::maps::LocationMaps;
 use memorylane_store::s3::S3Blobs;
+use memorylane_store::speech::PollySpeech;
 use memorylane_store::vectors::DynamoVectors;
 use std::sync::Arc;
 use time::{Duration, OffsetDateTime};
@@ -90,6 +91,7 @@ async fn main() -> Result<(), Error> {
         bus: Arc::new(EventBridgeBus::from_config(&aws, env("EVENT_BUS")?)),
         maps: Arc::new(LocationMaps::from_config(&aws)),
         faces: Arc::new(RekognitionFaces::from_config(&aws)),
+        speech: Arc::new(PollySpeech::from_config(&aws)),
         starter: Arc::new(SfnStarter::from_config(
             &aws,
             env("ORGANIZE_STATE_MACHINE_ARN")?,

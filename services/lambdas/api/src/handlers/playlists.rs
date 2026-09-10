@@ -47,12 +47,33 @@ pub async fn list(app: &App, req: &Req) -> Result<Resp, ApiError> {
     Resp::ok(app.storage.list_playlists(&household).await?)
 }
 
+/// One playlist for the TV: pinned items first, hidden ones dropped, removed ones gone
+/// (F-406 for the ambient set, F-163 for every other).
 pub async fn get(app: &App, req: &Req, id: &str) -> Result<Resp, ApiError> {
     let household = app.owner(req)?;
-    let playlist = app
+    let mut playlist = app
         .storage
         .get_playlist(&household, &PlaylistId::new(id))
         .await?
         .ok_or_else(|| ApiError::not_found("no such playlist"))?;
+    let media = app.storage.list_media(&household).await?;
+    let find = |id: &MediaId| media.iter().find(|m| &m.id == id);
+    let mut pinned: Vec<MediaId> = playlist
+        .media
+        .iter()
+        .filter(|id| find(id).is_some_and(|m| !m.is_removed() && m.pinned_for(&household)))
+        .cloned()
+        .collect();
+    let rest: Vec<MediaId> = playlist
+        .media
+        .iter()
+        .filter(|id| {
+            !pinned.contains(id)
+                && find(id).is_none_or(|m| !m.is_removed() && !m.hidden_for(&household))
+        })
+        .cloned()
+        .collect();
+    pinned.extend(rest);
+    playlist.media = pinned;
     Resp::ok(playlist)
 }

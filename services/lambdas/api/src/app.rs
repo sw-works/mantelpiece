@@ -9,7 +9,7 @@ use crate::error::ApiError;
 use crate::handlers;
 use crate::req::{Method, Req, Resp};
 use crate::tokens::{Claims, Session, Signer};
-use memorylane_store::{Blobs, Bus, Faces, Maps, Storage, Vectors};
+use memorylane_store::{Blobs, Bus, Faces, Maps, Speech, Storage, Vectors};
 
 #[derive(Clone, Debug)]
 pub struct Config {
@@ -46,6 +46,7 @@ pub struct App {
     pub bus: Arc<dyn Bus>,
     pub maps: Arc<dyn Maps>,
     pub faces: Arc<dyn Faces>,
+    pub speech: Arc<dyn Speech>,
     pub starter: Arc<dyn crate::starter::Starter>,
     pub signer: Signer,
     pub config: Config,
@@ -180,6 +181,13 @@ impl App {
 
             (Method::Get, ["me"]) => handlers::session::me(self, req).await,
             (Method::Delete, ["me"]) => handlers::session::delete_account(self, req).await,
+            (Method::Patch, ["me"]) => handlers::session::settings(self, req).await,
+            (Method::Post, ["trips", trip, "narration"]) => {
+                handlers::narration::synthesize(self, req, trip).await
+            }
+            (Method::Get, ["trips", trip, "narration"]) => {
+                handlers::narration::url(self, req, trip).await
+            }
             (Method::Post, ["people", "enable"]) => handlers::people::enable(self, req).await,
             (Method::Post, ["people", "disable"]) => handlers::people::disable(self, req).await,
             (Method::Get, ["people"]) => handlers::people::list(self, req).await,

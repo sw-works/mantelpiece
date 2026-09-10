@@ -12,7 +12,9 @@ use memorylane_store::bus::MemoryBus;
 use memorylane_store::faces::MemoryFaces;
 use memorylane_store::maps::MemoryMaps;
 use memorylane_store::memory::{MemoryBlobs, MemoryStorage};
+use memorylane_store::speech::MemorySpeech;
 use memorylane_store::vectors::MemoryVectors;
+use memorylane_store::Blobs as _;
 use memorylane_store::{Storage, Vectors};
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -45,6 +47,7 @@ fn harness() -> Harness {
         bus: bus.clone(),
         maps: Arc::new(MemoryMaps::default()),
         faces: Arc::new(MemoryFaces::with_faces_per_image(1)),
+        speech: Arc::new(MemorySpeech::default()),
         starter: starter.clone(),
         signer: Signer::new("test-secret"),
         config: Config {
@@ -1285,6 +1288,126 @@ async fn reactions_from_contributors_viewers_and_members_reach_the_ticker() {
             .status,
         401
     );
+}
+
+#[tokio::test]
+async fn narration_is_behind_a_flag_and_the_ambient_playlist_honours_pins_and_hides() {
+    let h = harness();
+    let house = HouseholdId::new("amzn-owner");
+    let mut kyoto = trip("amzn-owner", "kyoto");
+    kyoto.days = vec![
+        memorylane_core::trip::TripDay {
+            index: 1,
+            date: time::macros::date!(2026 - 04 - 03),
+            media: vec![],
+            route: Route::default(),
+            title: None,
+            story: Some("Hanyu started at Kinkaku-ji.".into()),
+            undated: vec![],
+        },
+        memorylane_core::trip::TripDay {
+            index: 2,
+            date: time::macros::date!(2026 - 04 - 04),
+            media: vec![],
+            route: Route::default(),
+            title: None,
+            story: None,
+            undated: vec![],
+        },
+    ];
+    h.storage.put_trip(&kyoto).await.unwrap();
+
+    // Off by default: the tool refuses; the flag flips through PATCH /me.
+    assert_eq!(
+        h.owner(
+            Method::Post,
+            "/trips/kyoto/narration",
+            Some(json!({ "day": 1 }))
+        )
+        .await
+        .status,
+        409
+    );
+    let on = h
+        .owner(
+            Method::Patch,
+            "/me",
+            Some(json!({ "narration_enabled": true })),
+        )
+        .await;
+    assert_eq!(on.body["narration_enabled"], true);
+    assert_eq!(
+        h.owner(Method::Get, "/trips/kyoto/narration?day=1", None)
+            .await
+            .status,
+        404
+    );
+    let made = h
+        .owner(
+            Method::Post,
+            "/trips/kyoto/narration",
+            Some(json!({ "day": 1 })),
+        )
+        .await;
+    assert_eq!(made.status, 201, "{}", made.body);
+    assert_eq!(
+        made.body["audio_key"],
+        "narration/amzn-owner/kyoto/day-1.mp3"
+    );
+    assert_eq!(
+        h.blobs
+            .get("narration/amzn-owner/kyoto/day-1.mp3")
+            .await
+            .unwrap(),
+        b"Hanyu started at Kinkaku-ji."
+    );
+    assert_eq!(
+        h.owner(
+            Method::Post,
+            "/trips/kyoto/narration",
+            Some(json!({ "day": 2 }))
+        )
+        .await
+        .status,
+        409,
+        "no story yet"
+    );
+    assert_eq!(
+        h.owner(
+            Method::Post,
+            "/trips/kyoto/narration",
+            Some(json!({ "day": 9 }))
+        )
+        .await
+        .status,
+        404
+    );
+    let url = h
+        .owner(Method::Get, "/trips/kyoto/narration?day=1", None)
+        .await;
+    assert!(url.body["url"].as_str().unwrap().ends_with("day-1.mp3"));
+    let feed = h.owner(Method::Get, "/events?since=0", None).await;
+    assert!(feed.body["events"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|e| e["type"] == "narration.ready" && e["day"] == 1));
+
+    // The ambient playlist comes back with this household's pins first and hides gone.
+    let a = enriched(&h, "a.jpg", 111, &["Beach"], None).await;
+    let b = enriched(&h, "b.jpg", 112, &["Temple"], None).await;
+    let c = enriched(&h, "c.jpg", 113, &["Ramen"], None).await;
+    let created = h.owner(Method::Post, "/playlists", Some(json!({ "name": "Ambient", "media": [a, b, c], "source": "ambient from recent highlights" }))).await;
+    let id = created.body["id"].as_str().unwrap().to_owned();
+    h.owner(Method::Post, &format!("/media/{c}/pin"), None)
+        .await;
+    h.owner(Method::Post, &format!("/media/{b}/hide"), None)
+        .await;
+    let got = h
+        .owner(Method::Get, &format!("/playlists/{id}"), None)
+        .await;
+    assert_eq!(got.body["media"], json!([c, a]));
+    let _ = house;
 }
 
 #[tokio::test]
