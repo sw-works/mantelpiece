@@ -276,11 +276,11 @@ policy that every story builds on.
 
 **Independent Test**: idle TV favours pinned and skips hidden; with the flag on, the day's story plays in sync or shows as captions.
 
-- [ ] T095 [US11] Build `packages/tv-ui/src/screens/Ambient.tsx` with an idle timer in `packages/tv-ui/src/App.tsx`, drawing from the W3 ambient playlist and honouring `hidden_by` (mockup: Ambient artboard); test in `packages/tv-ui/test/screens.test.tsx` (F-406)
-- [ ] T096 [P] [US11] Add a `synthesize_narration` Gateway tool in `services/lambdas/api/src/handlers/narration.rs` that runs `TripDay.story` through `Speech`, stores `audio_key` and emits `narration.ready`; W1 Trip Curator in `agents/src/memorylane_agents/workflows.py` calls it after `save_narrative` when `household.narration_enabled` (F-709); test in `agents/tests/test_workflows.py`
-- [ ] T097 [US11] Add `apps/tv-vega/src/audio.kepler.ts` trying the system-deployed W3C media port for playback and a caption-only fallback in `packages/tv-ui/src/screens/Ambient.tsx`; record the Virtual Device result in `specs/decisions-2026-09-09.md` (research R10)
+- [X] T095 [US11] Build `packages/tv-ui/src/screens/Ambient.tsx` with an idle timer in `packages/tv-ui/src/App.tsx`, drawing from the W3 ambient playlist and honouring `hidden_by` (mockup: Ambient artboard); test in `packages/tv-ui/test/screens.test.tsx` (F-406)
+- [X] T096 [P] [US11] Add a `synthesize_narration` Gateway tool in `services/lambdas/api/src/handlers/narration.rs` that runs `TripDay.story` through `Speech`, stores `audio_key` and emits `narration.ready`; W1 Trip Curator in `agents/src/memorylane_agents/workflows.py` calls it after `save_narrative` when `household.narration_enabled` (F-709); test in `agents/tests/test_workflows.py`
+- [X] T097 [US11] Add `apps/tv-vega/src/audio.kepler.ts` trying the system-deployed W3C media port for playback and a caption-only fallback in `packages/tv-ui/src/screens/Ambient.tsx`; record the Virtual Device result in `specs/decisions-2026-09-09.md` (research R10)
 
-**Checkpoint**: ambient works; narration flag on only if the audio spike passed
+**Checkpoint** (code complete 2026-09-09; audio spike blocked, no Vega SDK): ambient works; narration flag on only if the audio spike passed
 
 ---
 

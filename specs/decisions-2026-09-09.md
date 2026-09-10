@@ -468,3 +468,26 @@ compile-checked only.
 - TV: the ticker reads "Grandma Ruth loved day 3" or "Grandma Ruth: That ramen!"; the
   trip view shows counts beside the day and each photo and the latest comment, and
   refetches whenever a reaction lands on the feed.
+
+## 22. US11 ambient and narrated slideshow (tasks T095 to T097)
+
+- Ambient (F-406): five minutes of stillness on Memories home opens the Concierge's
+  "Ambient" playlist (W3 Household Patterns) as a slower slideshow; any key returns home.
+  `GET /playlists/{id}` now returns this household's pinned items first and drops hidden
+  and removed ones, so the TV never sees a `hidden_by` item. No playlist yet shows a
+  one-line explanation instead of a black screen.
+- Narration (F-709, research R10) is behind `Household.narration_enabled`, flipped by
+  `PATCH /me`. `POST /trips/{trip}/narration` (the `synthesize_narration` tool) runs one
+  day's story through `Speech` (Polly neural, voice Joanna) into
+  `narration/{household}/{trip}/day-{n}.mp3` and emits `narration.ready`; 409 while the
+  flag is off or the day has no story. `GET /trips/{trip}/narration?day=` presigns it for
+  any trip member. W1 Trip Curator calls the tool per day after `save_narrative` only when
+  the flag is on. Polly path compile-checked only.
+- Playback: the shared UI takes an optional `AudioPlayer`; the Slideshow always offers the
+  story as captions (Captions button) and plays audio only when a player exists. The Vega
+  shell's `audio.kepler.ts` looks for a system-deployed W3C `Audio` constructor at runtime
+  on the `react-native` export or the global, never bundling
+  `@amazon-devices/react-native-w3cmedia`; the plain `audio.ts` returns null so tooling
+  and other platforms get captions. Virtual Device result: not run, the Vega SDK is not on
+  this machine, so whether the port is system-deployed stays open (R10 unverified). The
+  flag defaults to off per household regardless.
