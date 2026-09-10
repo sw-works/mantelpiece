@@ -11,6 +11,7 @@ pub mod people;
 pub mod playlists;
 pub mod presence;
 pub mod proposals;
+pub mod reactions;
 pub mod search;
 pub mod session;
 pub mod trips;

@@ -233,6 +233,12 @@ impl App {
             (Method::Post, ["trips", trip, "narrative", "regenerate"]) => {
                 handlers::trips::regenerate(self, req, trip).await
             }
+            (Method::Post, ["trips", trip, "reactions"]) => {
+                handlers::reactions::create(self, req, trip).await
+            }
+            (Method::Get, ["trips", trip, "reactions"]) => {
+                handlers::reactions::list(self, req, trip).await
+            }
             // Read-only web view by trip code, no session (F-159).
             (Method::Get, ["view"]) => handlers::trips::view(self, req).await,
 

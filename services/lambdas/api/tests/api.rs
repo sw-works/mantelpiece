@@ -1135,6 +1135,159 @@ async fn people_opt_in_naming_merging_search_and_deletion() {
 }
 
 #[tokio::test]
+async fn reactions_from_contributors_viewers_and_members_reach_the_ticker() {
+    let h = harness();
+    let mut kyoto = trip("amzn-owner", "kyoto");
+    let photo = enriched(&h, "ramen.jpg", 101, &["Ramen"], None).await;
+    kyoto.days = vec![memorylane_core::trip::TripDay {
+        index: 3,
+        date: time::macros::date!(2026 - 04 - 05),
+        media: vec![photo.clone()],
+        route: Route::default(),
+        title: None,
+        story: None,
+        undated: vec![],
+    }];
+    h.storage.put_trip(&kyoto).await.unwrap();
+    let code = h
+        .owner(
+            Method::Post,
+            "/trips/kyoto/code",
+            Some(json!({ "expires_in_days": 7 })),
+        )
+        .await;
+    let code = code.body["code"].as_str().unwrap().to_owned();
+
+    // Grandma on the read-only page, by code with a name; liking twice counts once.
+    let liked = h
+        .call(
+            Method::Post,
+            &format!("/trips/kyoto/reactions?code={code}"),
+            Some(json!({ "target": "day", "index": 3, "kind": "like", "name": "Grandma Ruth" })),
+            None,
+            None,
+        )
+        .await;
+    assert_eq!(liked.status, 201, "{}", liked.body);
+    h.call(
+        Method::Post,
+        &format!("/trips/kyoto/reactions?code={code}"),
+        Some(json!({ "target": "day", "index": 3, "kind": "like", "name": "Grandma Ruth" })),
+        None,
+        None,
+    )
+    .await;
+    let nameless = h
+        .call(
+            Method::Post,
+            &format!("/trips/kyoto/reactions?code={code}"),
+            Some(json!({ "target": "day", "index": 3, "kind": "like" })),
+            None,
+            None,
+        )
+        .await;
+    assert_eq!(nameless.status, 400);
+    let long = "x".repeat(201);
+    let too_long = h.call(Method::Post, &format!("/trips/kyoto/reactions?code={code}"), Some(json!({ "target": "media", "id": photo, "kind": "comment", "text": long, "name": "Grandma Ruth" })), None, None).await;
+    assert_eq!(too_long.status, 400);
+    let commented = h.call(Method::Post, &format!("/trips/kyoto/reactions?code={code}"), Some(json!({ "target": "media", "id": photo, "kind": "comment", "text": "That ramen!", "name": "Grandma Ruth" })), None, None).await;
+    assert_eq!(commented.status, 201, "{}", commented.body);
+
+    // A contributor with an upload session likes the photo too.
+    let joined = h
+        .call(
+            Method::Post,
+            "/join",
+            Some(json!({ "code": code, "display_name": "Maya" })),
+            None,
+            None,
+        )
+        .await;
+    let maya = joined.body["token"].as_str().unwrap().to_owned();
+    assert_eq!(
+        h.bearer(
+            Method::Post,
+            "/trips/kyoto/reactions",
+            Some(json!({ "target": "media", "id": photo, "kind": "like" })),
+            &maya
+        )
+        .await
+        .status,
+        201
+    );
+    assert_eq!(
+        h.bearer(
+            Method::Post,
+            "/trips/lisbon/reactions",
+            Some(json!({ "target": "day", "index": 1, "kind": "like" })),
+            &maya
+        )
+        .await
+        .status,
+        403
+    );
+
+    let listed = h
+        .call(
+            Method::Get,
+            &format!("/trips/kyoto/reactions?code={code}"),
+            None,
+            None,
+            None,
+        )
+        .await;
+    assert_eq!(listed.status, 200, "{}", listed.body);
+    assert_eq!(listed.body["reactions"].as_array().unwrap().len(), 3);
+    assert_eq!(listed.body["summary"]["day:3"]["likes"], 1);
+    assert_eq!(listed.body["summary"][format!("media:{photo}")]["likes"], 1);
+    assert_eq!(
+        listed.body["summary"][format!("media:{photo}")]["latest_comment"]["text"],
+        "That ramen!"
+    );
+    assert_eq!(
+        listed.body["summary"][format!("media:{photo}")]["latest_comment"]["by"],
+        "Grandma Ruth"
+    );
+
+    // The owner's ticker heard every one.
+    let feed = h.owner(Method::Get, "/events?since=0", None).await;
+    let heard: Vec<String> = feed.body["events"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|e| e["type"] == "reaction.received")
+        .map(|e| {
+            format!(
+                "{} {}",
+                e["actor_name"].as_str().unwrap(),
+                e["kind"].as_str().unwrap()
+            )
+        })
+        .collect();
+    assert_eq!(
+        heard,
+        vec![
+            "Grandma Ruth like",
+            "Grandma Ruth like",
+            "Grandma Ruth comment",
+            "Maya like"
+        ]
+    );
+    assert_eq!(
+        h.owner(Method::Get, "/trips/kyoto/reactions", None)
+            .await
+            .status,
+        200
+    );
+    assert_eq!(
+        h.call(Method::Get, "/trips/kyoto/reactions", None, None, None)
+            .await
+            .status,
+        401
+    );
+}
+
+#[tokio::test]
 async fn search_ranks_by_meaning_and_falls_back_to_keywords() {
     let h = harness();
     let ramen = enriched(&h, "ramen.jpg", 21, &["Ramen", "Restaurant", "Food"], None).await;
