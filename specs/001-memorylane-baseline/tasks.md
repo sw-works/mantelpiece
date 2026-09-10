@@ -153,18 +153,18 @@ policy that every story builds on.
 
 **Independent Test**: 400-photo, 7-day archive becomes one trip with seven days, route map, 24 highlights and a story that names only metadata places and dates.
 
-- [ ] T049 [US4] Wire `enrich` to the `Vision` trait for labels and text and to `Vectors` for embeddings, keepers only, non-keepers inheriting, in `services/lambdas/ingest/src/enrich.rs`; test in `services/lambdas/ingest/tests/pipeline.rs` (F-202, F-706)
-- [ ] T050 [US4] Escalate low-confidence landmarks to `Vision::describe` with GPS hint and store `description` on the keeper in `services/lambdas/ingest/src/enrich.rs` (F-203, research R8)
-- [ ] T051 [P] [US4] Render per-trip and per-day static route maps through `Maps` in `services/lambdas/ingest/src/organize.rs`, storing `map_key`; inferred routes flagged (F-206, F-207)
-- [ ] T052 [P] [US4] Serve map images via `GET /trips/{trip}/map?day=` (presigned URL for the trip map or one day's map) in `services/lambdas/api/src/handlers/trips.rs`; show them in `packages/tv-ui/src/screens/TripView.tsx`
-- [ ] T053 [P] [US4] Build `packages/tv-ui/src/screens/Slideshow.tsx` (play, pause, next and previous day, current media id and paused state exposed for presence) and route it from Trip view in `packages/tv-ui/src/App.tsx`; test in `packages/tv-ui/test/screens.test.tsx` (F-403)
-- [ ] T054 [P] [US4] Add `POST /media/{media}/keeper` (owner or co-editor; moves the burst group's keeper, non-keepers re-inherit tags and embedding) in `services/lambdas/api/src/handlers/media.rs` and a Make keeper action in `packages/tv-ui/src/screens/Highlights.tsx`; test in `services/lambdas/api/tests/api.rs` (F-201, F-164)
-- [ ] T055 [US4] Enforce `narrative.check` in `save_narrative`: reject and set `Withheld` when `check_narrative` fails after one retry in `agents/src/memorylane_agents/workflows.py::trip_curator` and `services/lambdas/api/src/handlers/trips.rs`; TV shows "being written" (F-301); test in `agents/tests/test_workflows.py`
-- [ ] T056 [P] [US4] Add `POST /trips/{trip}/narrative/regenerate` in `services/lambdas/api/src/handlers/trips.rs` and a Regenerate action in `packages/tv-ui/src/screens/TripView.tsx` (F-302)
-- [ ] T057 [P] [US4] Split narrative into `TripDay.story` paragraphs in `agents/src/memorylane_agents/narrative.py` for narration sync (F-709 prerequisite)
-- [ ] T058 [US4] Handle the undated-photo edge case (no timestamp, no GPS: placed by upload time at the end of the nearest trip, flagged) in `services/crates/trips/src/cluster.rs`; unit test in the same file
+- [X] T049 [US4] Wire `enrich` to the `Vision` trait for labels and text and to `Vectors` for embeddings, keepers only, non-keepers inheriting, in `services/lambdas/ingest/src/enrich.rs`; test in `services/lambdas/ingest/tests/pipeline.rs` (F-202, F-706)
+- [X] T050 [US4] Escalate low-confidence landmarks to `Vision::describe` with GPS hint and store `description` on the keeper in `services/lambdas/ingest/src/enrich.rs` (F-203, research R8)
+- [X] T051 [P] [US4] Render per-trip and per-day static route maps through `Maps` in `services/lambdas/ingest/src/organize.rs`, storing `map_key`; inferred routes flagged (F-206, F-207)
+- [X] T052 [P] [US4] Serve map images via `GET /trips/{trip}/map?day=` (presigned URL for the trip map or one day's map) in `services/lambdas/api/src/handlers/trips.rs`; show them in `packages/tv-ui/src/screens/TripView.tsx`
+- [X] T053 [P] [US4] Build `packages/tv-ui/src/screens/Slideshow.tsx` (play, pause, next and previous day, current media id and paused state exposed for presence) and route it from Trip view in `packages/tv-ui/src/App.tsx`; test in `packages/tv-ui/test/screens.test.tsx` (F-403)
+- [X] T054 [P] [US4] Add `POST /media/{media}/keeper` (owner or co-editor; moves the burst group's keeper, non-keepers re-inherit tags and embedding) in `services/lambdas/api/src/handlers/media.rs` and a Make keeper action in `packages/tv-ui/src/screens/Highlights.tsx`; test in `services/lambdas/api/tests/api.rs` (F-201, F-164)
+- [X] T055 [US4] Enforce `narrative.check` in `save_narrative`: reject and set `Withheld` when `check_narrative` fails after one retry in `agents/src/memorylane_agents/workflows.py::trip_curator` and `services/lambdas/api/src/handlers/trips.rs`; TV shows "being written" (F-301); test in `agents/tests/test_workflows.py`
+- [X] T056 [P] [US4] Add `POST /trips/{trip}/narrative/regenerate` in `services/lambdas/api/src/handlers/trips.rs` and a Regenerate action in `packages/tv-ui/src/screens/TripView.tsx` (F-302)
+- [X] T057 [P] [US4] Split narrative into `TripDay.story` paragraphs in `agents/src/memorylane_agents/narrative.py` for narration sync (F-709 prerequisite)
+- [X] T058 [US4] Handle the undated-photo edge case (no timestamp, no GPS: placed by upload time at the end of the nearest trip, flagged) in `services/crates/trips/src/cluster.rs`; unit test in the same file
 
-**Checkpoint**: self-organising trip with a checked story
+**Checkpoint**: self-organising trip with a checked story (code complete 2026-09-09; descriptions and maps run through in-memory backends, the AWS ones are compile-checked)
 
 ---
 

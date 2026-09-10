@@ -310,3 +310,33 @@ compile-checked only.
   refused. The phone page `trip.html?t=<code>` renders name, story, days with credits and
   thumbnails. The API Lambda now holds a `Vectors` backend (DynamoDB rows) for the
   cascade.
+
+## 15. US4 self-organising trip (tasks T049 to T058)
+
+- Enrich now runs labels, faces and text through the store's `Vision`, asks for a
+  description when the landmark is missing or weak (GPS and labels as hints, answer
+  parsed as `Landmark: <name>` plus prose), keeps it only when it names no year or month
+  the photo does not carry (constitution IV; places cannot be checked without a
+  gazetteer, so a model-named landmark becomes a 0.6-confidence tag), and writes an
+  embedding for Ask.
+- Embeddings are deterministic: labels, landmark, detected text and description are
+  feature-hashed into 128 dimensions (`memorylane_ingest::embed`), and a query is hashed
+  the same way. No model call, no network, stable across runs; a learned embedding can
+  sit behind the same `Vectors` trait later.
+- Organize draws a static route map for the trip and each day through `Maps` and stores
+  the keys on the routes; a no-op re-run draws nothing. `GET /trips/{trip}/map?day=`
+  presigns them; the TV shows the day map beside the summary.
+- Undated photos (no capture time, no GPS) no longer shape clusters: they attach to the
+  nearest trip by upload time, land at the end of its last day and are listed in
+  `TripDay.undated`; the TV says "N undated".
+- Stories: `POST /trips/{trip}/narrative` (the `save_narrative` tool) runs the Rust
+  place-and-date check, stores a passing story with one paragraph per day, and stores a
+  withheld narrative with a 422 otherwise; the agent calls `withhold_narrative` after its
+  own retry fails and the TV shows "being written" for withheld or missing stories.
+  `POST /trips/{trip}/narrative/regenerate` clears the story and re-emits `trip.detected`
+  through the bus, which the API Lambda can now reach (`Bus` moved to the store crate).
+- `POST /media/{media}/keeper` moves a burst group's keeper (owner or co-editor), the
+  others inherit its tags, and the embedding index follows. The Highlights screen has a
+  "Make keeper" action.
+- Slideshow screen: day order, play and pause on the remote, next and previous day, and a
+  `NowShowing` callback ready for presence (US5).
