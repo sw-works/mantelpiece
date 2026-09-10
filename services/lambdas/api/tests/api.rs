@@ -6,9 +6,10 @@ use memorylane_api::app::{App, Config};
 use memorylane_api::req::{Jwt, Method, Req, Resp};
 use memorylane_api::starter::MemoryStarter;
 use memorylane_api::tokens::Signer;
-use memorylane_core::ids::{HouseholdId, TripId};
+use memorylane_core::ids::{HouseholdId, MediaId, TripId};
 use memorylane_core::trip::{Route, Trip};
 use memorylane_store::memory::{MemoryBlobs, MemoryStorage};
+use memorylane_store::vectors::MemoryVectors;
 use memorylane_store::Storage;
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -33,6 +34,7 @@ fn harness() -> Harness {
     let app = App {
         storage: storage.clone(),
         blobs: blobs.clone(),
+        vectors: Arc::new(MemoryVectors::default()),
         starter: starter.clone(),
         signer: Signer::new("test-secret"),
         config: Config {
@@ -82,6 +84,29 @@ impl Harness {
                 bearer: bearer.map(str::to_owned),
                 body: body.map(|b| b.to_string().into_bytes()).unwrap_or_default(),
                 jwt,
+                device: None,
+            })
+            .await
+    }
+
+    /// A bearer call carrying an `x-device-id` header.
+    async fn with_device(
+        &self,
+        method: Method,
+        path: &str,
+        body: Option<Value>,
+        token: &str,
+        device: &str,
+    ) -> Resp {
+        self.app
+            .handle(Req {
+                method: Some(method),
+                path: path.to_owned(),
+                query: HashMap::new(),
+                bearer: Some(token.to_owned()),
+                body: body.map(|b| b.to_string().into_bytes()).unwrap_or_default(),
+                jwt: None,
+                device: Some(device.to_owned()),
             })
             .await
     }
@@ -455,9 +480,206 @@ async fn trip_scoped_code_limits_visibility() {
         2
     );
 
+    // The code expired: the guest token expired with it (F-153).
     h.advance(Duration::days(8));
     let late = h.upload(&token, "a.jpg", 10, &sha(1)).await;
-    assert_eq!(late.status, 410);
+    assert_eq!(late.status, 401);
+}
+
+#[tokio::test]
+async fn guest_sessions_are_bound_to_their_device() {
+    let h = harness();
+    let code = h.owner(Method::Post, "/household/code", None).await;
+    let code = code.body["code"].as_str().unwrap().to_owned();
+    let joined = h
+        .call(
+            Method::Post,
+            "/join",
+            Some(json!({ "code": code, "display_name": "Maya", "device_id": "phone-a" })),
+            None,
+            None,
+        )
+        .await;
+    let token = joined.body["token"].as_str().unwrap().to_owned();
+    assert_eq!(
+        h.with_device(Method::Get, "/me", None, &token, "phone-a")
+            .await
+            .status,
+        200
+    );
+    assert_eq!(
+        h.with_device(Method::Get, "/me", None, &token, "phone-b")
+            .await
+            .status,
+        401
+    );
+    assert_eq!(h.bearer(Method::Get, "/me", None, &token).await.status, 401);
+}
+
+#[tokio::test]
+async fn codes_report_live_counts_and_the_read_only_view_opens_by_code() {
+    let h = harness();
+    let mut kyoto = trip("amzn-owner", "kyoto");
+    kyoto.contributors = vec![memorylane_core::ids::ContributorId::new("amzn-owner")];
+    h.storage.put_trip(&kyoto).await.unwrap();
+    h.storage
+        .put_contributor(&memorylane_core::contributor::Contributor::owner(
+            HouseholdId::new("amzn-owner"),
+            "Hanyu",
+            h.app.now(),
+        ))
+        .await
+        .unwrap();
+    let code = h
+        .owner(
+            Method::Post,
+            "/trips/kyoto/code",
+            Some(json!({ "expires_in_days": 7 })),
+        )
+        .await;
+    assert_eq!(code.body["contributors"], 1);
+    assert_eq!(code.body["member_households"], 0);
+    let code = code.body["code"].as_str().unwrap().to_owned();
+
+    // No session: the trip opens by code with credits and the household name.
+    let view = h
+        .call(Method::Get, &format!("/view?code={code}"), None, None, None)
+        .await;
+    assert_eq!(view.status, 200, "{}", view.body);
+    assert_eq!(view.body["trip"]["id"], "kyoto");
+    assert_eq!(
+        view.body["trip"]["contributor_names"]["amzn-owner"],
+        "Hanyu"
+    );
+    assert!(view.body["trip"]["media_credits"].is_object());
+    assert_eq!(
+        h.call(Method::Get, "/view?code=ZZZZZZ", None, None, None)
+            .await
+            .status,
+        404
+    );
+    let household_code = h.owner(Method::Post, "/household/code", None).await;
+    assert_eq!(
+        h.call(
+            Method::Get,
+            &format!(
+                "/view?code={}",
+                household_code.body["code"].as_str().unwrap()
+            ),
+            None,
+            None,
+            None
+        )
+        .await
+        .status,
+        403
+    );
+    // A rotated code closes the view.
+    h.owner(Method::Post, &format!("/codes/{code}/rotate"), None)
+        .await;
+    assert_eq!(
+        h.call(Method::Get, &format!("/view?code={code}"), None, None, None)
+            .await
+            .status,
+        410
+    );
+}
+
+#[tokio::test]
+async fn removing_media_cascades_out_of_trips_and_playlists_but_keeps_the_original() {
+    let h = harness();
+    let (token, _) = h.guest("Maya").await;
+    let first = h.upload(&token, "a.jpg", 10, &sha(1)).await;
+    let second = h.upload(&token, "b.jpg", 10, &sha(2)).await;
+    let (gone, kept) = (
+        MediaId::new(first.body["media_id"].as_str().unwrap()),
+        MediaId::new(second.body["media_id"].as_str().unwrap()),
+    );
+    let mut kyoto = trip("amzn-owner", "kyoto");
+    kyoto.days = vec![memorylane_core::trip::TripDay {
+        index: 1,
+        date: time::macros::date!(2026 - 04 - 03),
+        media: vec![gone.clone(), kept.clone()],
+        route: Route::default(),
+        title: None,
+        story: None,
+    }];
+    kyoto.highlights = vec![gone.clone(), kept.clone()];
+    kyoto.hero = Some(gone.clone());
+    h.storage.put_trip(&kyoto).await.unwrap();
+    for id in [&gone, &kept] {
+        let mut m = h
+            .storage
+            .get_media(&HouseholdId::new("amzn-owner"), id)
+            .await
+            .unwrap()
+            .unwrap();
+        m.trip = Some(TripId::new("kyoto"));
+        h.storage.put_media(&m).await.unwrap();
+    }
+    h.storage
+        .put_playlist(&memorylane_core::trip::Playlist {
+            id: memorylane_core::ids::PlaylistId::new("p1"),
+            household: HouseholdId::new("amzn-owner"),
+            name: "Best".into(),
+            source: "ask".into(),
+            media: vec![gone.clone(), kept.clone()],
+            created_at: h.app.now(),
+        })
+        .await
+        .unwrap();
+
+    let removed = h
+        .bearer(Method::Delete, &format!("/media/{gone}"), None, &token)
+        .await;
+    assert_eq!(removed.status, 204, "{}", removed.body);
+    let t = h
+        .storage
+        .get_trip(&HouseholdId::new("amzn-owner"), &TripId::new("kyoto"))
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(t.days[0].media, vec![kept.clone()]);
+    assert_eq!(t.highlights, vec![kept.clone()]);
+    assert_eq!(t.hero, Some(kept.clone()));
+    let p = h
+        .storage
+        .get_playlist(
+            &HouseholdId::new("amzn-owner"),
+            &memorylane_core::ids::PlaylistId::new("p1"),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(p.media, vec![kept.clone()]);
+    let stored = h
+        .storage
+        .get_media(&HouseholdId::new("amzn-owner"), &gone)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(stored.is_removed());
+    assert!(stored.restore_until.is_some());
+    // The original stays for the restore window; nothing was deleted from the bucket.
+    assert!(!h
+        .blobs
+        .log
+        .lock()
+        .unwrap()
+        .iter()
+        .any(|l| l.starts_with("delete ")));
+    assert_eq!(
+        h.bearer(Method::Get, &format!("/media/{gone}/url"), None, &token)
+            .await
+            .status,
+        404
+    );
+    assert_eq!(
+        h.bearer(Method::Delete, &format!("/media/{gone}"), None, &token)
+            .await
+            .status,
+        404
+    );
 }
 
 #[tokio::test]
@@ -579,13 +801,6 @@ async fn upload_flow_with_progress_events_and_dedup() {
             .status,
         204
     );
-    assert!(h
-        .blobs
-        .log
-        .lock()
-        .unwrap()
-        .iter()
-        .any(|l| l.starts_with("delete originals/")));
     let events = h.owner(Method::Get, "/events?since=1", None).await;
     assert_eq!(events.body["events"][0]["type"], "media.removed");
     assert_eq!(
@@ -690,6 +905,45 @@ async fn removing_a_contributor_needs_a_tv_confirmation() {
         .await;
     assert_eq!(removed.status, 200, "{}", removed.body);
     assert_eq!(removed.body["removed"], maya);
+    assert!(removed.body["grace_until"].is_string());
+
+    // During the grace period Maya can export her originals; the owner too; Ken cannot.
+    let export = h
+        .bearer(
+            Method::Get,
+            &format!("/contributors/{maya}/export"),
+            None,
+            &token,
+        )
+        .await;
+    assert_eq!(export.status, 200, "{}", export.body);
+    assert!(export.body["files"].is_array());
+    assert_eq!(
+        h.owner(Method::Get, &format!("/contributors/{maya}/export"), None)
+            .await
+            .status,
+        200
+    );
+    let (ken, _) = h.guest("Ken").await;
+    assert_eq!(
+        h.bearer(
+            Method::Get,
+            &format!("/contributors/{maya}/export"),
+            None,
+            &ken
+        )
+        .await
+        .status,
+        403
+    );
+    h.advance(Duration::days(31));
+    assert_eq!(
+        h.owner(Method::Get, &format!("/contributors/{maya}/export"), None)
+            .await
+            .status,
+        410
+    );
+    h.advance(-Duration::days(31));
 
     // Token is single use; the removed guest can no longer upload.
     let reused = h
@@ -844,6 +1098,7 @@ mod roles {
                 bearer: bearer.map(str::to_owned),
                 body: vec![],
                 jwt,
+                device: None,
             };
             self.app
                 .trip_access(&req, &TripId::new(trip))

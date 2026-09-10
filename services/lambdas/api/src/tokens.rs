@@ -40,6 +40,9 @@ pub enum Session {
         contributor: ContributorId,
         trip: Option<TripId>,
         code: String,
+        /// Browser install the session is bound to (F-153); absent on older tokens.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        device: Option<String>,
     },
 }
 
@@ -171,6 +174,7 @@ mod tests {
                 contributor: ContributorId::new("c"),
                 trip: Some(TripId::new("t")),
                 code: "ABC234".into(),
+                device: None,
             },
             exp: datetime!(2026-09-08 10:00:00 UTC),
         };

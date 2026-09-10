@@ -26,14 +26,58 @@ pub struct CodeView {
     pub link: String,
     pub accepts_uploads: bool,
     pub expires_at: Option<String>,
+    /// Live counts for the Invite screen (F-151, F-162).
+    pub contributors: u32,
+    pub member_households: u32,
 }
 
-pub fn view(app: &App, c: &TripCode) -> CodeView {
+fn count(n: usize) -> u32 {
+    u32::try_from(n).unwrap_or(u32::MAX)
+}
+
+async fn counts(app: &App, c: &TripCode) -> Result<(u32, u32), ApiError> {
+    let contributors = app.storage.list_contributors(&c.household).await?;
+    let active = |id: &ContributorId| contributors.iter().any(|c| &c.id == id && c.is_active());
+    match &c.scope {
+        CodeScope::Trip { trip } => {
+            let on_trip = app
+                .storage
+                .get_trip(&c.household, trip)
+                .await?
+                .map_or(0, |t| t.contributors.iter().filter(|id| active(id)).count());
+            let members = app
+                .storage
+                .list_trip_members(&c.household, trip)
+                .await?
+                .iter()
+                .filter(|m| m.is_active())
+                .count();
+            Ok((count(on_trip), count(members)))
+        }
+        CodeScope::Household => {
+            let all = contributors.iter().filter(|c| c.is_active()).count();
+            let mut members = 0;
+            for t in app.storage.list_trips(&c.household).await? {
+                members += app
+                    .storage
+                    .list_trip_members(&c.household, &t.id)
+                    .await?
+                    .iter()
+                    .filter(|m| m.is_active())
+                    .count();
+            }
+            Ok((count(all), count(members)))
+        }
+    }
+}
+
+pub async fn view(app: &App, c: &TripCode) -> Result<CodeView, ApiError> {
     let (scope, trip) = match &c.scope {
         CodeScope::Household => ("household", None),
         CodeScope::Trip { trip } => ("trip", Some(trip.clone())),
     };
-    CodeView {
+    let (contributors, member_households) = counts(app, c).await?;
+    Ok(CodeView {
         code: c.code.clone(),
         scope: scope.into(),
         trip,
@@ -43,7 +87,9 @@ pub fn view(app: &App, c: &TripCode) -> CodeView {
             e.format(&time::format_description::well_known::Rfc3339)
                 .ok()
         }),
-    }
+        contributors,
+        member_households,
+    })
 }
 
 async fn issue(
@@ -63,7 +109,7 @@ async fn issue(
         .map(|d| now + Duration::days(d.clamp(1, 365)));
     let code = TripCode::issue(&mut rand::rng(), household, scope, now, expires_at);
     app.storage.put_trip_code(&code).await?;
-    Resp::created(view(app, &code))
+    Resp::created(view(app, &code).await?)
 }
 
 pub async fn issue_household(app: &App, req: &Req) -> Result<Resp, ApiError> {
@@ -83,7 +129,11 @@ pub async fn issue_trip(app: &App, req: &Req, trip: &str) -> Result<Resp, ApiErr
 pub async fn list(app: &App, req: &Req) -> Result<Resp, ApiError> {
     let household = app.owner(req)?;
     let codes = app.storage.list_trip_codes(&household).await?;
-    Resp::ok(codes.iter().map(|c| view(app, c)).collect::<Vec<_>>())
+    let mut views = Vec::with_capacity(codes.len());
+    for c in &codes {
+        views.push(view(app, c).await?);
+    }
+    Resp::ok(views)
 }
 
 async fn owned_code(app: &App, req: &Req, code: &str) -> Result<TripCode, ApiError> {
@@ -104,7 +154,7 @@ pub async fn rotate(app: &App, req: &Req, code: &str) -> Result<Resp, ApiError> 
     let fresh = old.rotate(&mut rand::rng(), app.now());
     app.storage.put_trip_code(&old).await?;
     app.storage.put_trip_code(&fresh).await?;
-    Resp::created(view(app, &fresh))
+    Resp::created(view(app, &fresh).await?)
 }
 
 pub async fn revoke(app: &App, req: &Req, code: &str) -> Result<Resp, ApiError> {
@@ -119,6 +169,9 @@ struct JoinBody {
     code: String,
     /// Required for guests; ignored when a JWT is present and carries a name.
     display_name: Option<String>,
+    /// Browser install id; a guest session is then accepted only with the matching
+    /// `x-device-id` header (F-153).
+    device_id: Option<String>,
 }
 
 /// Join a trip by code. With a JWT the contributor is the Amazon account; without one
@@ -195,14 +248,24 @@ pub async fn join(app: &App, req: &Req) -> Result<Resp, ApiError> {
         CodeScope::Household => None,
         CodeScope::Trip { trip } => Some(trip.clone()),
     };
+    // A guest token never outlives its code (F-153); Amazon accounts can always re-join.
+    let device = match contributor.kind {
+        ContributorKind::Guest => body.device_id.filter(|d| !d.is_empty()),
+        _ => None,
+    };
+    let exp = match (&contributor.kind, code.expires_at) {
+        (ContributorKind::Guest, Some(e)) => e.min(now + UPLOAD_TTL),
+        _ => now + UPLOAD_TTL,
+    };
     let claims = Claims {
         session: Session::Upload {
             household: household.clone(),
             contributor: contributor.id.clone(),
             trip: trip.clone(),
             code: code.code.clone(),
+            device,
         },
-        exp: now + UPLOAD_TTL,
+        exp,
     };
     Resp::ok(json!({
         "token": app.signer.sign(&claims),

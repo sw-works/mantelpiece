@@ -1,7 +1,8 @@
 //! Media reads, contributor self-removal (F-157), pin and hide (F-209).
 
 use memorylane_core::events::EventKind;
-use memorylane_core::ids::MediaId;
+use memorylane_core::ids::{HouseholdId, MediaId};
+use memorylane_core::media::MediaItem;
 use serde_json::json;
 
 use crate::app::{App, Caller};
@@ -10,11 +11,29 @@ use crate::req::{Req, Resp};
 use crate::tokens::Session;
 
 pub async fn url(app: &App, req: &Req, id: &str) -> Result<Resp, ApiError> {
-    let caller = app.caller(req)?;
+    // The read-only web view resolves thumbnails by trip code instead of a session.
+    let (household, caller) = match app.caller(req) {
+        Ok(c) => (c.household().clone(), Some(c)),
+        Err(e) if e.status == 401 && req.query.contains_key("code") => {
+            let (household, trip) = app.viewer(req).await?;
+            let media = app
+                .storage
+                .get_media(&household, &MediaId::new(id))
+                .await?
+                .filter(|m| !m.is_removed())
+                .ok_or_else(|| ApiError::not_found("unknown media"))?;
+            if media.trip.as_ref() != Some(&trip) {
+                return Err(ApiError::forbidden("not on this trip"));
+            }
+            (household, None)
+        }
+        Err(e) => return Err(e),
+    };
     let media = app
         .storage
-        .get_media(caller.household(), &MediaId::new(id))
+        .get_media(&household, &MediaId::new(id))
         .await?
+        .filter(|m| !m.is_removed())
         .ok_or_else(|| ApiError::not_found("unknown media"))?;
     let rendition = req.query.get("rendition").map_or("tv", String::as_str);
     let key = match rendition {
@@ -27,10 +46,12 @@ pub async fn url(app: &App, req: &Req, id: &str) -> Result<Resp, ApiError> {
             ))
         }
     };
-    if rendition == "original"
-        && !matches!(caller, Caller::Owner { .. })
-        && media.contributor.as_str() != contributor_id(&caller)
-    {
+    let may_see_original = match &caller {
+        Some(Caller::Owner { .. }) => true,
+        Some(c) => media.contributor.as_str() == contributor_id(c),
+        None => false,
+    };
+    if rendition == "original" && !may_see_original {
         return Err(ApiError::forbidden(
             "originals are visible to the owner and the uploader",
         ));
@@ -50,29 +71,55 @@ fn contributor_id(caller: &Caller) -> &str {
     }
 }
 
-/// Owner deletes anything; a contributor deletes their own upload. Cascade to renditions
-/// happens here; embeddings, albums and playlists are cleaned by the `media.removed`
-/// event consumer.
+/// Take a removed item out of every view: its trip's days, highlights and hero, every
+/// playlist, and the embedding index (F-157). Originals and renditions stay until the
+/// restore window closes and `purge_expired` deletes them (US6).
+pub async fn cascade(
+    app: &App,
+    household: &HouseholdId,
+    media: &MediaItem,
+) -> Result<(), ApiError> {
+    if let Some(trip_id) = &media.trip {
+        if let Some(mut trip) = app.storage.get_trip(household, trip_id).await? {
+            for day in &mut trip.days {
+                day.media.retain(|m| m != &media.id);
+            }
+            trip.highlights.retain(|m| m != &media.id);
+            if trip.hero.as_ref() == Some(&media.id) {
+                trip.hero = trip.highlights.first().cloned();
+            }
+            app.storage.put_trip(&trip).await?;
+        }
+    }
+    for mut playlist in app.storage.list_playlists(household).await? {
+        if playlist.media.contains(&media.id) {
+            playlist.media.retain(|m| m != &media.id);
+            app.storage.put_playlist(&playlist).await?;
+        }
+    }
+    app.vectors.delete(household, &media.id).await?;
+    Ok(())
+}
+
+/// Owner deletes anything; a contributor deletes their own upload. Soft removal: the item
+/// leaves every view now and can be restored for 30 days (US6).
 pub async fn delete(app: &App, req: &Req, id: &str) -> Result<Resp, ApiError> {
     let caller = app.caller(req)?;
     let id = MediaId::new(id);
-    let media = app
+    let mut media = app
         .storage
         .get_media(caller.household(), &id)
         .await?
+        .filter(|m| !m.is_removed())
         .ok_or_else(|| ApiError::not_found("unknown media"))?;
     if !matches!(caller, Caller::Owner { .. })
         && media.contributor.as_str() != contributor_id(&caller)
     {
         return Err(ApiError::forbidden("not your upload"));
     }
-    let keys = vec![
-        media.original_key.clone(),
-        format!("renditions/{}/{}/thumb.jpg", media.household, media.id),
-        format!("renditions/{}/{}/tv.jpg", media.household, media.id),
-    ];
-    app.blobs.delete(&keys).await?;
-    app.storage.delete_media(caller.household(), &id).await?;
+    media.remove(app.now());
+    app.storage.put_media(&media).await?;
+    cascade(app, caller.household(), &media).await?;
     app.storage
         .append_event(
             caller.household(),

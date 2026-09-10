@@ -9,7 +9,7 @@ use crate::error::ApiError;
 use crate::handlers;
 use crate::req::{Method, Req, Resp};
 use crate::tokens::{Claims, Session, Signer};
-use memorylane_store::{Blobs, Storage};
+use memorylane_store::{Blobs, Storage, Vectors};
 
 #[derive(Clone, Debug)]
 pub struct Config {
@@ -42,6 +42,7 @@ pub type Clock = Arc<dyn Fn() -> OffsetDateTime + Send + Sync>;
 pub struct App {
     pub storage: Arc<dyn Storage>,
     pub blobs: Arc<dyn Blobs>,
+    pub vectors: Arc<dyn Vectors>,
     pub starter: Arc<dyn crate::starter::Starter>,
     pub signer: Signer,
     pub config: Config,
@@ -186,6 +187,8 @@ impl App {
 
             (Method::Get, ["trips"]) => handlers::trips::list(self, req).await,
             (Method::Get, ["trips", trip]) => handlers::trips::get(self, req, trip).await,
+            // Read-only web view by trip code, no session (F-159).
+            (Method::Get, ["view"]) => handlers::trips::view(self, req).await,
 
             (Method::Get, ["media", media, "url"]) => handlers::media::url(self, req, media).await,
             (Method::Delete, ["media", media]) => handlers::media::delete(self, req, media).await,
@@ -199,6 +202,9 @@ impl App {
             (Method::Get, ["contributors"]) => handlers::contributors::list(self, req).await,
             (Method::Delete, ["contributors", id]) => {
                 handlers::contributors::remove(self, req, id).await
+            }
+            (Method::Get, ["contributors", id, "export"]) => {
+                handlers::contributors::export(self, req, id).await
             }
 
             (Method::Post, ["confirmations"]) => handlers::confirmations::mint(self, req).await,
@@ -221,9 +227,19 @@ impl App {
         }
     }
 
-    /// Anyone with a valid identity: owner or contributor.
+    /// Anyone with a valid identity: owner or contributor. A guest session bound to a
+    /// device (F-153) is only accepted from that device.
     pub fn caller(&self, req: &Req) -> Result<Caller, ApiError> {
         if let Some(session) = self.session(req)? {
+            if let Session::Upload {
+                device: Some(bound),
+                ..
+            } = &session
+            {
+                if req.device.as_deref() != Some(bound.as_str()) {
+                    return Err(ApiError::unauthorized("session is bound to another device"));
+                }
+            }
             return Ok(match session {
                 Session::Tv { household, subject } | Session::Phone { household, subject } => {
                     Caller::Owner { household, subject }
@@ -238,6 +254,31 @@ impl App {
             });
         }
         Err(ApiError::unauthorized("sign in required"))
+    }
+
+    /// The read-only web view: a trip-scoped code in the query string stands in for a
+    /// session (F-159). Rotated or revoked codes stop working; expiry only stops uploads.
+    pub async fn viewer(&self, req: &Req) -> Result<(HouseholdId, TripId), ApiError> {
+        let raw = req
+            .query
+            .get("code")
+            .ok_or_else(|| ApiError::unauthorized("sign in required"))?;
+        let code = memorylane_core::codes::normalize(raw)
+            .ok_or_else(|| ApiError::bad_request("invalid code"))?;
+        let code = self
+            .storage
+            .get_trip_code(&code)
+            .await?
+            .ok_or_else(|| ApiError::not_found("unknown code"))?;
+        if code.revoked_at.is_some() {
+            return Err(ApiError::gone("this code was replaced"));
+        }
+        match code.scope {
+            memorylane_core::trip_code::CodeScope::Trip { trip } => Ok((code.household, trip)),
+            memorylane_core::trip_code::CodeScope::Household => Err(ApiError::forbidden(
+                "household codes do not open a trip view",
+            )),
+        }
     }
 
     /// Owner only.

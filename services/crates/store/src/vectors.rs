@@ -168,6 +168,10 @@ struct VectorRow {
 }
 
 impl DynamoVectors {
+    pub fn from_config(config: &aws_config::SdkConfig, table: impl Into<String>) -> Self {
+        Self::new(aws_sdk_dynamodb::Client::new(config), table)
+    }
+
     pub fn new(client: aws_sdk_dynamodb::Client, table: impl Into<String>) -> Self {
         Self {
             client,

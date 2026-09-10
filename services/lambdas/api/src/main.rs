@@ -8,6 +8,7 @@ use memorylane_api::starter::SfnStarter;
 use memorylane_api::tokens::Signer;
 use memorylane_store::dynamo::DynamoStorage;
 use memorylane_store::s3::S3Blobs;
+use memorylane_store::vectors::DynamoVectors;
 use std::sync::Arc;
 use time::{Duration, OffsetDateTime};
 
@@ -47,6 +48,11 @@ fn to_req(event: Request) -> Req {
             }),
         _ => None,
     });
+    let device = event
+        .headers()
+        .get("x-device-id")
+        .and_then(|v| v.to_str().ok())
+        .map(str::to_owned);
     let path = event.raw_http_path().to_owned();
     let body = match event.into_body() {
         Body::Text(t) => t.into_bytes(),
@@ -60,6 +66,7 @@ fn to_req(event: Request) -> Req {
         bearer,
         body,
         jwt,
+        device,
     }
 }
 
@@ -74,6 +81,7 @@ async fn main() -> Result<(), Error> {
     let app = Arc::new(App {
         storage: Arc::new(DynamoStorage::from_config(&aws, env("TABLE_NAME")?)),
         blobs: Arc::new(S3Blobs::from_config(&aws, env("MEDIA_BUCKET")?)),
+        vectors: Arc::new(DynamoVectors::from_config(&aws, env("TABLE_NAME")?)),
         starter: Arc::new(SfnStarter::from_config(
             &aws,
             env("ORGANIZE_STATE_MACHINE_ARN")?,

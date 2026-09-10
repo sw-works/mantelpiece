@@ -29,6 +29,8 @@ pub struct Req {
     pub bearer: Option<String>,
     pub body: Vec<u8>,
     pub jwt: Option<Jwt>,
+    /// `x-device-id` header: the browser or TV install a guest session is bound to.
+    pub device: Option<String>,
 }
 
 impl Req {

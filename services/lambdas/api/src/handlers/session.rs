@@ -23,6 +23,7 @@ pub async fn me(app: &App, req: &Req) -> Result<Resp, ApiError> {
             contributor,
             trip,
             code,
+            ..
         }) => {
             let c = app
                 .storage
