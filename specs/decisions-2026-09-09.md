@@ -453,3 +453,18 @@ compile-checked only.
 - Phone People page with consent copy that states what is stored and that off deletes
   it, naming and merging, and My uploads with Remove. TV People screen with clusters,
   best-of for a person, Play, and Turn off.
+
+## 21. US10 reactions (tasks T092 to T094)
+
+- `POST /trips/{trip}/reactions` takes likes and comments (200 characters at most) from
+  three kinds of actor: a contributor's upload session, a member household or owner TV
+  session, and the read-only web viewer by trip code with a name of 2 to 40 characters,
+  who becomes `viewer:<name>` so one like per person per target still holds. Every
+  reaction goes to the owner's feed as `reaction.received` and fans out to member TVs.
+  `GET /trips/{trip}/reactions` returns the list plus per-target counts and the latest
+  comment.
+- Phone: the read-only page asks for a name once, keeps it on the phone, and offers Like
+  on each day and photo and a comment box per day, with counts and the latest comment.
+- TV: the ticker reads "Grandma Ruth loved day 3" or "Grandma Ruth: That ramen!"; the
+  trip view shows counts beside the day and each photo and the latest comment, and
+  refetches whenever a reaction lands on the feed.

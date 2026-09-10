@@ -262,11 +262,11 @@ policy that every story builds on.
 
 **Independent Test**: contributor likes day 3 and comments "That ramen!"; ticker shows "Grandma Ruth loved day 3"; comment appears beside the photo.
 
-- [ ] T092 [US10] Add `POST /trips/{trip}/reactions` (one like per actor per target, comment max 200 chars) and `GET /trips/{trip}/reactions` in `services/lambdas/api/src/handlers/reactions.rs`; emit `reaction.received`; test in `services/lambdas/api/tests/api.rs` (F-710)
-- [ ] T093 [P] [US10] Add like and comment controls to `apps/web/src/pages/trip.ts` (mockup: phone Trip view artboard); test in `apps/web/test/trip.test.ts`
-- [ ] T094 [P] [US10] Show reaction counts and the latest comment beside the day and photo in `packages/tv-ui/src/screens/TripView.tsx`; ticker line for `reaction.received` in `packages/tv-ui/src/hooks/useEvents.ts`; tests in `packages/tv-ui/test/hooks.test.tsx`
+- [X] T092 [US10] Add `POST /trips/{trip}/reactions` (one like per actor per target, comment max 200 chars) and `GET /trips/{trip}/reactions` in `services/lambdas/api/src/handlers/reactions.rs`; emit `reaction.received`; test in `services/lambdas/api/tests/api.rs` (F-710)
+- [X] T093 [P] [US10] Add like and comment controls to `apps/web/src/pages/trip.ts` (mockup: phone Trip view artboard); test in `apps/web/test/trip.test.ts`
+- [X] T094 [P] [US10] Show reaction counts and the latest comment beside the day and photo in `packages/tv-ui/src/screens/TripView.tsx`; ticker line for `reaction.received` in `packages/tv-ui/src/hooks/useEvents.ts`; tests in `packages/tv-ui/test/hooks.test.tsx`
 
-**Checkpoint**: reactions round-trip within 30 s
+**Checkpoint**: reactions round-trip within 30 s (code complete 2026-09-09; the 30 s bound is the long-poll hold, untimed on a device)
 
 ---
 
