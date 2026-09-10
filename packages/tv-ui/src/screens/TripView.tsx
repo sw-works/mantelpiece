@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
-import { clockHints, creditFor, storyOf, type Trip, type TvApi } from "../api/client";
+import { clockHints, creditFor, storyOf, type ReactionsView, type Trip, type TvApi } from "../api/client";
 import { FocusButton } from "../components/FocusButton";
 import { MapImage } from "../components/MapImage";
 import { RemoteImage } from "../components/RemoteImage";
@@ -26,6 +26,7 @@ export function TripView({
   onHighlights,
   onPlay,
   canManage = true,
+  reactionsVersion = 0,
 }: {
   api: TvApi;
   token: string;
@@ -36,7 +37,26 @@ export function TripView({
   onPlay?: (trip: Trip) => void;
   /** False on a joined trip: no promote, no rewrite (F-165). */
   canManage?: boolean;
+  /** Bumped by the feed on every reaction so counts refresh (F-710). */
+  reactionsVersion?: number;
 }) {
+  const [reactions, setReactions] = useState<ReactionsView | null>(null);
+  useEffect(() => {
+    let alive = true;
+    api
+      .reactions(token, tripId)
+      .then((r) => alive && setReactions(r))
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [api, token, tripId, reactionsVersion]);
+  const summaryFor = (key: string) => reactions?.summary[key];
+  const likesLine = (key: string) => {
+    const s = summaryFor(key);
+    if (!s || (s.likes === 0 && s.comments === 0)) return "";
+    return `${s.likes ? `❤ ${s.likes}` : ""}${s.likes && s.comments ? " · " : ""}${s.comments ? `${s.comments} comment${s.comments === 1 ? "" : "s"}` : ""}`;
+  };
   const [trip, setTrip] = useState<Trip | null>(null);
   const [day, setDay] = useState(0);
   const [rewriting, setRewriting] = useState(false);
@@ -106,8 +126,13 @@ export function TripView({
               <View key={m} style={{ gap: 6 }}>
                 <RemoteImage api={api} token={token} mediaId={m} rendition="thumb" width={280} height={190} />
                 <Text testID={`credit-${m}`} style={{ color: theme.muted, fontSize: theme.small }}>
-                  {creditFor(trip, m) ?? ""}
+                  {`${creditFor(trip, m) ?? ""}${likesLine(`media:${m}`) ? ` · ${likesLine(`media:${m}`)}` : ""}`}
                 </Text>
+                {summaryFor(`media:${m}`)?.latest_comment && (
+                  <Text testID={`comment-${m}`} style={{ color: theme.fg, fontSize: theme.small }}>
+                    {`${summaryFor(`media:${m}`)!.latest_comment!.by}: ${summaryFor(`media:${m}`)!.latest_comment!.text}`}
+                  </Text>
+                )}
               </View>
             ))}
           </ScrollView>
@@ -116,6 +141,11 @@ export function TripView({
             <Text testID="day-summary" style={{ color: theme.muted, fontSize: theme.small }}>
               {`${current.date} · ${current.media.length} photos${credits.length ? ` from ${credits.join(", ")}` : ""}${current.route.inferred ? " · route inferred" : ""}${current.undated?.length ? ` · ${current.undated.length} undated` : ""}`}
             </Text>
+            {likesLine(`day:${current.index}`) !== "" && (
+              <Text testID="day-reactions" style={{ color: theme.accent, fontSize: theme.small }}>
+                {`${likesLine(`day:${current.index}`)}${summaryFor(`day:${current.index}`)?.latest_comment ? ` · ${summaryFor(`day:${current.index}`)!.latest_comment!.by}: ${summaryFor(`day:${current.index}`)!.latest_comment!.text}` : ""}`}
+              </Text>
+            )}
             {hints.length > 0 && (
               <Text testID="clock-hints" style={{ color: theme.muted, fontSize: theme.small }}>
                 {hints.join(" · ")}

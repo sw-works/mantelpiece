@@ -163,14 +163,16 @@ describe("screens", () => {
       media_credits: { m1: "owner", m2: "maya", m3: "maya" },
       clock_offsets: [{ contributor: "maya", seconds: -184, samples: 6 }, { contributor: "owner", seconds: 2, samples: 9 }],
     };
+    api.reactionsView = { reactions: [], summary: { "day:1": { likes: 2, comments: 1, latest_comment: { by: "Grandma Ruth", text: "That ramen!" } }, "media:m2": { likes: 1, comments: 0, latest_comment: null } } };
     const onInvite = jest.fn();
     const onHighlights = jest.fn();
     const onPlay = jest.fn();
     await render(<TripView api={api} token="t" tripId="kyoto" onBack={() => undefined} onInvite={onInvite} onHighlights={onHighlights} onPlay={onPlay} />);
     await waitFor(() => expect(screen.getByTestId("narrative")).toBeTruthy());
+    await waitFor(() => expect(screen.getByTestId("day-reactions").props.children).toBe("❤ 2 · 1 comment · Grandma Ruth: That ramen!"));
+    expect(screen.getByTestId("credit-m2").props.children).toBe("Maya · ❤ 1");
     expect(screen.getByTestId("narrative").props.children).toBe("The golden day.");
     expect(screen.getByTestId("day-summary").props.children).toBe("2026-04-03 · 2 photos from Hanyu, Maya");
-    expect(screen.getByTestId("credit-m2").props.children).toBe("Maya");
     expect(screen.getByTestId("clock-hints").props.children).toBe("Maya's clock corrected by 3 min");
     await waitFor(() => expect(screen.getByTestId("map")).toBeTruthy());
     expect(api.calls).toContain("map kyoto day 1");

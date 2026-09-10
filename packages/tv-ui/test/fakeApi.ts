@@ -96,6 +96,11 @@ export class FakeApi extends TvApi {
     this.peopleState = { people_enabled: enabled, people: [] };
     return { people_enabled: enabled };
   }
+  reactionsView: import("../src/api/client").ReactionsView = { reactions: [], summary: {} };
+  override async reactions(_token: string, tripId: string) {
+    this.calls.push(`reactions ${tripId}`);
+    return this.reactionsView;
+  }
   override async setKeeper(_token: string, mediaId: string) {
     this.calls.push(`keeper ${mediaId}`);
     return { keeper: mediaId, changed: true };

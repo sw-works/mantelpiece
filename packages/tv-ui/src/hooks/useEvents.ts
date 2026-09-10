@@ -37,6 +37,12 @@ export function describe(event: FeedEvent): string | null {
       return "New memories for today";
     case "answer.card":
       return `Answer: ${String(event.answer)}`;
+    case "reaction.received": {
+      const who = String(event.actor_name);
+      const target = String(event.target);
+      if (event.kind === "comment") return `${who}: ${String(event.text ?? "")}`;
+      return target.startsWith("day:") ? `${who} loved day ${target.slice(4)}` : `${who} loved a photo`;
+    }
     default:
       return null;
   }

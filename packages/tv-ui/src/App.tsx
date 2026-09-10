@@ -78,6 +78,7 @@ export function App({ apiBase, api: injectedApi, sessionStore, tvName }: AppProp
     [api, token, deviceId, route],
   );
   const pendingReviews = feed.recent.filter((e) => e.type === "dedup.proposal" || e.type === "cleanup.proposal").length;
+  const reactionsVersion = feed.recent.filter((e) => e.type === "reaction.received").length;
   const lastAnswer = [...feed.recent].reverse().find((e) => e.type === "answer.card");
   const answer = lastAnswer ? { question: String(lastAnswer.question), answer: String(lastAnswer.answer), media: lastAnswer.media as string | null } : null;
 
@@ -128,6 +129,7 @@ export function App({ apiBase, api: injectedApi, sessionStore, tvName }: AppProp
           onHighlights={(id) => setRoute({ name: "highlights", id })}
           onPlay={(trip) => setRoute({ name: "slideshow", trip })}
           canManage={!route.shared}
+          reactionsVersion={reactionsVersion}
         />
       );
       break;

@@ -176,6 +176,11 @@ export interface PersonView {
   faces: number;
 }
 
+export interface ReactionsView {
+  reactions: unknown[];
+  summary: Record<string, { likes: number; comments: number; latest_comment: { by: string; text: string } | null }>;
+}
+
 export interface FeedEvent {
   seq: number;
   at: string;
@@ -320,6 +325,10 @@ export class TvApi {
 
   ask(token: string, question: string, tv?: string) {
     return this.call<AskResult>("POST", "/ask", { question, tv }, token);
+  }
+
+  reactions(token: string, tripId: string) {
+    return this.call<ReactionsView>("GET", `/trips/${tripId}/reactions`, undefined, token);
   }
 
   people(token: string) {

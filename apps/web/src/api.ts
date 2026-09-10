@@ -43,6 +43,14 @@ export type AskResult =
   | { mode: "search"; question: string; playlist: string; count: number }
   | { mode: "nothing"; question: string; hint: string };
 
+export type ReactionTarget = { target: "day"; index: number } | { target: "media"; id: string };
+export type ReactionBody = ReactionTarget & { kind: "like" | "comment"; text?: string; name: string };
+
+export interface ReactionsView {
+  reactions: Array<{ id: string; target: "day" | "media"; index?: number; actor_name: string; kind: "like" | "comment"; text?: string; created_at: string }>;
+  summary: Record<string, { likes: number; comments: number; latest_comment: { by: string; text: string } | null }>;
+}
+
 /** The read-only view of one trip (F-159). */
 export interface TripView {
   id: string;
@@ -138,6 +146,15 @@ export class Api {
   /** The read-only trip page: no session, just the trip code. */
   viewTrip(code: string) {
     return this.call<{ household_name: string | null; trip: TripView }>("GET", `/view?code=${encodeURIComponent(code)}`);
+  }
+
+  /** Reactions on the read-only page (F-710): by code, with the viewer's name. */
+  reactions(code: string, tripId: string) {
+    return this.call<ReactionsView>("GET", `/trips/${tripId}/reactions?code=${encodeURIComponent(code)}`);
+  }
+
+  react(code: string, tripId: string, body: ReactionBody) {
+    return this.call<unknown>("POST", `/trips/${tripId}/reactions?code=${encodeURIComponent(code)}`, body);
   }
 
   mediaUrlByCode(code: string, mediaId: string, rendition: "thumb" | "tv") {
