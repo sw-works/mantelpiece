@@ -246,3 +246,22 @@ compile-checked only.
 - Agents: `InMemoryTools` fakes for `get_now_showing`, `describe_photo`,
   `list_cleanup_candidates`, `memories_for` and `apply_cleanup`, mirrored on
   `GatewayTools`.
+
+## 12. US1 sign-in (tasks T030 to T034)
+
+- Session persistence: `@amazon-devices/react-native-kepler` 4.0.1 still exports
+  `AsyncStorage` from `react-native` (an `amznmod` in its `index.js`, listed as a system
+  module), so the Vega shell uses that export through a runtime lookup and bundles no
+  storage package. The `npm:` alias to `@amazon-devices/react-native-async-storage__async-storage`
+  stays the fallback if a device run shows the export missing. *Unverified* on a device.
+- The TV names the household: `POST /device/code` accepts `tv_name`, the first approval
+  creates the `Household` record with it, and `GET /me` returns `household_name` plus the
+  people and narration flags. A second approval of the same code answers 409
+  "already signed in".
+- Codes expire on the TV's own clock as well as the server's; the Onboarding screen shows
+  "Get a new code" and one press issues a fresh one. The sign-in hook reads its callbacks
+  through a ref so a re-render never restarts the flow.
+- The phone continues from `link.` to `upload.` with the owner session in the URL
+  fragment, stored and stripped on arrival; no second sign-in.
+- T035 (Virtual Device run) is blocked until the Vega SDK is installed on the build
+  machine.

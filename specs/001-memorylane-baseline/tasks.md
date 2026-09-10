@@ -101,14 +101,14 @@ policy that every story builds on.
 
 **Independent Test**: on the Vega Virtual Device, scan the QR with a phone, approve, land on Memories home; restart the app and stay signed in.
 
-- [ ] T030 [US1] Implement `AsyncStorageSessionStore` in `apps/tv-vega/src/sessionStore.ts` using the `@react-native-async-storage/async-storage` alias to `@amazon-devices/react-native-async-storage__async-storage` (package.json `npm:` alias plus `pnpm.overrides` in `apps/tv-vega/package.json` only); inject it into `App` from `apps/tv-vega/index.js`
-- [ ] T031 [P] [US1] Add code expiry and "Get a new code" handling to `packages/tv-ui/src/screens/Onboarding.tsx` and `packages/tv-ui/src/hooks/useDeviceSignIn.ts` (expired state after `expires_at`, one press issues a new code); extend `packages/tv-ui/test/hooks.test.tsx`
-- [ ] T032 [P] [US1] Make the second approval of an already-approved code return 409 "already signed in" in `services/lambdas/api/src/handlers/device.rs`; test in `services/lambdas/api/tests/api.rs`
-- [ ] T033 [P] [US1] After approval, redirect the phone from `apps/web/src/pages/link.ts` to the upload page with the household session (no second sign-in); test in `apps/web/test/auth.test.ts`
-- [ ] T034 [US1] Record TV name on `POST /device/poll` approval and expose it on `GET /me` in `services/lambdas/api/src/handlers/session.rs`
-- [ ] T035 [US1] Verify on the Vega Virtual Device via `make tv-vvd-install`: code and QR shown, approval lands on Home under 5 s, session survives restart; record results in `specs/decisions-2026-09-09.md` section 6 (research R1, R2 verified: device)
+- [X] T030 [US1] Implement `AsyncStorageSessionStore` in `apps/tv-vega/src/sessionStore.ts` using the `@react-native-async-storage/async-storage` alias to `@amazon-devices/react-native-async-storage__async-storage` (package.json `npm:` alias plus `pnpm.overrides` in `apps/tv-vega/package.json` only); inject it into `App` from `apps/tv-vega/index.js`
+- [X] T031 [P] [US1] Add code expiry and "Get a new code" handling to `packages/tv-ui/src/screens/Onboarding.tsx` and `packages/tv-ui/src/hooks/useDeviceSignIn.ts` (expired state after `expires_at`, one press issues a new code); extend `packages/tv-ui/test/hooks.test.tsx`
+- [X] T032 [P] [US1] Make the second approval of an already-approved code return 409 "already signed in" in `services/lambdas/api/src/handlers/device.rs`; test in `services/lambdas/api/tests/api.rs`
+- [X] T033 [P] [US1] After approval, redirect the phone from `apps/web/src/pages/link.ts` to the upload page with the household session (no second sign-in); test in `apps/web/test/auth.test.ts`
+- [X] T034 [US1] Record TV name on `POST /device/poll` approval and expose it on `GET /me` in `services/lambdas/api/src/handlers/session.rs`
+- [ ] T035 [US1] (blocked 2026-09-09: no Vega SDK on the build machine) Verify on the Vega Virtual Device via `make tv-vvd-install`: code and QR shown, approval lands on Home under 5 s, session survives restart; record results in `specs/decisions-2026-09-09.md` section 6 (research R1, R2 verified: device)
 
-**Checkpoint**: US1 demonstrable on the Virtual Device
+**Checkpoint**: US1 demonstrable on the Virtual Device (code complete 2026-09-09; device run pending T035)
 
 ---
 
