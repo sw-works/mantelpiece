@@ -86,6 +86,16 @@ export class FakeApi extends TvApi {
     this.calls.push("map");
     return this.mapData;
   }
+  peopleState: { people_enabled: boolean; people: import("../src/api/client").PersonView[] } = { people_enabled: false, people: [] };
+  override async people() {
+    this.calls.push("people");
+    return this.peopleState;
+  }
+  override async setPeople(_token: string, enabled: boolean) {
+    this.calls.push(`people ${enabled ? "on" : "off"}`);
+    this.peopleState = { people_enabled: enabled, people: [] };
+    return { people_enabled: enabled };
+  }
   override async setKeeper(_token: string, mediaId: string) {
     this.calls.push(`keeper ${mediaId}`);
     return { keeper: mediaId, changed: true };

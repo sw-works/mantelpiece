@@ -6,6 +6,7 @@ export { TvApi, clockHints, creditFor, slides, storyOf } from "./api/client";
 export { Ask } from "./screens/Ask";
 export { JoinTrip } from "./screens/JoinTrip";
 export { MapView } from "./screens/MapView";
+export { People } from "./screens/People";
 export { ReviewChanges } from "./screens/ReviewChanges";
 export { Slideshow } from "./screens/Slideshow";
 export type { NowShowing } from "./screens/Slideshow";

@@ -168,6 +168,14 @@ export interface MapView {
   pins: Array<{ trip: string; name: string; lat: number; lon: number; start: string }>;
 }
 
+export interface PersonView {
+  id: string;
+  name: string | null;
+  media_count: number;
+  sample_media: string[];
+  faces: number;
+}
+
 export interface FeedEvent {
   seq: number;
   at: string;
@@ -312,6 +320,14 @@ export class TvApi {
 
   ask(token: string, question: string, tv?: string) {
     return this.call<AskResult>("POST", "/ask", { question, tv }, token);
+  }
+
+  people(token: string) {
+    return this.call<{ people_enabled: boolean; people: PersonView[] }>("GET", "/people", undefined, token);
+  }
+
+  setPeople(token: string, enabled: boolean) {
+    return this.call<{ people_enabled: boolean }>("POST", enabled ? "/people/enable" : "/people/disable", undefined, token);
   }
 
   memoriesHome(token: string, date?: string) {

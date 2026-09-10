@@ -11,6 +11,7 @@ import { JoinTrip } from "./screens/JoinTrip";
 import { MapView } from "./screens/MapView";
 import { MemoriesHome } from "./screens/MemoriesHome";
 import { Onboarding } from "./screens/Onboarding";
+import { People } from "./screens/People";
 import { ReviewChanges } from "./screens/ReviewChanges";
 import { Slideshow } from "./screens/Slideshow";
 import { TripView } from "./screens/TripView";
@@ -21,6 +22,7 @@ export type Route =
   | { name: "trip"; id: string; shared?: boolean }
   | { name: "join" }
   | { name: "map" }
+  | { name: "people" }
   | { name: "highlights"; id: string }
   | { name: "slideshow"; trip: Trip }
   | { name: "ask" }
@@ -53,7 +55,7 @@ export function App({ apiBase, api: injectedApi, sessionStore, tvName }: AppProp
       if (r.name === "trip") return { name: "home" };
       if (r.name === "highlights") return { name: "trip", id: r.id };
       if (r.name === "slideshow") return r.trip.id.startsWith("playlist:") ? { name: "ask" } : { name: "trip", id: r.trip.id };
-      if (r.name === "ask" || r.name === "review" || r.name === "join" || r.name === "map") return { name: "home" };
+      if (r.name === "ask" || r.name === "review" || r.name === "join" || r.name === "map" || r.name === "people") return { name: "home" };
       if (r.name === "invite") return r.tripId ? { name: "trip", id: r.tripId } : { name: "home" };
       return r;
     });
@@ -105,6 +107,7 @@ export function App({ apiBase, api: injectedApi, sessionStore, tvName }: AppProp
           onOpenTrip={(t) => setRoute({ name: "trip", id: t.id, shared: Boolean(t.shared_by) })}
           onJoin={() => setRoute({ name: "join" })}
           onMap={() => setRoute({ name: "map" })}
+          onPeople={() => setRoute({ name: "people" })}
           onPlay={(trip) => setRoute({ name: "slideshow", trip })}
           onLeave={(t) => api.leaveTrip(session.token, t.id).catch(() => undefined)}
           onInvite={() => setRoute({ name: "invite", tripId: null })}
@@ -127,6 +130,9 @@ export function App({ apiBase, api: injectedApi, sessionStore, tvName }: AppProp
           canManage={!route.shared}
         />
       );
+      break;
+    case "people":
+      screen = <People api={api} token={session.token} onPlay={(trip) => setRoute({ name: "slideshow", trip })} onBack={goBack} />;
       break;
     case "map":
       screen = <MapView api={api} token={session.token} onOpenTrip={(id) => setRoute({ name: "trip", id })} onBack={goBack} />;

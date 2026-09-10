@@ -30,6 +30,14 @@ export interface TripDay {
   route: { inferred: boolean };
 }
 
+export interface PersonView {
+  id: string;
+  name: string | null;
+  media_count: number;
+  sample_media: string[];
+  faces: number;
+}
+
 export type AskResult =
   | { mode: "describe"; tv: string; question: string; card: { answer: string; landmark: string | null; taken_by: string; when: string | null } }
   | { mode: "search"; question: string; playlist: string; count: number }
@@ -67,7 +75,7 @@ export class Api {
   ) {}
 
   private async call<T>(
-    method: "GET" | "POST" | "DELETE",
+    method: "GET" | "POST" | "PATCH" | "DELETE",
     path: string,
     body?: unknown,
     auth?: { bearer?: string; jwt?: string },
@@ -99,6 +107,23 @@ export class Api {
   /** Join a trip from another household by its code, for this phone's TV (F-411). */
   joinTrip(bearer: string, code: string) {
     return this.call<{ joined: boolean; trip: string; owner: string; name?: string; already?: boolean }>("POST", "/memberships", { code }, { bearer });
+  }
+
+  /** People (F-704): opt-in face groups, named and merged from the phone. */
+  people(bearer: string) {
+    return this.call<{ people_enabled: boolean; people: PersonView[] }>("GET", "/people", undefined, { bearer });
+  }
+
+  setPeople(bearer: string, enabled: boolean) {
+    return this.call<{ people_enabled: boolean }>("POST", enabled ? "/people/enable" : "/people/disable", undefined, { bearer });
+  }
+
+  updatePerson(bearer: string, id: string, body: { name?: string; merge_into?: string }) {
+    return this.call<PersonView>("PATCH", `/people/${id}`, body, { bearer });
+  }
+
+  myUploads(bearer: string) {
+    return this.call<Array<{ media_id: string; filename: string; kind: string; state: string; uploaded_at: string; trip: string | null }>>("GET", "/uploads/mine", undefined, { bearer });
   }
 
   /** What the TVs are showing right now (owner session). */

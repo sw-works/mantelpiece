@@ -19,6 +19,7 @@ export function MemoriesHome({
   onLeave,
   onMap,
   onPlay,
+  onPeople,
 }: {
   api: TvApi;
   token: string;
@@ -32,6 +33,7 @@ export function MemoriesHome({
   onLeave?: (trip: TripSummary) => Promise<void> | void;
   onMap?: () => void;
   onPlay?: (trip: Trip) => void;
+  onPeople?: () => void;
 }) {
   const [trips, setTrips] = useState<TripSummary[] | null>(null);
   const [memories, setMemories] = useState<MemoriesHomeView | null>(null);
@@ -65,6 +67,7 @@ export function MemoriesHome({
           {onReview && (pendingReviews > 0 || true) && (
             <FocusButton label={pendingReviews > 0 ? `Review changes (${pendingReviews})` : "Review changes"} onPress={onReview} testID="review" />
           )}
+          {onPeople && <FocusButton label="People" onPress={onPeople} testID="people" />}
           {onMap && <FocusButton label="Map" onPress={onMap} testID="map" />}
           {onJoin && <FocusButton label="Join a trip" onPress={onJoin} testID="join" />}
           {onAsk && <FocusButton label="Ask" onPress={onAsk} testID="ask" />}

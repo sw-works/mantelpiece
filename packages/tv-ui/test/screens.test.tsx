@@ -4,6 +4,7 @@ import { Highlights } from "../src/screens/Highlights";
 import { Invite } from "../src/screens/Invite";
 import { JoinTrip } from "../src/screens/JoinTrip";
 import { MapView } from "../src/screens/MapView";
+import { People } from "../src/screens/People";
 import { MemoriesHome } from "../src/screens/MemoriesHome";
 import { Onboarding } from "../src/screens/Onboarding";
 import { ReviewChanges } from "../src/screens/ReviewChanges";
@@ -119,6 +120,27 @@ describe("screens", () => {
     api.mapData = { url: null, pins: [] };
     await render(<MapView api={api} token="t" onOpenTrip={onOpen} onBack={() => undefined} />);
     await waitFor(() => expect(screen.getByTestId("empty")).toBeTruthy());
+  });
+
+  it("People lists clusters, plays a person's best and turns off", async () => {
+    const api = new FakeApi();
+    api.peopleState = {
+      people_enabled: true,
+      people: [
+        { id: "p1", name: "Maya", media_count: 12, sample_media: ["m4", "m9"], faces: 9 },
+        { id: "p2", name: null, media_count: 3, sample_media: ["m1"], faces: 3 },
+      ],
+    };
+    const onPlay = jest.fn();
+    await render(<People api={api} token="t" onPlay={onPlay} onBack={() => undefined} />);
+    await waitFor(() => expect(screen.getByTestId("person-p1")).toBeTruthy());
+    expect(screen.getByText("Unnamed · 3")).toBeTruthy();
+    await fireEvent.press(screen.getByTestId("focus-p1"));
+    await fireEvent.press(screen.getByTestId("play-person"));
+    expect(onPlay).toHaveBeenCalledWith(expect.objectContaining({ highlights: ["m4", "m9"] }));
+    await fireEvent.press(screen.getByTestId("turn-off"));
+    await waitFor(() => expect(screen.getByTestId("off")).toBeTruthy());
+    expect(api.calls).toContain("people off");
   });
 
   it("MemoriesHome explains the empty state", async () => {
