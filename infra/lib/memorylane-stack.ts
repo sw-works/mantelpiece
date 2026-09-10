@@ -1,7 +1,7 @@
 import * as path from "node:path";
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { CfnOutput, Duration, RemovalPolicy, Stack, type StackProps } from "aws-cdk-lib";
+import { CfnOutput, Duration, RemovalPolicy, Size, Stack, type StackProps } from "aws-cdk-lib";
 import * as apigw from "aws-cdk-lib/aws-apigatewayv2";
 import * as agentcore from "aws-cdk-lib/aws-bedrockagentcore";
 import { HttpJwtAuthorizer } from "aws-cdk-lib/aws-apigatewayv2-authorizers";
@@ -40,6 +40,7 @@ export interface MemoryLaneStackProps extends StackProps {
 const here = path.dirname(fileURLToPath(import.meta.url));
 const placeholderDir = path.resolve(here, "..", "assets", "placeholder");
 const cedarPolicyPath = path.resolve(here, "..", "policy", "tools.cedar");
+const ffmpegLayerDir = path.resolve(here, "..", "assets", "ffmpeg-layer");
 
 export class MemoryLaneStack extends Stack {
   readonly table: dynamodb.Table;
@@ -176,13 +177,50 @@ export class MemoryLaneStack extends Stack {
       }),
     );
 
-    // Signal: one execution per original object, started by the S3 event.
+    // Poster frames for videos (research R5): a static ffmpeg from a layer built by
+    // scripts/ffmpeg-layer.sh, well under the 250 MB unzipped limit. Without the binary
+    // the layer is a placeholder and the poster step fails at runtime, never at synth.
+    const ffmpegLayer = new lambda.LayerVersion(this, "Ffmpeg", {
+      code: lambda.Code.fromAsset(existsSync(path.join(ffmpegLayerDir, "bin", "ffmpeg")) ? ffmpegLayerDir : placeholderDir),
+      compatibleArchitectures: [lambda.Architecture.ARM_64],
+      description: "Static ffmpeg under /opt/bin for poster frames",
+    });
+    const posterFn = rustFunction("PosterFn", "poster", {
+      memorySize: 2048,
+      timeout: Duration.minutes(2),
+      ephemeralStorageSize: Size.gibibytes(2),
+      layers: [ffmpegLayer],
+      environment: {
+        TABLE_NAME: this.table.tableName,
+        MEDIA_BUCKET: this.bucket.bucketName,
+        FFMPEG: "/opt/bin/ffmpeg",
+        RUST_LOG: "info",
+      },
+    });
+    this.table.grantReadWriteData(posterFn);
+    this.bucket.grantReadWrite(posterFn);
+
+    // Signal: one execution per original object, started by the S3 event. Videos go on
+    // to the poster Lambda; photos are done.
     const signalTask = new sfnTasks.LambdaInvoke(this, "Signal", {
       lambdaFunction: ingestFn,
       outputPath: "$.Payload",
     });
+    const posterTask = new sfnTasks.LambdaInvoke(this, "Poster", {
+      lambdaFunction: posterFn,
+      payload: sfn.TaskInput.fromObject({
+        household: sfn.JsonPath.stringAt("$.household"),
+        media_id: sfn.JsonPath.stringAt("$.media_id"),
+      }),
+      outputPath: "$.Payload",
+    });
+    const signalChain = signalTask.next(
+      new sfn.Choice(this, "NeedsPoster")
+        .when(sfn.Condition.booleanEquals("$.poster", true), posterTask)
+        .otherwise(new sfn.Pass(this, "PhotoDone")),
+    );
     const signalMachine = new sfn.StateMachine(this, "SignalMachine", {
-      definitionBody: sfn.DefinitionBody.fromChainable(signalTask),
+      definitionBody: sfn.DefinitionBody.fromChainable(signalChain),
       timeout: Duration.minutes(10),
     });
     new events.Rule(this, "OriginalCreated", {
@@ -214,16 +252,26 @@ export class MemoryLaneStack extends Stack {
           task: "organize",
           household: sfn.JsonPath.stringAt("$.household"),
         }),
-        resultSelector: { "keepers.$": "$.Payload.keepers", "trips.$": "$.Payload.trips" },
+        resultSelector: {
+          "keepers.$": "$.Payload.keepers",
+          "keepers_manifest.$": "$.Payload.keepers_manifest",
+          "trips.$": "$.Payload.trips",
+        },
         resultPath,
       });
-    const enrichMap = new sfn.Map(this, "EnrichKeepers", {
-      itemsPath: "$.organize.keepers",
+    // F-108: a Distributed Map over the keepers manifest organize wrote to S3, so a
+    // 5,000-photo batch never hits the inline Map's payload limit. One execution per
+    // household caps that household's model calls at four in flight.
+    const enrichMap = new sfn.DistributedMap(this, "EnrichKeepers", {
+      itemReader: new sfn.S3JsonItemReader({
+        bucket: this.bucket,
+        key: sfn.JsonPath.stringAt("$.organize.keepers_manifest"),
+      }),
       maxConcurrency: 4,
       itemSelector: {
         task: "enrich",
         household: sfn.JsonPath.stringAt("$.household"),
-        media_id: sfn.JsonPath.stringAt("$$.Map.Item.Value"),
+        media_id: sfn.JsonPath.stringAt("$$.Map.Item.Value.media_id"),
       },
       resultPath: sfn.JsonPath.DISCARD,
     });
@@ -240,6 +288,7 @@ export class MemoryLaneStack extends Stack {
       definitionBody: sfn.DefinitionBody.fromChainable(organizeChain),
       timeout: Duration.hours(1),
     });
+    this.bucket.grantRead(organizeMachine, "manifests/*");
 
     const apiFn = rustFunction("ApiFn", "api", {
       environment: {

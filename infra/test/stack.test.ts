@@ -49,11 +49,11 @@ describe("MemoryLane stack", () => {
     });
   });
 
-  it("runs two Rust Lambdas on arm64 with the placeholder asset", () => {
+  it("runs three Rust Lambdas on arm64 with the placeholder asset", () => {
     const rust = template.findResources("AWS::Lambda::Function", {
       Properties: { Runtime: "provided.al2023" },
     });
-    expect(Object.keys(rust)).toHaveLength(2);
+    expect(Object.keys(rust)).toHaveLength(3);
     template.hasResourceProperties("AWS::Lambda::Function", {
       Runtime: "provided.al2023",
       Architectures: ["arm64"],
@@ -64,6 +64,22 @@ describe("MemoryLane stack", () => {
       MemorySize: 2048,
       Environment: { Variables: Match.objectLike({ EVENT_BUS: Match.anyValue() }) },
     });
+  });
+
+  it("gives videos a poster frame from an ffmpeg layer after signal", () => {
+    template.resourceCountIs("AWS::Lambda::LayerVersion", 1);
+    template.hasResourceProperties("AWS::Lambda::LayerVersion", { CompatibleArchitectures: ["arm64"] });
+    template.hasResourceProperties("AWS::Lambda::Function", {
+      EphemeralStorage: { Size: 2048 },
+      Environment: { Variables: Match.objectLike({ FFMPEG: "/opt/bin/ffmpeg" }) },
+      Layers: Match.anyValue(),
+    });
+    const machines = template.findResources("AWS::StepFunctions::StateMachine");
+    const definitions = Object.values(machines).map((m) => JSON.stringify(m.Properties.DefinitionString));
+    const signal = definitions.find((d) => d.includes("NeedsPoster"));
+    expect(signal).toBeDefined();
+    expect(signal).toContain("$.poster");
+    expect(signal).toContain("PhotoDone");
   });
 
   it("starts the signal machine from S3 object-created events under originals/", () => {
@@ -85,7 +101,11 @@ describe("MemoryLane stack", () => {
     expect(organize).toBeDefined();
     expect(organize).toContain("EnrichKeepers");
     expect(organize).toContain("OrganizeFinal");
-    expect(organize).toContain("$.organize.keepers");
+    expect(organize).toContain("$.organize.keepers_manifest");
+    // F-108: Distributed Map reading the manifest from S3, four keepers in flight.
+    expect(organize).toContain("DISTRIBUTED");
+    expect(organize).toContain("ItemReader");
+    expect(organize).toContain("MaxConcurrency");
   });
 
   it("exposes the API with JWT-guarded approve and join routes plus a catch-all", () => {
