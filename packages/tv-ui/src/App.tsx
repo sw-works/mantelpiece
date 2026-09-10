@@ -4,6 +4,8 @@ import { type Trip, TvApi } from "./api/client";
 import { Ticker } from "./components/Ticker";
 import { useEvents } from "./hooks/useEvents";
 import { useRemoteKeys } from "./hooks/useRemoteKeys";
+import { type AudioPlayer } from "./audio";
+import { Ambient } from "./screens/Ambient";
 import { Ask } from "./screens/Ask";
 import { Highlights } from "./screens/Highlights";
 import { Invite } from "./screens/Invite";
@@ -23,6 +25,7 @@ export type Route =
   | { name: "join" }
   | { name: "map" }
   | { name: "people" }
+  | { name: "ambient" }
   | { name: "highlights"; id: string }
   | { name: "slideshow"; trip: Trip }
   | { name: "ask" }
@@ -35,12 +38,18 @@ export interface AppProps {
   sessionStore?: SessionStore;
   /** Name of this TV as the phone and other households see it. */
   tvName?: string;
+  /** Platform audio for narration; absent means captions only (F-709). */
+  audio?: AudioPlayer | null;
+  /** Read stories aloud or as captions in the slideshow. */
+  narration?: boolean;
+  /** Minutes of stillness on Memories home before the ambient slideshow (F-406). */
+  idleMs?: number;
 }
 
 const DEFAULT_API = "https://api.memorylane.test";
 
 /** State-based router: no navigation library, no native screens module. */
-export function App({ apiBase, api: injectedApi, sessionStore, tvName }: AppProps) {
+export function App({ apiBase, api: injectedApi, sessionStore, tvName, audio = null, narration = false, idleMs = 5 * 60 * 1000 }: AppProps) {
   const api = useMemo(() => injectedApi ?? new TvApi(apiBase ?? DEFAULT_API), [injectedApi, apiBase]);
   const store = useMemo(() => sessionStore ?? new MemorySessionStore(), [sessionStore]);
   const [deviceId] = useState(() => newDeviceId());
@@ -55,17 +64,24 @@ export function App({ apiBase, api: injectedApi, sessionStore, tvName }: AppProp
       if (r.name === "trip") return { name: "home" };
       if (r.name === "highlights") return { name: "trip", id: r.id };
       if (r.name === "slideshow") return r.trip.id.startsWith("playlist:") ? { name: "ask" } : { name: "trip", id: r.trip.id };
-      if (r.name === "ask" || r.name === "review" || r.name === "join" || r.name === "map" || r.name === "people") return { name: "home" };
+      if (r.name === "ask" || r.name === "review" || r.name === "join" || r.name === "map" || r.name === "people" || r.name === "ambient") return { name: "home" };
       if (r.name === "invite") return r.tripId ? { name: "trip", id: r.tripId } : { name: "home" };
       return r;
     });
   }, []);
   // The slideshow owns the remote while it is up.
-  useRemoteKeys({ onBack: route.name === "home" || route.name === "slideshow" ? undefined : goBack });
+  useRemoteKeys({ onBack: route.name === "home" || route.name === "slideshow" || route.name === "ambient" ? undefined : goBack });
 
   useEffect(() => {
     store.load().then((s) => setSession(s ? { token: s.token, household: s.household } : null));
   }, [store]);
+
+  // F-406: stillness on Memories home becomes the ambient slideshow.
+  useEffect(() => {
+    if (route.name !== "home" || !session || idleMs <= 0) return;
+    const t = setTimeout(() => setRoute({ name: "ambient" }), idleMs);
+    return () => clearTimeout(t);
+  }, [route, session, idleMs]);
 
   // What is on screen, for "what's that statue" from the phone or Alexa+ (research R3).
   const token = session?.token;
@@ -143,7 +159,10 @@ export function App({ apiBase, api: injectedApi, sessionStore, tvName }: AppProp
       screen = <JoinTrip api={api} token={session.token} onJoined={(id) => setRoute({ name: "trip", id, shared: true })} onBack={goBack} />;
       break;
     case "slideshow":
-      screen = <Slideshow api={api} token={session.token} trip={route.trip} onBack={goBack} onPresence={onPresence} answer={answer} />;
+      screen = <Slideshow api={api} token={session.token} trip={route.trip} onBack={goBack} onPresence={onPresence} answer={answer} audio={audio} narration={narration} />;
+      break;
+    case "ambient":
+      screen = <Ambient api={api} token={session.token} onBack={goBack} onPresence={onPresence} />;
       break;
     case "ask":
       screen = <Ask api={api} token={session.token} onPlay={(trip) => setRoute({ name: "slideshow", trip })} onBack={goBack} />;
@@ -161,7 +180,7 @@ export function App({ apiBase, api: injectedApi, sessionStore, tvName }: AppProp
   return (
     <View style={{ flex: 1 }}>
       {screen}
-      {route.name !== "invite" && route.name !== "slideshow" && <Ticker line={feed.ticker} />}
+      {route.name !== "invite" && route.name !== "slideshow" && route.name !== "ambient" && <Ticker line={feed.ticker} />}
     </View>
   );
 }

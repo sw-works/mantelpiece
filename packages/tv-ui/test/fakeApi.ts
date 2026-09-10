@@ -101,6 +101,19 @@ export class FakeApi extends TvApi {
     this.calls.push(`reactions ${tripId}`);
     return this.reactionsView;
   }
+  playlistList: import("../src/api/client").Playlist[] = [];
+  override async playlists() {
+    this.calls.push("playlists");
+    return this.playlistList;
+  }
+  override async playlist(_token: string, id: string) {
+    this.calls.push(`playlist ${id}`);
+    return this.playlistList.find((p) => p.id === id)!;
+  }
+  override async narrationUrl(_token: string, tripId: string, day: number) {
+    this.calls.push(`narration ${tripId} ${day}`);
+    return { url: `https://cdn.test/${tripId}-${day}.mp3`, day };
+  }
   override async setKeeper(_token: string, mediaId: string) {
     this.calls.push(`keeper ${mediaId}`);
     return { keeper: mediaId, changed: true };

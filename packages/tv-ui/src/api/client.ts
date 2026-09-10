@@ -319,6 +319,14 @@ export class TvApi {
     return this.call<Playlist>("GET", `/playlists/${id}`, undefined, token);
   }
 
+  playlists(token: string) {
+    return this.call<Playlist[]>("GET", "/playlists", undefined, token);
+  }
+
+  narrationUrl(token: string, tripId: string, day: number) {
+    return this.call<{ url: string; day: number }>("GET", `/trips/${tripId}/narration?day=${day}`, undefined, token);
+  }
+
   putPresence(token: string, presence: { device_id: string; media: string; trip?: string | null; day?: number | null; paused: boolean }) {
     return this.call<void>("PUT", "/presence", presence, token);
   }

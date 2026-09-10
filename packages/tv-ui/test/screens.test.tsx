@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react-native";
+import { Ambient } from "../src/screens/Ambient";
 import { Ask } from "../src/screens/Ask";
 import { Highlights } from "../src/screens/Highlights";
 import { Invite } from "../src/screens/Invite";
@@ -228,6 +229,44 @@ describe("screens", () => {
     await fireEvent.changeText(screen.getByTestId("query"), "snow");
     await fireEvent.press(screen.getByTestId("search"));
     await waitFor(() => expect(screen.getByTestId("nothing")).toBeTruthy());
+  });
+
+  it("Ambient plays the Concierge's ambient playlist and explains an empty one", async () => {
+    const api = new FakeApi();
+    api.playlistList = [
+      { id: "p-old", name: "Kyoto highlights", source: "trip_curator:kyoto", media: ["m1"], created_at: "" },
+      { id: "p-amb", name: "Ambient", source: "ambient from favourite tag beach", media: ["m4", "m9"], created_at: "" },
+    ];
+    await render(<Ambient api={api} token="t" onBack={() => undefined} intervalMs={100000} />);
+    await waitFor(() => expect(screen.getByTestId("caption").props.children).toBe("Ambient · 1 of 2"));
+    expect(api.calls).toContain("playlist p-amb");
+    api.playlistList = [];
+    await render(<Ambient api={api} token="t" onBack={() => undefined} />);
+    await waitFor(() => expect(screen.getByTestId("empty")).toBeTruthy());
+  });
+
+  it("Slideshow narrates a day as captions and through the platform audio when given", async () => {
+    const api = new FakeApi();
+    const kyoto = {
+      ...trip,
+      days: [
+        { index: 1, date: "2026-04-03", media: ["m1"], title: "Day 1", story: "Hanyu started at Kinkaku-ji.", route: { points: [], inferred: false, map_key: null } },
+        { index: 2, date: "2026-04-04", media: ["m2"], title: "Day 2", story: "Maya arrived.", route: { points: [], inferred: false, map_key: null } },
+      ],
+      narrative: null,
+      route: { points: [], inferred: false, map_key: null },
+    };
+    const played: string[] = [];
+    const audio = { play: async (url: string) => void played.push(url), stop: () => undefined };
+    await render(<Slideshow api={api} token="t" trip={kyoto} onBack={() => undefined} intervalMs={100000} audio={audio} narration />);
+    expect(screen.getByTestId("caption-story").props.children.props.children).toBe("Hanyu started at Kinkaku-ji.");
+    await waitFor(() => expect(played).toEqual(["https://cdn.test/kyoto-1.mp3"]));
+    await fireEvent.press(screen.getByTestId("next-day"));
+    await waitFor(() => expect(played).toEqual(["https://cdn.test/kyoto-1.mp3", "https://cdn.test/kyoto-2.mp3"]));
+    await fireEvent.press(screen.getByTestId("captions"));
+    expect(screen.queryByTestId("caption-story")).toBeNull();
+    await render(<Slideshow api={api} token="t" trip={kyoto} onBack={() => undefined} intervalMs={100000} narration />);
+    expect(screen.getByTestId("caption-story")).toBeTruthy();
   });
 
   it("Slideshow draws the answer card over the photo", async () => {

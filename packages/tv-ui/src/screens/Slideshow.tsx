@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Text, View } from "react-native";
 import { slides as slidesOf, type Trip, type TvApi } from "../api/client";
+import { type AudioPlayer } from "../audio";
 import { FocusButton } from "../components/FocusButton";
 import { KenBurns } from "../components/KenBurns";
 import { RemoteImage } from "../components/RemoteImage";
@@ -32,6 +33,8 @@ export function Slideshow({
   onPresence,
   answer,
   intervalMs = 6000,
+  audio,
+  narration = false,
 }: {
   api: TvApi;
   token: string;
@@ -41,6 +44,10 @@ export function Slideshow({
   /** The latest answer card from the feed, drawn over the photo (F-405). */
   answer?: AnswerCard | null;
   intervalMs?: number;
+  /** Platform audio, when the shell has one; captions otherwise (F-709). */
+  audio?: AudioPlayer | null;
+  /** Read the day's story: audio when possible, captions always. */
+  narration?: boolean;
 }) {
   const slides = useMemo(() => slidesOf(trip), [trip]);
   const [index, setIndex] = useState(0);
@@ -69,6 +76,19 @@ export function Slideshow({
   );
   const togglePause = useCallback(() => setPaused((p) => !p), []);
   useRemoteKeys({ onBack, onPlayPause: togglePause });
+  const [captions, setCaptions] = useState(narration);
+  const [spoken, setSpoken] = useState<number | null>(null);
+  // F-709: on a new day, play its narration if the platform can; captions carry the text.
+  useEffect(() => {
+    if (!narration || !current || current.day === spoken) return;
+    setSpoken(current.day);
+    if (!audio || trip.id.startsWith("playlist:")) return;
+    api
+      .narrationUrl(token, trip.id, current.day)
+      .then((r) => audio.play(r.url))
+      .catch(() => undefined);
+  }, [narration, current, spoken, audio, api, token, trip.id]);
+  useEffect(() => () => audio?.stop(), [audio]);
 
   if (!current) {
     return (
@@ -79,11 +99,17 @@ export function Slideshow({
     );
   }
   const dayInfo = trip.days.find((d) => d.index === current.day);
+  const caption = captions && dayInfo?.story ? dayInfo.story : null;
   return (
     <View style={{ flex: 1, backgroundColor: "#000" }}>
       <KenBurns slideKey={current.media} paused={paused} durationMs={intervalMs}>
         <RemoteImage api={api} token={token} mediaId={current.media} rendition="tv" width={1920} height={1080} />
       </KenBurns>
+      {caption && (
+        <View testID="caption-story" style={{ position: "absolute", left: theme.safe.x, right: theme.safe.x, bottom: theme.safe.y + 90, padding: 16, borderRadius: theme.radius, backgroundColor: "#000a" }}>
+          <Text style={{ color: theme.fg, fontSize: theme.small, lineHeight: 30 }}>{caption}</Text>
+        </View>
+      )}
       {answer && (
         <View testID="answer-card" style={{ position: "absolute", top: theme.safe.y, left: theme.safe.x, right: theme.safe.x, padding: 24, borderRadius: theme.radius, backgroundColor: "#000c", gap: 8 }}>
           <Text style={{ color: theme.muted, fontSize: theme.small }}>{answer.question}</Text>
@@ -98,6 +124,7 @@ export function Slideshow({
           <FocusButton label={paused ? "Play" : "Pause"} onPress={togglePause} preferred testID="playpause" />
           <FocusButton label="Previous day" onPress={() => jumpDay(-1)} testID="prev-day" />
           <FocusButton label="Next day" onPress={() => jumpDay(1)} testID="next-day" />
+          {dayInfo?.story && <FocusButton label={captions ? "Captions off" : "Captions"} onPress={() => setCaptions((c) => !c)} testID="captions" />}
           <FocusButton label="Back" onPress={onBack} testID="back" />
         </View>
       </View>
