@@ -25,6 +25,8 @@ def handle_event(tools: Tools, model: Model, detail_type: str, detail: dict[str,
         )
     if detail_type == "dedup.proposal":
         return workflows.dedup_steward(tools, household, detail.get("trip"))
-    if detail_type == "nightly":
-        return workflows.household_patterns(tools, household, detail.get("feedback"))
+    if detail_type == "cleanup.candidates":
+        return workflows.quick_cleanup(tools, household, detail.get("trip"))
+    if detail_type in {"nightly", "nightly.tick"}:
+        return workflows.nightly(tools, household, detail.get("feedback"))
     return None

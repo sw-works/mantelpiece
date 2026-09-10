@@ -112,6 +112,9 @@ class Tools(Protocol):
     ) -> list[CleanupCandidate]: ...
     def memories_for(self, household: str, date: str | None = None) -> Memories: ...
     def apply_cleanup(self, household: str, media_ids: list[str], confirmation: str) -> int: ...
+    def purge_expired(self, household: str) -> int:
+        """Delete items whose 30-day restore window closed. Reversible-safe: only expired."""
+        ...
 
 
 @dataclass
@@ -230,6 +233,12 @@ class InMemoryTools:
         self.log.append(f"memories_for {date}")
         key = date or "today"
         return self.memories.get(key, Memories(date=key))
+
+    def purge_expired(self, household: str) -> int:
+        self.log.append("purge_expired")
+        purged = len(self.removed)
+        self.removed = []
+        return purged
 
     def apply_cleanup(self, household: str, media_ids: list[str], confirmation: str) -> int:
         if not confirmation:

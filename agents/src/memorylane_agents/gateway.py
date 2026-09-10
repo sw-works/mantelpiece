@@ -131,6 +131,9 @@ class GatewayTools:
     def memories_for(self, household: str, date: str | None = None) -> Memories:
         return Memories(**self._call("memories_for", household=household, date=date))
 
+    def purge_expired(self, household: str) -> int:
+        return int(self._call("purge_expired", household=household) or 0)
+
     def apply_cleanup(self, household: str, media_ids: list[str], confirmation: str) -> int:
         return int(
             self._call(

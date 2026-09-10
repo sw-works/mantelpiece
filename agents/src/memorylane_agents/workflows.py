@@ -194,6 +194,43 @@ def dedup_steward(tools: Tools, household: str, trip_id: str | None = None) -> D
     return DedupResult(len(groups), removable, applied, True)
 
 
+@dataclass
+class CleanupResult:
+    candidates: int
+    reasons: list[str]
+    applied: int
+    confirmed: bool
+
+
+def quick_cleanup(tools: Tools, household: str, trip_id: str | None = None) -> CleanupResult:
+    """F-705: screenshots, documents, receipts and blurry frames become one proposal; the
+    remote decides, and only its token removes anything."""
+    candidates = tools.list_cleanup_candidates(household, trip_id)
+    if not candidates:
+        return CleanupResult(0, [], 0, False)
+    reasons = sorted({c.reason for c in candidates})
+    tools.push_event(
+        household,
+        {"type": "cleanup.proposal", "trip": trip_id, "count": len(candidates), "reasons": reasons},
+    )
+    action = {"action": "apply_cleanup", "media_ids": [c.media for c in candidates]}
+    token = tools.request_confirmation(household, action)
+    if not token:
+        return CleanupResult(len(candidates), reasons, 0, False)
+    applied = tools.apply_cleanup(household, action["media_ids"], token)
+    return CleanupResult(len(candidates), reasons, applied, True)
+
+
+def nightly(
+    tools: Tools, household: str, feedback: list[dict[str, Any]] | None = None
+) -> dict[str, Any]:
+    """The Concierge's nightly tick: household patterns, then purge what expired. Memories
+    join here in US8."""
+    playlist = household_patterns(tools, household, feedback)
+    purged = tools.purge_expired(household)
+    return {"ambient_playlist": playlist, "purged": purged}
+
+
 def share(tools: Tools, model: Model, household: str, request: str) -> str | None:
     """W5: "send Kyoto highlights to grandma" becomes an expiring link, after confirmation."""
     result = ask_archive(tools, model, household, request)
