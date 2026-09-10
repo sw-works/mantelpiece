@@ -221,14 +221,62 @@ def quick_cleanup(tools: Tools, household: str, trip_id: str | None = None) -> C
     return CleanupResult(len(candidates), reasons, applied, True)
 
 
+@dataclass
+class MemoriesResult:
+    date: str
+    on_this_day: int
+    then_and_now: int
+    playlists: list[str]
+
+
+def memories_nightly(tools: Tools, household: str, date: str | None = None) -> MemoriesResult:
+    """F-701 to F-703: turn today's resurfacing sets into playlists and tell the TV."""
+    memories = tools.memories_for(household, date)
+    playlists: list[str] = []
+    if memories.on_this_day:
+        playlists.append(
+            tools.create_playlist(
+                household,
+                f"On this day, {memories.date}",
+                memories.on_this_day,
+                source=f"on_this_day:{memories.date}",
+            )
+        )
+    if memories.best_of:
+        playlists.append(
+            tools.create_playlist(
+                household, "Best of the month", memories.best_of, source=f"best_of:{memories.date}"
+            )
+        )
+    if memories.on_this_day or memories.then_and_now:
+        tools.push_event(
+            household,
+            {
+                "type": "memories.ready",
+                "date": memories.date,
+                "on_this_day": len(memories.on_this_day),
+                "then_and_now": len(memories.then_and_now),
+            },
+        )
+    return MemoriesResult(
+        memories.date, len(memories.on_this_day), len(memories.then_and_now), playlists
+    )
+
+
 def nightly(
     tools: Tools, household: str, feedback: list[dict[str, Any]] | None = None
 ) -> dict[str, Any]:
-    """The Concierge's nightly tick: household patterns, then purge what expired. Memories
-    join here in US8."""
+    """The Concierge's nightly tick: household patterns, today's memories, then purge
+    what expired (contracts/events.md: the only consumer of nightly.tick)."""
     playlist = household_patterns(tools, household, feedback)
+    memories = memories_nightly(tools, household)
     purged = tools.purge_expired(household)
-    return {"ambient_playlist": playlist, "purged": purged}
+    return {
+        "ambient_playlist": playlist,
+        "memories": memories.playlists,
+        "on_this_day": memories.on_this_day,
+        "purged": purged,
+    }
 
 
 def share(tools: Tools, model: Model, household: str, request: str) -> str | None:
