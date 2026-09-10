@@ -229,13 +229,13 @@ policy that every story builds on.
 
 **Independent Test**: multi-year archive shows an On this day row on a date with history, a Then and now card for a repeated place, and every trip on the map.
 
-- [ ] T081 [US8] Add `services/crates/trips/src/memories.rs`: `on_this_day(date)`, `then_and_now(geohash cell, years apart)`, `best_of(period)` over media and trips; unit tests in the same file (F-701 to F-703)
-- [ ] T082 [P] [US8] Add `GET /memories/home` and `GET /map` in `services/lambdas/api/src/handlers/memories.rs`; `Maps::pins_map` for all trips; test in `services/lambdas/api/tests/api.rs` (F-707)
-- [ ] T083 [P] [US8] Add the `memories_nightly` workflow (creates On this day and best-of playlists, emits `memories.ready`) in `agents/src/memorylane_agents/workflows.py`, routed from `nightly.tick`; test in `agents/tests/test_workflows.py`
-- [ ] T084 [P] [US8] Render the On this day row and Then and now card on `packages/tv-ui/src/screens/MemoriesHome.tsx` and build `packages/tv-ui/src/screens/MapView.tsx` (mockups: Memories home and Map view artboards); tests in `packages/tv-ui/test/screens.test.tsx`
-- [ ] T085 [US8] Add Ken Burns motion (Animated scale and translate per slide, reduced when a slide is paused) to `packages/tv-ui/src/screens/Slideshow.tsx` (F-708)
+- [X] T081 [US8] Add `services/crates/trips/src/memories.rs`: `on_this_day(date)`, `then_and_now(geohash cell, years apart)`, `best_of(period)` over media and trips; unit tests in the same file (F-701 to F-703)
+- [X] T082 [P] [US8] Add `GET /memories/home` and `GET /map` in `services/lambdas/api/src/handlers/memories.rs`; `Maps::pins_map` for all trips; test in `services/lambdas/api/tests/api.rs` (F-707)
+- [X] T083 [P] [US8] Add the `memories_nightly` workflow (creates On this day and best-of playlists, emits `memories.ready`) in `agents/src/memorylane_agents/workflows.py`, routed from `nightly.tick`; test in `agents/tests/test_workflows.py`
+- [X] T084 [P] [US8] Render the On this day row and Then and now card on `packages/tv-ui/src/screens/MemoriesHome.tsx` and build `packages/tv-ui/src/screens/MapView.tsx` (mockups: Memories home and Map view artboards); tests in `packages/tv-ui/test/screens.test.tsx`
+- [X] T085 [US8] Add Ken Burns motion (Animated scale and translate per slide, reduced when a slide is paused) to `packages/tv-ui/src/screens/Slideshow.tsx` (F-708)
 
-**Checkpoint**: home row, card, map and motion visible
+**Checkpoint**: home row, card, map and motion visible (code complete 2026-09-09)
 
 ---
 

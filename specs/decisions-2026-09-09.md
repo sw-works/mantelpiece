@@ -415,3 +415,20 @@ compile-checked only.
   badges with Leave on Memories home, Promote to co-editor on the trip's contributor
   list, and no management actions on a joined trip. Phone: `link.html?join=<code>` makes
   the phone's linked TV join.
+
+## 19. US8 memories (tasks T081 to T085)
+
+- `memorylane_trips::memories`: On this day (same month and day, earlier years), Then and
+  now (same 500 m place, best photo from the earliest and latest year, at least a year
+  apart, one pair per roughly 1 km cell) and best of a month or year (one per burst),
+  all keepers only, hidden and removed excluded, ranked by the pipeline's score. Pure
+  functions, unit-tested.
+- `GET /memories/home?date=` serves those sets plus last month's and last year's best;
+  `GET /map` draws one pin per trip with a route through `Maps`, cached in S3 under a key
+  that names the number of trips, and returns the pins for labels.
+- The nightly tick now runs `memories_nightly` between household patterns and the purge:
+  On this day and best-of become playlists and `memories.ready` goes to the feed on days
+  that have something.
+- TV: Memories home gains an On this day row with Play and a Then and now card, a Map
+  screen with the pins list, and the slideshow drifts and zooms each slide (Ken Burns),
+  held still while paused so the paused photo is the one a question refers to.
