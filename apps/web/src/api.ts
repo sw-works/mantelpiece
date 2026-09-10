@@ -30,6 +30,11 @@ export interface TripDay {
   route: { inferred: boolean };
 }
 
+export type AskResult =
+  | { mode: "describe"; tv: string; question: string; card: { answer: string; landmark: string | null; taken_by: string; when: string | null } }
+  | { mode: "search"; question: string; playlist: string; count: number }
+  | { mode: "nothing"; question: string; hint: string };
+
 /** The read-only view of one trip (F-159). */
 export interface TripView {
   id: string;
@@ -89,6 +94,15 @@ export class Api {
 
   joinAsGuest(code: string, displayName: string) {
     return this.call<Joined>("POST", "/join", { code, display_name: displayName, device_id: this.deviceId });
+  }
+
+  /** What the TVs are showing right now (owner session). */
+  presence(bearer: string) {
+    return this.call<Array<{ device_id: string; media: string; trip: string | null; day: number | null; paused: boolean; at: string }>>("GET", "/presence", undefined, { bearer });
+  }
+
+  ask(bearer: string, question: string, tv?: string) {
+    return this.call<AskResult>("POST", "/ask", { question, tv }, { bearer });
   }
 
   /** The read-only trip page: no session, just the trip code. */

@@ -51,6 +51,14 @@ export class FakeApi extends TvApi {
     this.calls.push(`regenerate ${tripId}`);
     return { requested: true };
   }
+  searchResults: Array<{ media: string; score: number; trip: string | null; contributor: string }> = [];
+  override async search(_token: string, query: string) {
+    this.calls.push(`search ${query}`);
+    return { query, results: this.searchResults };
+  }
+  override async putPresence(_token: string, p: { device_id: string; media: string; paused: boolean }) {
+    this.calls.push(`presence ${p.device_id} ${p.media} ${p.paused ? "paused" : "playing"}`);
+  }
   override async setKeeper(_token: string, mediaId: string) {
     this.calls.push(`keeper ${mediaId}`);
     return { keeper: mediaId, changed: true };

@@ -35,6 +35,8 @@ export function describe(event: FeedEvent): string | null {
       return `${String(event.member_name)} joined`;
     case "memories.ready":
       return "New memories for today";
+    case "answer.card":
+      return `Answer: ${String(event.answer)}`;
     default:
       return null;
   }

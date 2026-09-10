@@ -4,6 +4,7 @@ import { type Trip, TvApi } from "./api/client";
 import { Ticker } from "./components/Ticker";
 import { useEvents } from "./hooks/useEvents";
 import { useRemoteKeys } from "./hooks/useRemoteKeys";
+import { Ask } from "./screens/Ask";
 import { Highlights } from "./screens/Highlights";
 import { Invite } from "./screens/Invite";
 import { MemoriesHome } from "./screens/MemoriesHome";
@@ -17,6 +18,7 @@ export type Route =
   | { name: "trip"; id: string }
   | { name: "highlights"; id: string }
   | { name: "slideshow"; trip: Trip }
+  | { name: "ask" }
   | { name: "invite"; tripId: string | null };
 
 export interface AppProps {
@@ -44,7 +46,8 @@ export function App({ apiBase, api: injectedApi, sessionStore, tvName }: AppProp
     setRoute((r) => {
       if (r.name === "trip") return { name: "home" };
       if (r.name === "highlights") return { name: "trip", id: r.id };
-      if (r.name === "slideshow") return { name: "trip", id: r.trip.id };
+      if (r.name === "slideshow") return r.trip.id.startsWith("playlist:") ? { name: "ask" } : { name: "trip", id: r.trip.id };
+      if (r.name === "ask") return { name: "home" };
       if (r.name === "invite") return r.tripId ? { name: "trip", id: r.tripId } : { name: "home" };
       return r;
     });
@@ -55,6 +58,19 @@ export function App({ apiBase, api: injectedApi, sessionStore, tvName }: AppProp
   useEffect(() => {
     store.load().then((s) => setSession(s ? { token: s.token, household: s.household } : null));
   }, [store]);
+
+  // What is on screen, for "what's that statue" from the phone or Alexa+ (research R3).
+  const token = session?.token;
+  const onPresence = useCallback(
+    (now: { media: string; day: number; paused: boolean }) => {
+      if (!token) return;
+      const trip = route.name === "slideshow" && !route.trip.id.startsWith("playlist:") ? route.trip.id : null;
+      api.putPresence(token, { device_id: deviceId, media: now.media, trip, day: now.day, paused: now.paused }).catch(() => undefined);
+    },
+    [api, token, deviceId, route],
+  );
+  const lastAnswer = [...feed.recent].reverse().find((e) => e.type === "answer.card");
+  const answer = lastAnswer ? { question: String(lastAnswer.question), answer: String(lastAnswer.answer), media: lastAnswer.media as string | null } : null;
 
   if (session === undefined) return <View style={{ flex: 1, backgroundColor: "#0b0b0f" }} />;
   if (!session) {
@@ -81,6 +97,7 @@ export function App({ apiBase, api: injectedApi, sessionStore, tvName }: AppProp
           tripsVersion={feed.tripsVersion}
           onOpenTrip={(t) => setRoute({ name: "trip", id: t.id })}
           onInvite={() => setRoute({ name: "invite", tripId: null })}
+          onAsk={() => setRoute({ name: "ask" })}
         />
       );
       break;
@@ -98,7 +115,10 @@ export function App({ apiBase, api: injectedApi, sessionStore, tvName }: AppProp
       );
       break;
     case "slideshow":
-      screen = <Slideshow api={api} token={session.token} trip={route.trip} onBack={goBack} />;
+      screen = <Slideshow api={api} token={session.token} trip={route.trip} onBack={goBack} onPresence={onPresence} answer={answer} />;
+      break;
+    case "ask":
+      screen = <Ask api={api} token={session.token} onPlay={(trip) => setRoute({ name: "slideshow", trip })} onBack={goBack} />;
       break;
     case "highlights":
       screen = <Highlights api={api} token={session.token} tripId={route.id} onBack={() => setRoute({ name: "trip", id: route.id })} />;

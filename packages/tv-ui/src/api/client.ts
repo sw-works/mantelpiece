@@ -78,6 +78,42 @@ export function clockHints(trip: Trip): string[] {
     .map((o) => `${trip.contributor_names?.[o.contributor] ?? o.contributor}'s clock corrected by ${Math.round(Math.abs(o.seconds) / 60)} min`);
 }
 
+export interface SearchHit {
+  media: string;
+  score: number;
+  trip: string | null;
+  contributor: string;
+}
+
+export interface Playlist {
+  id: string;
+  name: string;
+  source: string;
+  media: string[];
+  created_at: string;
+}
+
+export type AskResult =
+  | { mode: "describe"; tv: string; question: string; card: { answer: string; landmark: string | null; taken_by: string; when: string | null; related: string[]; media: string } }
+  | { mode: "search"; question: string; playlist: string; count: number }
+  | { mode: "nothing"; question: string; hint: string };
+
+/** A playlist as something the Slideshow can play: one day holding every item. */
+export function playlistAsTrip(name: string, media: string[]): Trip {
+  return {
+    id: `playlist:${name}`,
+    name,
+    start: "",
+    end: "",
+    hero: media[0] ?? null,
+    highlights: media,
+    contributors: [],
+    days: [{ index: 1, date: "", media, title: name, route: { points: [], inferred: false, map_key: null } }],
+    narrative: null,
+    route: { points: [], inferred: false, map_key: null },
+  };
+}
+
 export interface FeedEvent {
   seq: number;
   at: string;
@@ -110,7 +146,7 @@ export class TvApi {
     private readonly fetchFn: typeof fetch = fetch,
   ) {}
 
-  private async call<T>(method: "GET" | "POST" | "DELETE", path: string, body?: unknown, bearer?: string): Promise<T> {
+  private async call<T>(method: "GET" | "POST" | "PUT" | "DELETE", path: string, body?: unknown, bearer?: string): Promise<T> {
     const headers: Record<string, string> = {};
     if (body !== undefined) headers["content-type"] = "application/json";
     if (bearer) headers["authorization"] = `Bearer ${bearer}`;
@@ -181,6 +217,22 @@ export class TvApi {
 
   setKeeper(token: string, mediaId: string) {
     return this.call<{ keeper: string; changed?: boolean }>("POST", `/media/${mediaId}/keeper`, undefined, token);
+  }
+
+  search(token: string, query: string, trip?: string) {
+    return this.call<{ query: string; results: SearchHit[] }>("POST", "/search", { query, trip }, token);
+  }
+
+  playlist(token: string, id: string) {
+    return this.call<Playlist>("GET", `/playlists/${id}`, undefined, token);
+  }
+
+  putPresence(token: string, presence: { device_id: string; media: string; trip?: string | null; day?: number | null; paused: boolean }) {
+    return this.call<void>("PUT", "/presence", presence, token);
+  }
+
+  ask(token: string, question: string, tv?: string) {
+    return this.call<AskResult>("POST", "/ask", { question, tv }, token);
   }
 
   setFlag(token: string, mediaId: string, flag: "pin" | "hide", value: boolean) {

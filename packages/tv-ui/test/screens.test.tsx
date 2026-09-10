@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react-native";
+import { Ask } from "../src/screens/Ask";
 import { Highlights } from "../src/screens/Highlights";
 import { Invite } from "../src/screens/Invite";
 import { MemoriesHome } from "../src/screens/MemoriesHome";
@@ -108,6 +109,34 @@ describe("screens", () => {
     await render(<TripView api={api} token="t" tripId="kyoto" onBack={() => undefined} onInvite={() => undefined} />);
     await waitFor(() => expect(screen.queryByTestId("writing")).toBeNull());
     expect(screen.queryByTestId("narrative")).toBeNull();
+  });
+
+  it("Ask searches, shows matches, plays them, and admits when nothing matched", async () => {
+    const api = new FakeApi();
+    api.searchResults = [
+      { media: "m4", score: 0.9, trip: "kyoto", contributor: "owner" },
+      { media: "m9", score: 0.5, trip: null, contributor: "maya" },
+    ];
+    const onPlay = jest.fn();
+    await render(<Ask api={api} token="t" onPlay={onPlay} onBack={() => undefined} />);
+    await fireEvent.changeText(screen.getByTestId("query"), "the ramen place");
+    await fireEvent.press(screen.getByTestId("search"));
+    await waitFor(() => expect(screen.getByTestId("count").props.children).toBe("2 photos"));
+    expect(api.calls).toContain("search the ramen place");
+    expect(screen.getByTestId("result-m9")).toBeTruthy();
+    await fireEvent.press(screen.getByTestId("play"));
+    expect(onPlay).toHaveBeenCalledWith(expect.objectContaining({ id: "playlist:the ramen place", highlights: ["m4", "m9"] }));
+    api.searchResults = [];
+    await fireEvent.changeText(screen.getByTestId("query"), "snow");
+    await fireEvent.press(screen.getByTestId("search"));
+    await waitFor(() => expect(screen.getByTestId("nothing")).toBeTruthy());
+  });
+
+  it("Slideshow draws the answer card over the photo", async () => {
+    const api = new FakeApi();
+    const kyoto = { ...trip, days: [{ index: 1, date: "2026-04-03", media: ["m1"], title: "Day 1", route: { points: [], inferred: false, map_key: null } }], narrative: null, route: { points: [], inferred: false, map_key: null } };
+    await render(<Slideshow api={api} token="t" trip={kyoto} onBack={() => undefined} answer={{ question: "what's that statue", answer: "The Great Buddha at Todai-ji." }} />);
+    expect(screen.getByTestId("answer").props.children).toBe("The Great Buddha at Todai-ji.");
   });
 
   it("Slideshow advances, pauses, jumps days and reports presence", async () => {

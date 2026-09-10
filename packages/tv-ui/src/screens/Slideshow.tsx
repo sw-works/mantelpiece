@@ -12,6 +12,12 @@ export interface NowShowing {
   paused: boolean;
 }
 
+export interface AnswerCard {
+  question: string;
+  answer: string;
+  media?: string | null;
+}
+
 /**
  * F-403: full-screen slideshow through a trip in day order. Play, pause, next and
  * previous day on the remote; what is on screen and whether it is paused is reported
@@ -23,6 +29,7 @@ export function Slideshow({
   trip,
   onBack,
   onPresence,
+  answer,
   intervalMs = 6000,
 }: {
   api: TvApi;
@@ -30,6 +37,8 @@ export function Slideshow({
   trip: Trip;
   onBack: () => void;
   onPresence?: (now: NowShowing) => void;
+  /** The latest answer card from the feed, drawn over the photo (F-405). */
+  answer?: AnswerCard | null;
   intervalMs?: number;
 }) {
   const slides = useMemo(() => slidesOf(trip), [trip]);
@@ -72,6 +81,12 @@ export function Slideshow({
   return (
     <View style={{ flex: 1, backgroundColor: "#000" }}>
       <RemoteImage api={api} token={token} mediaId={current.media} rendition="tv" width={1920} height={1080} />
+      {answer && (
+        <View testID="answer-card" style={{ position: "absolute", top: theme.safe.y, left: theme.safe.x, right: theme.safe.x, padding: 24, borderRadius: theme.radius, backgroundColor: "#000c", gap: 8 }}>
+          <Text style={{ color: theme.muted, fontSize: theme.small }}>{answer.question}</Text>
+          <Text testID="answer" style={{ color: theme.fg, fontSize: theme.body }}>{answer.answer}</Text>
+        </View>
+      )}
       <View style={{ position: "absolute", left: theme.actionSafe.x, right: theme.actionSafe.x, bottom: theme.actionSafe.y, gap: 12 }}>
         <Text testID="caption" style={{ color: theme.fg, fontSize: theme.small }}>
           {`${dayInfo?.title ?? `Day ${current.day}`} · ${index + 1} of ${slides.length}${paused ? " · paused" : ""}`}

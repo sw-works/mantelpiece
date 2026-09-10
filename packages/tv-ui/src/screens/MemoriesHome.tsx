@@ -12,12 +12,14 @@ export function MemoriesHome({
   tripsVersion,
   onOpenTrip,
   onInvite,
+  onAsk,
 }: {
   api: TvApi;
   token: string;
   tripsVersion: number;
   onOpenTrip: (trip: TripSummary) => void;
   onInvite: () => void;
+  onAsk?: () => void;
 }) {
   const [trips, setTrips] = useState<TripSummary[] | null>(null);
   const [seen, setSeen] = useState<Set<string>>(new Set());
@@ -36,7 +38,10 @@ export function MemoriesHome({
     <View style={{ flex: 1, backgroundColor: theme.bg, paddingHorizontal: theme.safe.x, paddingVertical: theme.safe.y, gap: theme.gap }}>
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
         <Text style={{ color: theme.fg, fontSize: theme.title, fontWeight: "700" }}>Memories</Text>
-        <FocusButton label="Add photos" onPress={onInvite} testID="invite" />
+        <View style={{ flexDirection: "row", gap: 16 }}>
+          {onAsk && <FocusButton label="Ask" onPress={onAsk} testID="ask" />}
+          <FocusButton label="Add photos" onPress={onInvite} testID="invite" />
+        </View>
       </View>
       {trips === null && <Text style={{ color: theme.muted, fontSize: theme.body }}>Loading…</Text>}
       {trips !== null && trips.length === 0 && (
