@@ -193,14 +193,14 @@ policy that every story builds on.
 
 **Independent Test**: same 20 photos from two phones produce a dedup proposal; cancel removes nothing; confirm removes 20 and they are restorable for 30 days.
 
-- [ ] T067 [US6] Add `GET /proposals`, `POST /proposals/{id}/cancel` and proposal creation from `dedup.proposal` and `cleanup.proposal` events in `services/lambdas/api/src/handlers/proposals.rs`; bind `POST /confirmations` to an open proposal and the caller's subject; test in `services/lambdas/api/tests/api.rs`
-- [ ] T068 [P] [US6] Make `packages/tv-ui/src/screens/ReviewChanges.tsx` load open proposals, show before/after counts and up to four sample groups with reasons, Keep everything, Apply, Show all (mockup: Review Changes artboard); test in `packages/tv-ui/test/screens.test.tsx`
-- [ ] T069 [P] [US6] Flag cleanup candidates (`screenshot` by aspect and no EXIF camera, `document`/`receipt` by text density, `blurry` by sharpness threshold) in `services/lambdas/ingest/src/enrich.rs`, emitting `cleanup.candidates` on EventBridge; test in `services/lambdas/ingest/tests/pipeline.rs` (F-705)
-- [ ] T070 [US6] Implement `apply_cleanup` and `list_cleanup_candidates` in `services/lambdas/api/src/handlers/media.rs` and `agents/src/memorylane_agents/gateway.py`; add the `quick_cleanup` workflow in `agents/src/memorylane_agents/workflows.py` routed from `cleanup.candidates` in `router.py`; test in `agents/tests/test_workflows.py`
-- [ ] T071 [US6] Implement soft removal with `restore_until` (30 days), `POST /media/{media}/restore`, and a `purge_expired` Gateway tool in `services/lambdas/api/src/handlers/media.rs`; the `memories_nightly` workflow (T083) calls `purge_expired` on `nightly.tick` (contracts/events.md)
-- [ ] T072 [US6] Verify in `services/lambdas/api/tests/api.rs` that `apply_dedup`, `apply_cleanup`, `delete_media` without a valid token return 403 and that a token cannot be reused (F-504)
+- [X] T067 [US6] Add `GET /proposals`, `POST /proposals/{id}/cancel` and proposal creation from `dedup.proposal` and `cleanup.proposal` events in `services/lambdas/api/src/handlers/proposals.rs`; bind `POST /confirmations` to an open proposal and the caller's subject; test in `services/lambdas/api/tests/api.rs`
+- [X] T068 [P] [US6] Make `packages/tv-ui/src/screens/ReviewChanges.tsx` load open proposals, show before/after counts and up to four sample groups with reasons, Keep everything, Apply, Show all (mockup: Review Changes artboard); test in `packages/tv-ui/test/screens.test.tsx`
+- [X] T069 [P] [US6] Flag cleanup candidates (`screenshot` by aspect and no EXIF camera, `document`/`receipt` by text density, `blurry` by sharpness threshold) in `services/lambdas/ingest/src/enrich.rs`, emitting `cleanup.candidates` on EventBridge; test in `services/lambdas/ingest/tests/pipeline.rs` (F-705)
+- [X] T070 [US6] Implement `apply_cleanup` and `list_cleanup_candidates` in `services/lambdas/api/src/handlers/media.rs` and `agents/src/memorylane_agents/gateway.py`; add the `quick_cleanup` workflow in `agents/src/memorylane_agents/workflows.py` routed from `cleanup.candidates` in `router.py`; test in `agents/tests/test_workflows.py`
+- [X] T071 [US6] Implement soft removal with `restore_until` (30 days), `POST /media/{media}/restore`, and a `purge_expired` Gateway tool in `services/lambdas/api/src/handlers/media.rs`; the `memories_nightly` workflow (T083) calls `purge_expired` on `nightly.tick` (contracts/events.md)
+- [X] T072 [US6] Verify in `services/lambdas/api/tests/api.rs` that `apply_dedup`, `apply_cleanup`, `delete_media` without a valid token return 403 and that a token cannot be reused (F-504)
 
-**Checkpoint**: every destructive path goes through Review Changes
+**Checkpoint**: every destructive path goes through Review Changes (code complete 2026-09-09)
 
 ---
 

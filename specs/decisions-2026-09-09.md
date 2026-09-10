@@ -366,3 +366,29 @@ compile-checked only.
   SpeechRecognition (Safari and Chrome), a text fallback, the now-showing preview and the
   answer. Speech recognition only runs in a real browser; the helpers around it are
   tested.
+
+## 17. US6 Review Changes (tasks T067 to T072)
+
+- Proposals are records: `POST /proposals` (the `request_confirmation` tool) opens one,
+  computes before-and-after counts and up to four sample groups server-side from the
+  action (dedup groups, cleanup candidates, media ids), and emits `dedup.proposal` or
+  `cleanup.proposal` on the feed so the TV opens Review Changes. `GET /proposals` lists
+  open and confirmed ones (expired after 24 hours fall away), `GET /proposals/{id}` is
+  what the agent polls for the token, `POST /proposals/{id}/cancel` is "Keep everything".
+- `POST /confirmations` may name a proposal: the action must match, the proposal moves to
+  confirmed with the token, and the token's redemption marks it applied.
+- Tool targets: `POST /media/dedup/apply`, `POST /media/cleanup/apply` and
+  `POST /media/delete` (owner token, or a co-editor's RemoveMedia token whose subject holds
+  the role) all refuse without a valid token and never accept one twice (F-504);
+  `GET /media/cleanup` lists candidates; `POST /media/{media}/restore` undoes a removal
+  inside 30 days; `POST /media/purge` (the `purge_expired` tool, nightly) deletes
+  originals, renditions, vectors and records past the window.
+- Cleanup candidates are deterministic (constitution V): phone-shaped frames with no
+  capture time are screenshots, eight or more text lines a document, receipt words a
+  receipt, sharpness under 20 blurry. Enrich flags keepers and publishes
+  `cleanup.candidates` on EventBridge only; the Concierge's `quick_cleanup` workflow turns
+  them into one proposal. The nightly tick now also purges.
+- TV: Review Changes lists live proposals with counts, four sample groups with reasons and
+  a "Show all", Keep everything and Apply; Memories home shows a Review changes button
+  with a count from the feed. Other proposal kinds (share, remove contributor, co-editor
+  removals) emit no feed event yet and rely on that button.
