@@ -106,7 +106,7 @@ policy that every story builds on.
 - [X] T032 [P] [US1] Make the second approval of an already-approved code return 409 "already signed in" in `services/lambdas/api/src/handlers/device.rs`; test in `services/lambdas/api/tests/api.rs`
 - [X] T033 [P] [US1] After approval, redirect the phone from `apps/web/src/pages/link.ts` to the upload page with the household session (no second sign-in); test in `apps/web/test/auth.test.ts`
 - [X] T034 [US1] Record TV name on `POST /device/poll` approval and expose it on `GET /me` in `services/lambdas/api/src/handlers/session.rs`
-- [ ] T035 [US1] (blocked 2026-09-09: no Vega SDK on the build machine) Verify on the Vega Virtual Device via `make tv-vvd-install`: code and QR shown, approval lands on Home under 5 s, session survives restart; record results in `specs/decisions-2026-09-09.md` section 6 (research R1, R2 verified: device)
+- [ ] T035 [US1] (partial 2026-09-09, SDK 0.24.9914: .vpkg builds, installs, launches and renders Onboarding on the Virtual Device, `docs/screens/vvd-onboarding-2026-09-09.png`; sign-in needs a deployed API and an API base in the shell) Verify on the Vega Virtual Device via `make tv-vvd-install`: code and QR shown, approval lands on Home under 5 s, session survives restart; record results in `specs/decisions-2026-09-09.md` section 6 (research R1, R2 verified: device)
 
 **Checkpoint**: US1 demonstrable on the Virtual Device (code complete 2026-09-09; device run pending T035)
 

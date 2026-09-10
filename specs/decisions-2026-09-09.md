@@ -545,3 +545,26 @@ compile-checked only.
   for the same reason.
 - README and the Devpost overview say what shipped and what stayed unverified; the
   friction log lives in `docs/friction-log.md`.
+
+## 25. Virtual Device run (T035, partial)
+
+- Vega SDK 0.24.9914 (CLI 1.3.4) installed on the build machine. `pnpm build:vega:debug`
+  produced the `.vpkg` for aarch64, armv7 and x86_64 on the first run; the manifest's
+  `[os.version]` table was accepted and the remapper added the two runtime `needs`.
+  `vega device install-app` and `launch-app` worked; cold launch 797 ms per the device's
+  own metric; no JavaScript error in the device log; Fast Refresh served the bundle from
+  Metro over the reverse-forwarded port 8081.
+- Onboarding renders with the theme and the focus ring and shows "Network request failed"
+  because the shell passes no API base and `api.memorylane.test` does not resolve. The
+  device is as far as the app can go until the stack is deployed and the shell reads an
+  API base (open: where the Vega shell gets deployment config; `app.json` or a generated
+  `src/config.ts`).
+- Screenshots on the Virtual Device: `gwsi-tool-screenshooter` hangs (physical devices
+  only), a QEMU QMP `screendump` comes back black because rendering goes through host GL,
+  and macOS `screencapture` needs Screen Recording permission the agent's process lacks.
+  The Virtual Device is an Android-emulator fork whose console on port 5554 (auth token in
+  `~/.emulator_console_auth_token`) answers `screenrecord screenshot <dir>` with a
+  host-rendered PNG; `scripts/vvd-screenshot.sh` wraps it and `make tv-vvd-shot` and the
+  walkthrough use it.
+- Cosmetic: the splash service logs a missing `SplashScreenImages.zip`; no splash asset
+  is defined yet.
