@@ -43,6 +43,18 @@ export class FakeApi extends TvApi {
   override async mediaUrl(_token: string, mediaId: string) {
     return { url: `https://cdn.test/${mediaId}.jpg`, expires_in: 3600 };
   }
+  override async tripMap(_token: string, tripId: string, day?: number) {
+    this.calls.push(`map ${tripId}${day === undefined ? "" : ` day ${day}`}`);
+    return { url: `https://cdn.test/map-${tripId}-${day ?? "trip"}.png`, inferred: day === 2 };
+  }
+  override async regenerateNarrative(_token: string, tripId: string) {
+    this.calls.push(`regenerate ${tripId}`);
+    return { requested: true };
+  }
+  override async setKeeper(_token: string, mediaId: string) {
+    this.calls.push(`keeper ${mediaId}`);
+    return { keeper: mediaId, changed: true };
+  }
   override async householdCode() {
     this.calls.push("householdCode");
     return { code: "H2C3D4", scope: "household" as const, trip: null, link: "https://upload.test/?h=H2C3D4", accepts_uploads: true };

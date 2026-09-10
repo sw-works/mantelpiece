@@ -18,6 +18,7 @@ export function Highlights({
   onBack: () => void;
 }) {
   const [trip, setTrip] = useState<Trip | null>(null);
+  const [keepers, setKeepers] = useState<string[]>([]);
   useEffect(() => {
     let alive = true;
     api
@@ -46,6 +47,16 @@ export function Highlights({
             <View key={m} testID={`highlight-${m}`} style={{ gap: 6 }}>
               <RemoteImage api={api} token={token} mediaId={m} rendition="thumb" width={400} height={225} />
               <Text style={{ color: theme.muted, fontSize: theme.small }}>{creditFor(trip, m) ?? ""}</Text>
+              <FocusButton
+                label={keepers.includes(m) ? "Keeper" : "Make keeper"}
+                testID={`keeper-${m}`}
+                onPress={() => {
+                  api
+                    .setKeeper(token, m)
+                    .then(() => setKeepers((k) => [...k, m]))
+                    .catch(() => undefined);
+                }}
+              />
             </View>
           ))}
         </ScrollView>

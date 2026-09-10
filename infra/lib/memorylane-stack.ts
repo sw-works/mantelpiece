@@ -295,6 +295,7 @@ export class MemoryLaneStack extends Stack {
         TABLE_NAME: this.table.tableName,
         MEDIA_BUCKET: this.bucket.bucketName,
         ORGANIZE_STATE_MACHINE_ARN: organizeMachine.stateMachineArn,
+        EVENT_BUS: this.bus.eventBusName,
         TOKEN_SECRET: tokenSecret.secretValue.unsafeUnwrap(),
         LINK_BASE: props.linkBase,
         UPLOAD_BASE: props.uploadBase,
@@ -305,6 +306,8 @@ export class MemoryLaneStack extends Stack {
     this.table.grantReadWriteData(apiFn);
     this.bucket.grantReadWrite(apiFn);
     organizeMachine.grantStartExecution(apiFn);
+    // Narrative regeneration re-triggers the Concierge through the bus (US4).
+    this.bus.grantPutEventsTo(apiFn);
     // People opt-in (Faces), describe_photo fallback (Vision), narration (Speech).
     apiFn.addToRolePolicy(
       new iam.PolicyStatement({

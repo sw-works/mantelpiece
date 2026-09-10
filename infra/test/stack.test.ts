@@ -58,7 +58,7 @@ describe("MemoryLane stack", () => {
       Runtime: "provided.al2023",
       Architectures: ["arm64"],
       Handler: "bootstrap",
-      Environment: { Variables: Match.objectLike({ LINK_BASE: "https://link.example.com", POLL_HOLD_SECONDS: "25" }) },
+      Environment: { Variables: Match.objectLike({ LINK_BASE: "https://link.example.com", POLL_HOLD_SECONDS: "25", EVENT_BUS: Match.anyValue() }) },
     });
     template.hasResourceProperties("AWS::Lambda::Function", {
       MemorySize: 2048,

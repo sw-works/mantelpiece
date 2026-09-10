@@ -28,6 +28,10 @@ export interface TripDay {
   media: string[];
   title: string | null;
   route: { points: unknown[]; inferred: boolean; map_key: string | null };
+  /** This day's paragraph of the story (F-709). */
+  story?: string | null;
+  /** Photos without a capture time, placed here by upload time. */
+  undated?: string[];
 }
 
 export interface ClockOffset {
@@ -38,7 +42,7 @@ export interface ClockOffset {
 
 export interface Trip extends TripSummary {
   days: TripDay[];
-  narrative: { text: string; model_id: string; generated_at: string } | null;
+  narrative: { text: string; model_id: string; generated_at: string; check?: "passed" | "withheld" } | null;
   route: { points: unknown[]; inferred: boolean; map_key: string | null };
   /** Contributor id to display name (F-154). */
   contributor_names?: Record<string, string>;
@@ -53,6 +57,18 @@ export function creditFor(trip: Trip, mediaId: string): string | null {
   const contributor = trip.media_credits?.[mediaId];
   if (!contributor) return null;
   return trip.contributor_names?.[contributor] ?? contributor;
+}
+
+/** The story to show, or null while it is being written or was withheld (F-301). */
+export function storyOf(trip: Trip): string | null {
+  const n = trip.narrative;
+  if (!n || n.check === "withheld" || !n.text) return null;
+  return n.text;
+}
+
+/** Every media id of the trip in day order, for the slideshow. */
+export function slides(trip: Trip): Array<{ media: string; day: number }> {
+  return trip.days.flatMap((d) => d.media.map((media) => ({ media, day: d.index })));
 }
 
 /** "Ken's clock corrected by 3 min" lines for offsets over a minute (F-155). */
@@ -152,6 +168,19 @@ export class TvApi {
 
   mintConfirmation(token: string, action: Record<string, unknown>) {
     return this.call<{ token: string; tool: string; expires_at: number }>("POST", "/confirmations", action, token);
+  }
+
+  tripMap(token: string, tripId: string, day?: number) {
+    const q = day === undefined ? "" : `?day=${day}`;
+    return this.call<{ url: string; inferred: boolean }>("GET", `/trips/${tripId}/map${q}`, undefined, token);
+  }
+
+  regenerateNarrative(token: string, tripId: string) {
+    return this.call<{ requested: boolean }>("POST", `/trips/${tripId}/narrative/regenerate`, undefined, token);
+  }
+
+  setKeeper(token: string, mediaId: string) {
+    return this.call<{ keeper: string; changed?: boolean }>("POST", `/media/${mediaId}/keeper`, undefined, token);
   }
 
   setFlag(token: string, mediaId: string, flag: "pin" | "hide", value: boolean) {

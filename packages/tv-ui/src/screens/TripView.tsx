@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
-import { clockHints, creditFor, type Trip, type TvApi } from "../api/client";
+import { clockHints, creditFor, storyOf, type Trip, type TvApi } from "../api/client";
 import { FocusButton } from "../components/FocusButton";
+import { MapImage } from "../components/MapImage";
 import { RemoteImage } from "../components/RemoteImage";
 import { theme } from "../theme";
 
@@ -23,6 +24,7 @@ export function TripView({
   onBack,
   onInvite,
   onHighlights,
+  onPlay,
 }: {
   api: TvApi;
   token: string;
@@ -30,9 +32,11 @@ export function TripView({
   onBack: () => void;
   onInvite: (tripId: string) => void;
   onHighlights?: (tripId: string) => void;
+  onPlay?: (trip: Trip) => void;
 }) {
   const [trip, setTrip] = useState<Trip | null>(null);
   const [day, setDay] = useState(0);
+  const [rewriting, setRewriting] = useState(false);
   useEffect(() => {
     let alive = true;
     api
@@ -48,11 +52,13 @@ export function TripView({
   const current = trip.days[day];
   const credits = current ? dayCredits(trip, current.media) : [];
   const hints = clockHints(trip);
+  const story = storyOf(trip);
   return (
     <View style={{ flex: 1, backgroundColor: theme.bg, paddingHorizontal: theme.safe.x, paddingVertical: theme.safe.y, gap: theme.gap }}>
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
         <Text style={{ color: theme.fg, fontSize: theme.title, fontWeight: "700" }}>{trip.name}</Text>
         <View style={{ flexDirection: "row", gap: 16 }}>
+          {onPlay && <FocusButton label="Play" onPress={() => onPlay(trip)} testID="play" />}
           {onHighlights && <FocusButton label="Highlights" onPress={() => onHighlights(trip.id)} testID="highlights" />}
           <FocusButton label="Invite" onPress={() => onInvite(trip.id)} testID="invite" />
           <FocusButton label="Back" onPress={onBack} testID="back" />
@@ -76,18 +82,29 @@ export function TripView({
             ))}
           </ScrollView>
           <View style={{ flex: 1, gap: 12 }}>
+            <MapImage api={api} token={token} tripId={trip.id} day={current.route.map_key ? current.index : undefined} width={480} height={270} />
             <Text testID="day-summary" style={{ color: theme.muted, fontSize: theme.small }}>
-              {`${current.date} · ${current.media.length} photos${credits.length ? ` from ${credits.join(", ")}` : ""}${current.route.inferred ? " · route inferred" : ""}`}
+              {`${current.date} · ${current.media.length} photos${credits.length ? ` from ${credits.join(", ")}` : ""}${current.route.inferred ? " · route inferred" : ""}${current.undated?.length ? ` · ${current.undated.length} undated` : ""}`}
             </Text>
             {hints.length > 0 && (
               <Text testID="clock-hints" style={{ color: theme.muted, fontSize: theme.small }}>
                 {hints.join(" · ")}
               </Text>
             )}
-            {trip.narrative ? (
-              <Text testID="narrative" style={{ color: theme.fg, fontSize: theme.small, lineHeight: 30 }}>{trip.narrative.text}</Text>
+            {story && !rewriting ? (
+              <>
+                <Text testID="narrative" style={{ color: theme.fg, fontSize: theme.small, lineHeight: 30 }}>{current.story ?? story}</Text>
+                <FocusButton
+                  label="Rewrite the story"
+                  testID="regenerate"
+                  onPress={() => {
+                    setRewriting(true);
+                    api.regenerateNarrative(token, trip.id).catch(() => setRewriting(false));
+                  }}
+                />
+              </>
             ) : (
-              <Text style={{ color: theme.muted, fontSize: theme.small }}>The story of this trip is being written.</Text>
+              <Text testID="writing" style={{ color: theme.muted, fontSize: theme.small }}>The story of this trip is being written.</Text>
             )}
           </View>
         </View>
