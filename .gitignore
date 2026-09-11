@@ -18,3 +18,4 @@ coverage/
 buildinfo.json
 CMakeUserPresets.json
 .tmp/
+ingest-local-out/
