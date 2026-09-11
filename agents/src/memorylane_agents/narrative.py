@@ -57,7 +57,7 @@ def prompt_for(trip: Trip) -> str:
             f"{title} ({d['date']}): {len(d['media'])} photos" + (f", by {who}" if who else "")
         )
         for place in d.get("landmarks", []):
-            lines.append(f"  - {place}")
+            lines.append(f"  - {place['name'] if isinstance(place, dict) else place}")
     return "\n".join(lines)
 
 

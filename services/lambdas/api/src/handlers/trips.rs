@@ -129,6 +129,16 @@ pub async fn trip_json_for(
         .collect();
     personalise(&mut trip, viewer, &media);
     let mut v = serde_json::to_value(&trip).map_err(|e| ApiError::internal(e.to_string()))?;
+    // Places for the story and for Alexa+: route landmarks plus what Vision recognised.
+    let mut places: Vec<String> = trip.landmarks().iter().map(|l| l.name.clone()).collect();
+    for m in &media {
+        if let Some(l) = &m.enrichment.landmark {
+            if !places.contains(&l.name) {
+                places.push(l.name.clone());
+            }
+        }
+    }
+    v["landmarks"] = json!(places);
     v["contributor_names"] = Value::Object(names);
     v["contributor_roles"] = Value::Object(roles);
     v["media_credits"] = Value::Object(credits);
@@ -258,6 +268,9 @@ async fn allowed_for(app: &App, household: &HouseholdId, trip: &Trip) -> Result<
         if trip.contributors.contains(&c.id) {
             allowed.name(&c.display_name);
         }
+    }
+    for l in trip.landmarks() {
+        allowed.name(&l.name);
     }
     for m in app.storage.list_media(household).await? {
         if m.trip.as_ref() == Some(&trip.id) {

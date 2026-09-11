@@ -13,6 +13,7 @@ use memorylane_store::bus::MemoryBus;
 use memorylane_store::faces::{FaceMatch, MemoryFaces};
 use memorylane_store::maps::MemoryMaps;
 use memorylane_store::memory::{MemoryBlobs, MemoryStorage};
+use memorylane_store::places::MemoryPlaces;
 use memorylane_store::vectors::MemoryVectors;
 use memorylane_store::vision::MemoryVision;
 use memorylane_store::{Blobs, Faces, Storage, Vectors};
@@ -50,6 +51,12 @@ fn harness_with(vision: MemoryVision) -> Harness {
         faces: faces.clone(),
         maps: maps.clone(),
         bus: bus.clone(),
+        places: Arc::new(MemoryPlaces::with(vec![
+            ("Kinkaku-ji", 35.0394, 135.7292),
+            ("Fushimi Inari-taisha", 34.9671, 135.7727),
+            ("Kyoto Station", 34.9858, 135.7588),
+        ])),
+        cluster: memorylane_trips::cluster::Params::default(),
         clock: Arc::new(|| datetime!(2026-09-08 10:00:00 UTC)),
     };
     Harness {
@@ -220,6 +227,61 @@ async fn signal_rejects_checksum_mismatch_and_unknown_keys() {
 }
 
 #[tokio::test]
+async fn organize_names_places_along_the_route_and_positions_camera_shots() {
+    let h = harness(Enrichment::default());
+    let kinkakuji = Some((35.0394, 135.7292));
+    let inari = Some((34.9671, 135.7727));
+    let items = vec![
+        signalled("p1", "owner", 0.0, kinkakuji, 0x1, 100.0),
+        signalled("cam1", "owner", 0.5, None, 0x2, 300.0), // camera, no GPS: rides along
+        signalled("p2", "owner", 1.0, inari, 0x3, 200.0),
+        signalled("cam2", "owner", 9.0, None, 0x4, 150.0), // too far in time: unplaced
+        signalled("p3", "owner", 25.0, inari, 0x5, 250.0),
+        signalled("p4", "owner", 26.0, kinkakuji, 0x6, 220.0),
+        signalled("p5", "owner", 27.0, kinkakuji, 0x7, 210.0),
+    ];
+    for m in &items {
+        h.storage.put_media(m).await.unwrap();
+    }
+    let out = h
+        .ingest
+        .run(Task::Organize {
+            household: HouseholdId::new(H),
+        })
+        .await
+        .unwrap();
+    assert_eq!(out["new_trips"], 1, "{out}");
+    assert_eq!(out["estimated_positions"], 1);
+    let trip = &h.storage.list_trips(&HouseholdId::new(H)).await.unwrap()[0];
+    let day1 = &trip.days[0];
+    let names: Vec<&str> = day1.landmarks.iter().map(|l| l.name.as_str()).collect();
+    // Kyoto Station comes from the region lookup but no photo was within its reach.
+    assert_eq!(
+        names,
+        vec!["Kinkaku-ji", "Fushimi Inari-taisha", "Kyoto Station"],
+        "{names:?}"
+    );
+    assert!(day1.landmarks[2].media.is_empty());
+    assert_eq!(day1.landmarks[0].media, vec![MediaId::new("p1")]);
+    assert_eq!(day1.title.as_deref(), Some("Day 1: Kinkaku-ji"));
+    assert!(trip.name.starts_with("Kinkaku-ji,"), "{}", trip.name);
+    let cam = day1
+        .route
+        .points
+        .iter()
+        .find(|p| p.media.as_str() == "cam1")
+        .expect("camera shot placed on the route");
+    assert!(cam.estimated);
+    assert!((cam.at.lat - 35.0033).abs() < 0.001, "{}", cam.at.lat);
+    assert!(!day1.route.points.iter().any(|p| p.media.as_str() == "cam2"));
+    let all: Vec<String> = trip.landmarks().into_iter().map(|l| l.name).collect();
+    assert_eq!(
+        all,
+        vec!["Kinkaku-ji", "Fushimi Inari-taisha", "Kyoto Station"]
+    );
+}
+
+#[tokio::test]
 async fn organize_groups_bursts_builds_trip_and_is_idempotent() {
     let h = harness(Enrichment::default());
     let kyoto = Some((35.0116, 135.7681));
@@ -265,10 +327,11 @@ async fn organize_groups_bursts_builds_trip_and_is_idempotent() {
     let trip = &trips[0];
     assert_eq!(trip.days.len(), 2);
     assert_eq!(trip.days[0].media.len(), 4);
-    assert_eq!(trip.days[0].title.as_deref(), Some("Day 1"));
+    // The Kyoto spot sits within the region lookup's reach of Kinkaku-ji in the fake.
+    assert_eq!(trip.days[0].title.as_deref(), Some("Day 1: Kinkaku-ji"));
     assert_eq!(trip.contributors.len(), 2);
     assert!(
-        trip.name.starts_with("Trip, April 3 to 4, 2026"),
+        trip.name.starts_with("Kinkaku-ji, April 2026"),
         "{}",
         trip.name
     );

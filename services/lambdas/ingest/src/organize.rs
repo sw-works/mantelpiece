@@ -4,11 +4,13 @@
 //! updates the same trips in place. Trips are matched to existing ones by date overlap.
 
 use memorylane_core::events::EventKind;
+use memorylane_core::geo::GeoPoint;
 use memorylane_core::ids::{ContributorId, HouseholdId, MediaId, TripId};
 use memorylane_core::media::{MediaItem, ProcessingState};
-use memorylane_core::trip::{Trip, TripDay};
+use memorylane_core::trip::{Landmark, Trip, TripDay};
 use memorylane_ingest::burst::{self, Candidate};
 use memorylane_ingest::quality;
+use memorylane_store::places::Place;
 use memorylane_trips::{clock, cluster, highlights, naming, route, Sample};
 use serde::Serialize;
 use std::collections::{BTreeSet, HashMap};
@@ -21,6 +23,8 @@ pub const HIGHLIGHTS_PER_TRIP: usize = 12;
 #[derive(Debug, Serialize, PartialEq, Eq)]
 pub struct Output {
     pub media: usize,
+    /// Photos without GPS that took a position from geotagged neighbours (F-206).
+    pub estimated_positions: usize,
     pub groups: usize,
     pub keepers: Vec<MediaId>,
     /// S3 key of a JSON array of `{household, media_id}` for the enrich Distributed Map
@@ -57,7 +61,10 @@ pub async fn run(ingest: &Ingest, household: &HouseholdId) -> Result<Output> {
         None => vec![],
     };
     clock::apply(&mut samples, &offsets);
-    let clustering = cluster::cluster(&samples, cluster::Params::default());
+    // Cameras without GPS ride along the phone's fixes; done after clock alignment so the
+    // interpolation uses corrected times, never before it so offsets come from real fixes.
+    let estimated_positions = route::estimate_positions(&mut samples, route::Params::default());
+    let clustering = cluster::cluster(&samples, ingest.cluster);
     let sample_by_id: HashMap<MediaId, &Sample> = clustering
         .sorted
         .iter()
@@ -69,6 +76,7 @@ pub async fn run(ingest: &Ingest, household: &HouseholdId) -> Result<Output> {
     let now = ingest.now();
     let mut trip_ids = Vec::new();
     let mut new_trips = 0;
+    let mut place_cache: HashMap<((i64, i64), u32), Vec<Place>> = HashMap::new();
     let pinned: Vec<MediaId> = media
         .iter()
         .filter(|m| m.pinned)
@@ -109,6 +117,7 @@ pub async fn run(ingest: &Ingest, household: &HouseholdId) -> Result<Output> {
             offsets: &offsets,
             undated: &c.undated,
         });
+        attach_landmarks(ingest, &mut trip, &sample_by_id, &mut place_cache).await;
         render_maps(ingest, household, &mut trip, previous).await?;
         ingest.storage.put_trip(&trip).await?;
         for s in members.iter().map(|s| &s.id).chain(c.undated.iter()) {
@@ -156,6 +165,7 @@ pub async fn run(ingest: &Ingest, household: &HouseholdId) -> Result<Output> {
 
     Ok(Output {
         media: media.len(),
+        estimated_positions,
         groups: groups.len(),
         keepers,
         keepers_manifest,
@@ -267,11 +277,189 @@ fn to_samples(media: &[MediaItem]) -> Vec<Sample> {
                 .and_then(|c| c.offset_seconds)
                 .and_then(|s| UtcOffset::from_whole_seconds(s).ok()),
             gps: m.gps,
+            gps_estimated: false,
             score: m.quality_score.unwrap_or(0.0),
             burst_group: m.burst_group.clone(),
             landmark: m.enrichment.landmark.as_ref().map(|t| t.name.clone()),
         })
         .collect()
+}
+
+/// Radius a place counts as "along the route" and a photo counts as "at" the place.
+pub const LANDMARK_RADIUS_M: u32 = 2_000;
+/// Lookups per day: where the photos cluster, plus positions spread along the route, never
+/// closer than a kilometre; one wider lookup for the region the day was mostly in.
+const LANDMARK_STEP_M: f64 = 1_000.0;
+const LANDMARK_LOOKUPS_PER_DAY: usize = 16;
+const LANDMARK_PROBES_MAX: usize = 24;
+const REGION_RADIUS_M: u32 = 10_000;
+const REGION_LOOKUP_LIMIT: usize = 50;
+const REGION_LOOKUPS_PER_DAY: usize = 6;
+/// At most this many places from the same neighbourhood, so a city does not crowd out
+/// the loch and the mountain further along.
+const LANDMARKS_PER_NEIGHBOURHOOD: usize = 2;
+const NEIGHBOURHOOD_M: f64 = 1_500.0;
+/// Candidates fetched per probe; ranking picks from them.
+const LANDMARKS_PER_LOOKUP: usize = 8;
+/// Places kept per day after ranking.
+const LANDMARKS_PER_DAY: usize = 12;
+
+fn place_cell(at: GeoPoint) -> (i64, i64) {
+    #[allow(clippy::cast_possible_truncation)]
+    let cell = (
+        (at.lat * 1000.0).round() as i64,
+        (at.lon * 1000.0).round() as i64,
+    );
+    cell
+}
+
+/// Where to ask "what is here" for one day: one probe per photo cluster (a new cluster
+/// whenever the photos moved on), positions spread along the route, then the busiest
+/// clusters again at region radius so the island or the city the day was in comes back.
+fn day_probes(day: &TripDay, positioned: &[(&MediaId, GeoPoint)]) -> Vec<(GeoPoint, u32, usize)> {
+    // A cluster's probe is its centroid, not its first photo, so a stop photographed
+    // from several spots is looked up from its middle.
+    let mut clusters: Vec<(GeoPoint, usize)> = Vec::new();
+    for (_, at) in positioned {
+        match clusters.last_mut() {
+            Some((c, n)) if c.distance_m(*at) < f64::from(LANDMARK_RADIUS_M) => {
+                #[allow(clippy::cast_precision_loss)]
+                let k = *n as f64;
+                *c = GeoPoint::new(
+                    (c.lat * k + at.lat) / (k + 1.0),
+                    (c.lon * k + at.lon) / (k + 1.0),
+                );
+                *n += 1;
+            }
+            _ => clusters.push((*at, 1)),
+        }
+    }
+    let mut probes: Vec<(GeoPoint, u32, usize)> = clusters
+        .iter()
+        .map(|(at, _)| (*at, LANDMARK_RADIUS_M, LANDMARKS_PER_LOOKUP))
+        .collect();
+    for at in route::probes(&day.route, LANDMARK_LOOKUPS_PER_DAY, LANDMARK_STEP_M) {
+        if probes
+            .iter()
+            .all(|(p, _, _)| p.distance_m(at) >= LANDMARK_STEP_M)
+        {
+            probes.push((at, LANDMARK_RADIUS_M, LANDMARKS_PER_LOOKUP));
+        }
+    }
+    probes.truncate(LANDMARK_PROBES_MAX);
+    let mut busiest = clusters;
+    busiest.sort_by_key(|(_, n)| std::cmp::Reverse(*n));
+    for (at, _) in busiest.into_iter().take(REGION_LOOKUPS_PER_DAY) {
+        probes.push((at, REGION_RADIUS_M, REGION_LOOKUP_LIMIT));
+    }
+    probes
+}
+
+async fn lookup(
+    ingest: &Ingest,
+    cache: &mut HashMap<((i64, i64), u32), Vec<Place>>,
+    at: GeoPoint,
+    radius: u32,
+    limit: usize,
+) -> Vec<Place> {
+    let key = (place_cell(at), radius);
+    if let Some(p) = cache.get(&key) {
+        return p.clone();
+    }
+    let p = match ingest.places.nearby(at, radius, limit).await {
+        Ok(p) => p,
+        Err(e) => {
+            tracing::warn!(error = %e, lat = at.lat, lon = at.lon, "place lookup failed");
+            Vec::new()
+        }
+    };
+    cache.insert(key, p.clone());
+    p
+}
+
+/// Most photographed first, then the kind of place a day gets named after, then the
+/// closest to the route; noise (a court, a shop) sinks whatever its count. At most two
+/// places per neighbourhood so a city does not crowd out the loch further along.
+fn keep_ranked(mut found: Vec<Landmark>) -> Vec<Landmark> {
+    found.sort_by(|a, b| {
+        (b.prominence() > 0)
+            .cmp(&(a.prominence() > 0))
+            .then(b.media.len().cmp(&a.media.len()))
+            .then(b.prominence().cmp(&a.prominence()))
+            .then(a.distance_m.total_cmp(&b.distance_m))
+    });
+    let mut kept: Vec<Landmark> = Vec::new();
+    for l in found {
+        let neighbours = kept
+            .iter()
+            .filter(|k| k.at.distance_m(l.at) < NEIGHBOURHOOD_M)
+            .count();
+        if neighbours < LANDMARKS_PER_NEIGHBOURHOOD && kept.len() < LANDMARKS_PER_DAY {
+            kept.push(l);
+        }
+    }
+    kept
+}
+
+/// Name the places along each day's route (F-206, constitution V: a lookup before any
+/// model). Each place keeps the photos taken within its reach, so a whole island can
+/// outrank a chapel. A day or trip still called "Day 3" or "Trip, ..." takes its name from
+/// the first landmark. Lookup failures leave the day unnamed and never fail organize.
+async fn attach_landmarks(
+    ingest: &Ingest,
+    trip: &mut Trip,
+    sample_by_id: &HashMap<MediaId, &Sample>,
+    cache: &mut HashMap<((i64, i64), u32), Vec<Place>>,
+) {
+    for day in &mut trip.days {
+        // Every photo with a position counts, including the ones route thinning dropped.
+        let positioned: Vec<(&MediaId, GeoPoint)> = day
+            .media
+            .iter()
+            .filter_map(|m| sample_by_id.get(m).and_then(|s| s.gps.map(|g| (m, g))))
+            .collect();
+        let mut found: Vec<Landmark> = Vec::new();
+        for (at, radius, limit) in day_probes(day, &positioned) {
+            for place in lookup(ingest, cache, at, radius, limit).await {
+                if let Some(seen) = found.iter_mut().find(|l| l.name == place.name) {
+                    seen.distance_m = seen.distance_m.min(place.distance_m);
+                    continue;
+                }
+                found.push(Landmark {
+                    name: place.name,
+                    at: place.at,
+                    distance_m: place.distance_m,
+                    source: place.source,
+                    kind: place.kind,
+                    dim_m: place.dim_m,
+                    media: vec![],
+                });
+            }
+        }
+        for l in &mut found {
+            let reach = l.reach_m();
+            l.media = positioned
+                .iter()
+                .filter(|(_, at)| at.distance_m(l.at) <= reach)
+                .map(|(m, _)| (*m).clone())
+                .collect();
+        }
+        day.landmarks = keep_ranked(found);
+        let unnamed = day.title.as_deref().is_none_or(|t| !t.contains(':'));
+        if unnamed {
+            if let Some(best) = Landmark::best_name(&day.landmarks) {
+                day.title = Some(naming::day_title(day.index, Some(&best.name)));
+            }
+        }
+    }
+    let generic = trip.narrative.is_none() && trip.name.starts_with("Trip,");
+    if generic {
+        let all = trip.landmarks();
+        if let Some(top) = Landmark::best_name(&all) {
+            let (first, last) = (trip.days[0].date, trip.days[trip.days.len() - 1].date);
+            trip.name = naming::trip_name(Some(&top.name), first, last);
+        }
+    }
 }
 
 struct BuildTrip<'a> {
@@ -318,6 +506,7 @@ fn build_trip(b: BuildTrip<'_>) -> (Trip, usize, Vec<ContributorId>) {
                         .and_then(|d| d.story.clone())
                 }),
                 undated: vec![],
+                landmarks: vec![],
             }
         })
         .collect();

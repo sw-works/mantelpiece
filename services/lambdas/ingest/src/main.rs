@@ -40,6 +40,12 @@ async fn main() -> Result<(), Error> {
         faces: Arc::new(RekognitionFaces::from_config(&aws)),
         maps: Arc::new(LocationMaps::from_config(&aws)),
         bus: Arc::new(EventBridgeBus::from_config(&aws, env("EVENT_BUS")?)),
+        places: match std::env::var("PLACES_PROVIDER").as_deref() {
+            Ok("wikipedia") => Arc::new(memorylane_store::places::WikipediaPlaces::default()),
+            Ok("none") => Arc::new(memorylane_store::places::NoPlaces),
+            _ => Arc::new(memorylane_store::places::AwsPlaces::from_config(&aws)),
+        },
+        cluster: memorylane_trips::cluster::Params::default(),
         clock: Arc::new(OffsetDateTime::now_utc),
     });
     run(service_fn(move |event: LambdaEvent<Task>| {

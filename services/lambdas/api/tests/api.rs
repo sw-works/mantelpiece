@@ -473,6 +473,7 @@ async fn a_second_household_joins_by_code_sees_the_trip_and_pins_privately() {
     let photo = enriched(&h, "temple.jpg", 61, &["Temple"], None).await;
     let other = enriched(&h, "ramen.jpg", 62, &["Ramen"], None).await;
     kyoto.days = vec![memorylane_core::trip::TripDay {
+        landmarks: vec![],
         index: 1,
         date: time::macros::date!(2026 - 04 - 03),
         media: vec![photo.clone(), other.clone()],
@@ -953,6 +954,7 @@ async fn memories_home_and_the_all_trips_map() {
     assert!(empty.body["url"].is_null());
     let mut kyoto = trip("amzn-owner", "kyoto");
     kyoto.route.points.push(memorylane_core::trip::RoutePoint {
+        estimated: false,
         at: memorylane_core::geo::GeoPoint::new(35.0, 135.7),
         time: kyoto.start,
         media: then.clone(),
@@ -1148,6 +1150,7 @@ async fn reactions_from_contributors_viewers_and_members_reach_the_ticker() {
     let mut kyoto = trip("amzn-owner", "kyoto");
     let photo = enriched(&h, "ramen.jpg", 101, &["Ramen"], None).await;
     kyoto.days = vec![memorylane_core::trip::TripDay {
+        landmarks: vec![],
         index: 3,
         date: time::macros::date!(2026 - 04 - 05),
         media: vec![photo.clone()],
@@ -1590,6 +1593,7 @@ async fn narration_is_behind_a_flag_and_the_ambient_playlist_honours_pins_and_hi
     let mut kyoto = trip("amzn-owner", "kyoto");
     kyoto.days = vec![
         memorylane_core::trip::TripDay {
+            landmarks: vec![],
             index: 1,
             date: time::macros::date!(2026 - 04 - 03),
             media: vec![],
@@ -1599,6 +1603,7 @@ async fn narration_is_behind_a_flag_and_the_ambient_playlist_honours_pins_and_hi
             undated: vec![],
         },
         memorylane_core::trip::TripDay {
+            landmarks: vec![],
             index: 2,
             date: time::macros::date!(2026 - 04 - 04),
             media: vec![],
@@ -1917,6 +1922,7 @@ async fn narratives_are_checked_stored_per_day_and_regenerated_through_the_bus()
     kyoto.contributors = vec![memorylane_core::ids::ContributorId::new("amzn-owner")];
     kyoto.days = (1..=2)
         .map(|i| memorylane_core::trip::TripDay {
+            landmarks: vec![],
             index: i,
             date: time::macros::date!(2026 - 04 - 03) + Duration::days(i64::from(i) - 1),
             media: vec![],
@@ -2635,6 +2641,7 @@ async fn removing_media_cascades_out_of_trips_and_playlists_but_keeps_the_origin
     );
     let mut kyoto = trip("amzn-owner", "kyoto");
     kyoto.days = vec![memorylane_core::trip::TripDay {
+        landmarks: vec![],
         index: 1,
         date: time::macros::date!(2026 - 04 - 03),
         media: vec![gone.clone(), kept.clone()],

@@ -46,6 +46,8 @@ export interface MemoryLaneStackProps extends StackProps {
    * default is a placeholder until the preview registration says which; unverified.
    */
   alexaCallbackUrls?: string[];
+  /** Where route landmarks come from: "aws" (Amazon Location Places), "wikipedia", "none". */
+  placesProvider?: "aws" | "wikipedia" | "none";
 }
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -181,6 +183,9 @@ export class MemoryLaneStack extends Stack {
       memorySize: 2048,
       timeout: Duration.minutes(5),
       environment: {
+        // Named places along routes (F-206): Amazon Location Places, or "wikipedia" and
+        // "none" for runs without the service.
+        PLACES_PROVIDER: props.placesProvider ?? "aws",
         TABLE_NAME: this.table.tableName,
         MEDIA_BUCKET: this.bucket.bucketName,
         EVENT_BUS: this.bus.eventBusName,

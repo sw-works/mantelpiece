@@ -61,6 +61,10 @@ pub struct Ingest {
     pub faces: Arc<dyn Faces>,
     pub maps: Arc<dyn Maps>,
     pub bus: Arc<dyn Bus>,
+    /// Named places along routes (F-206); `NoPlaces` turns lookups off.
+    pub places: Arc<dyn memorylane_store::Places>,
+    /// Clustering thresholds; the defaults are the product rules, tools may relax them.
+    pub cluster: memorylane_trips::cluster::Params,
     pub clock: Clock,
 }
 
