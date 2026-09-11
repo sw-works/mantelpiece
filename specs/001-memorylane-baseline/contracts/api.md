@@ -26,6 +26,7 @@ sessions) or Cognito JWTs (`/join/amazon`). Errors are `{ "error": "<message>" }
 | POST | /memberships | owner TV | NEW `{code}` joins another household's trip (F-162); refuses own trip |
 | DELETE | /memberships/{trip} | member household | NEW leave |
 | GET | /trips also lists joined trips with `shared_by` | owner TV | NEW field |
+| GET | /trips/{trip} carries `landmarks` (names) and per-day `landmarks` objects `{name, at, distance_m, source, kind?, dim_m?, media[]}`; route points carry `estimated` | all | NEW (F-206) |
 
 ## Uploads (US2)
 

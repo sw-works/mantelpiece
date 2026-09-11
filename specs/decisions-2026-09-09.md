@@ -568,3 +568,36 @@ compile-checked only.
   walkthrough use it.
 - Cosmetic: the splash service logs a missing `SplashScreenImages.zip`; no splash asset
   is defined yet.
+
+## 26. Route reconstruction and landmarks along the route (2026-09-10)
+
+- Photos without GPS (a camera beside a phone) take a position interpolated in time
+  between the nearest geotagged photos within two hours on each side, or snap to the one
+  fix within reach; `RoutePoint.estimated` marks them and the map draws them dashed.
+  Estimation runs after clock alignment, never before it, so offsets come from real
+  fixes. On the England/Scotland sample the Inverness to Skye day went from 7 route
+  points to 41 (32 estimated), 282 km.
+- Places come from a lookup, not a model (constitution V): a `Places` trait with
+  `WikipediaPlaces` (geosearch, public, one request a second, cached per 100 m cell),
+  `AwsPlaces` (Amazon Location Places `SearchNearby`, compile-checked only) and
+  `NoPlaces`. The ingest Lambda picks by `PLACES_PROVIDER`. Organize probes each day at
+  the centroid of every photo cluster, at points spread along the route (16 at most) and
+  once per busy cluster at 10 km for the region, then keeps the photos within each
+  place's reach: two kilometres for a building, half the provider's size for a typed
+  town, district, mountain or water. `TripDay.landmarks` holds them, most photographed
+  first, at most two per neighbourhood so a city centre does not crowd out the loch
+  further on; `Trip::landmarks()` merges days.
+- Naming: a day or trip still called "Day 3" or "Trip, ..." takes the widest region with
+  photos (a district over an islet), else the most photographed nature or named place;
+  articles with a noise word (court, hospital, shop, road) or a parenthesised qualifier
+  never name anything. The Skye day became "Skye and Lochalsh, April 2025".
+- Known limits: Wikipedia geosearch has no type filter, so in a dense city centre the 50
+  nearest articles are all buildings and the city article never comes back; Oxford was
+  named after the Martyrs' Memorial. Amazon Location's reverse geocode would give the
+  locality directly and is the fix once deployed. Geology and other untyped wide
+  articles are held to a 2 km reach so a "terrane" cannot claim a day.
+- The trip JSON now carries `landmarks` (names, route places first, then what Vision
+  recognised) and each day its `landmarks` objects; the narrative fact check accepts
+  them, so stories may name places the route passed.
+- `ingest-local` gained `--min-trip-days`, `--no-places`, `routes.geojson` and a Leaflet
+  `map.html` with the route, estimated segments dashed, landmark pins and photo dots.

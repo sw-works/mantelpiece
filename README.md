@@ -53,8 +53,12 @@ in-memory stores; models stubbed unless `--aws`):
 
 ```
 cd services && cargo run --release -p ingest-local -- ~/Pictures/trip --out /tmp/ingest-out
-open /tmp/ingest-out/report.md     # per-photo signals, bursts, keepers, trips, days; renditions/
+open /tmp/ingest-out/report.md     # per-photo signals, bursts, keepers, trips, days, landmarks; renditions/
+open /tmp/ingest-out/map.html      # route per day (dashed where estimated), landmark pins, photo dots
 ```
+
+Flags: `--min-trip-days 1` treats a single day out as a trip, `--no-places` skips the
+Wikipedia landmark lookups, `--aws` sends keepers to Rekognition and Bedrock.
 
 Everything under `make test` runs without AWS. The DynamoDB, S3, Step Functions,
 Rekognition, Bedrock, Polly, Location, SES, EventBridge and AgentCore Gateway backends are

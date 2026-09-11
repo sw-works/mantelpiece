@@ -65,6 +65,14 @@ what would have helped. Dates are when we hit it.
   AWS-backed trait has an in-memory fake and the real implementations are compile-checked
   until deploy.
 
+## Open data
+
+- **2026-09-10, Wikipedia geosearch.** Good for landmarks, lochs, villages and mountains
+  along a route, with `type` and `dim` hints, but no type filter and a 10 km radius cap:
+  in a dense centre the nearest 50 articles are all buildings, so "Oxford" never comes
+  back for a walk down Broad Street. Amazon Location's reverse geocode is the answer
+  once deployed; until then day names in cities come from a college or a memorial.
+
 ## What would help most
 
 1. One compatibility page per Vega SDK version: React Native pin, system-deployed ports,
