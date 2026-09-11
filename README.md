@@ -48,6 +48,14 @@ scripts/ffmpeg-layer.sh   # static ffmpeg into infra/assets/ffmpeg-layer for the
 make deploy      # cdk deploy (needs AWS credentials and Login with Amazon client id/secret)
 ```
 
+Run the ingest pipeline over your own photos without AWS (signal, organize and enrich with
+in-memory stores; models stubbed unless `--aws`):
+
+```
+cd services && cargo run --release -p ingest-local -- ~/Pictures/trip --out /tmp/ingest-out
+open /tmp/ingest-out/report.md     # per-photo signals, bursts, keepers, trips, days; renditions/
+```
+
 Everything under `make test` runs without AWS. The DynamoDB, S3, Step Functions,
 Rekognition, Bedrock, Polly, Location, SES, EventBridge and AgentCore Gateway backends are
 compile-checked only until the stack is deployed.
