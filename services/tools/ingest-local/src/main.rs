@@ -615,6 +615,9 @@ fn map_html(trips: &[memorylane_core::trip::Trip], media: &[MediaItem]) -> Strin
         .map(|t| t.name.as_str())
         .collect::<Vec<_>>()
         .join(" · ");
+    // Names carry apostrophes ("Martyrs' Memorial"); JSON is the only safe way into JS.
+    let title_js = serde_json::to_string(&title).unwrap();
+    let title = title.replace('<', "&lt;");
     format!(
         r#"<!doctype html>
 <html><head><meta charset="utf-8"><title>{title}</title>
@@ -624,6 +627,7 @@ fn map_html(trips: &[memorylane_core::trip::Trip], media: &[MediaItem]) -> Strin
 </head><body><div id="map"></div>
 <script>
 const data = {data};
+const title = {title_js};
 const map = L.map('map');
 L.tileLayer('https://tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png', {{maxZoom: 19, attribution: '&copy; OpenStreetMap'}}).addTo(map);
 const colors = ['#d62828','#1d3557','#2a9d8f','#e76f51','#6a4c93','#f4a261','#264653'];
@@ -651,7 +655,7 @@ for (const f of data.features) {{
 }}
 if (bounds.length) map.fitBounds(bounds, {{padding: [30, 30]}}); else map.setView([0, 0], 2);
 const legend = L.control({{position: 'bottomleft'}});
-legend.onAdd = () => {{ const d = L.DomUtil.create('div', 'legend'); d.innerHTML = '<b>{title}</b><br>solid: GPS from the photo · dashed: position estimated from neighbours<br>pins: places along the route (Wikipedia geosearch) · dots: photos'; return d; }};
+legend.onAdd = () => {{ const d = L.DomUtil.create('div', 'legend'); d.innerHTML = '<b>' + title + '</b><br>solid: GPS from the photo · dashed: position estimated from neighbours<br>pins: places along the route (Wikipedia geosearch) · dots: photos'; return d; }};
 legend.addTo(map);
 </script></body></html>
 "#
