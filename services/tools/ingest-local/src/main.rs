@@ -629,7 +629,8 @@ fn map_html(trips: &[memorylane_core::trip::Trip], media: &[MediaItem]) -> Strin
 const data = {data};
 const title = {title_js};
 const map = L.map('map');
-L.tileLayer('https://tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png', {{maxZoom: 19, attribution: '&copy; OpenStreetMap'}}).addTo(map);
+// CARTO's basemap: OpenStreetMap's own tile servers refuse a page opened from disk (no Referer).
+L.tileLayer('https://{{s}}.basemaps.cartocdn.com/rastertiles/voyager/{{z}}/{{x}}/{{y}}{{r}}.png', {{maxZoom: 19, subdomains: 'abcd', attribution: '&copy; OpenStreetMap contributors &copy; CARTO'}}).addTo(map);
 const colors = ['#d62828','#1d3557','#2a9d8f','#e76f51','#6a4c93','#f4a261','#264653'];
 const bounds = [];
 for (const f of data.features) {{
