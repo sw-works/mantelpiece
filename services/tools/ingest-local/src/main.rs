@@ -23,6 +23,7 @@ use memorylane_store::bus::MemoryBus;
 use memorylane_store::faces::MemoryFaces;
 use memorylane_store::maps::MemoryMaps;
 use memorylane_store::memory::{MemoryBlobs, MemoryStorage};
+use memorylane_store::places::{NoPlaces, Places, WikipediaPlaces};
 use memorylane_store::vectors::MemoryVectors;
 use memorylane_store::vision::{AwsVision, MemoryVision};
 use memorylane_store::{Blobs, Storage, Vision};
@@ -43,6 +44,8 @@ struct Args {
     out: PathBuf,
     aws: bool,
     model: Option<String>,
+    places: bool,
+    min_trip_days: u32,
 }
 
 fn parse_args() -> Result<Args, String> {
@@ -53,6 +56,8 @@ fn parse_args() -> Result<Args, String> {
         out: PathBuf::from("ingest-local-out"),
         aws: false,
         model: None,
+        places: true,
+        min_trip_days: 2,
     };
     let mut it = std::env::args().skip(1);
     while let Some(a) = it.next() {
@@ -67,7 +72,14 @@ fn parse_args() -> Result<Args, String> {
             "--out" => args.out = PathBuf::from(it.next().ok_or("--out needs a path")?),
             "--model" => args.model = Some(it.next().ok_or("--model needs an id")?),
             "--aws" => args.aws = true,
-            "-h" | "--help" => return Err("usage: ingest-local <dir>... [--limit N] [--contributor name] [--out dir] [--aws] [--model id]".into()),
+            "--no-places" => args.places = false,
+            "--min-trip-days" => {
+                args.min_trip_days = it
+                    .next()
+                    .and_then(|v| v.parse().ok())
+                    .ok_or("--min-trip-days needs a number")?;
+            }
+            "-h" | "--help" => return Err("usage: ingest-local <dir>... [--limit N] [--contributor name] [--out dir] [--aws] [--model id] [--no-places] [--min-trip-days N]".into()),
             other if other.starts_with("--") => return Err(format!("unknown flag {other}")),
             dir => args.dirs.push(PathBuf::from(dir)),
         }
@@ -209,6 +221,15 @@ async fn main() {
         faces: Arc::new(MemoryFaces::with_faces_per_image(0)),
         maps: Arc::new(MemoryMaps::default()),
         bus: Arc::new(MemoryBus::default()),
+        places: if args.places {
+            Arc::new(WikipediaPlaces::default()) as Arc<dyn Places>
+        } else {
+            Arc::new(NoPlaces)
+        },
+        cluster: memorylane_trips::cluster::Params {
+            min_trip_days: args.min_trip_days,
+            ..memorylane_trips::cluster::Params::default()
+        },
         clock: Arc::new(OffsetDateTime::now_utc),
     };
     let household = HouseholdId::new("local");
@@ -403,21 +424,46 @@ async fn main() {
         }
         let _ = writeln!(
             md,
-            "\n| Day | Date | Photos | Undated | Route points | Title |\n|---|---|---|---|---|---|"
+            "\n| Day | Date | Photos | Undated | Route points (estimated) | Route km | Title |\n|---|---|---|---|---|---|---|"
         );
         for d in &trip.days {
+            let estimated = d.route.points.iter().filter(|p| p.estimated).count();
             let _ = writeln!(
                 md,
-                "| {} | {} | {} | {} | {} | {} |",
+                "| {} | {} | {} | {} | {} ({estimated}) | {:.1} | {} |",
                 d.index,
                 d.date,
                 d.media.len(),
                 d.undated.len(),
                 d.route.points.len(),
+                memorylane_trips::route::length_m(&d.route) / 1000.0,
                 d.title.as_deref().unwrap_or("-")
             );
         }
         md.push('\n');
+        for d in &trip.days {
+            if d.landmarks.is_empty() {
+                continue;
+            }
+            let _ = writeln!(
+                md,
+                "Day {} landmarks along the route (photos within {} m, source):\n",
+                d.index,
+                memorylane_ingest_lambda::organize::LANDMARK_RADIUS_M
+            );
+            for l in &d.landmarks {
+                let _ = writeln!(
+                    md,
+                    "- {} ({} photo{}, {:.0} m off the route, {})",
+                    l.name,
+                    l.media.len(),
+                    if l.media.len() == 1 { "" } else { "s" },
+                    l.distance_m,
+                    l.source
+                );
+            }
+            md.push('\n');
+        }
     }
 
     let _ = writeln!(md, "## Photos ({})\n", media.len());
@@ -486,6 +532,12 @@ async fn main() {
         "trips": trips,
         "files": names.iter().map(|(id, name)| json!({ "id": id, "file": name })).collect::<Vec<_>>(),
     });
+    std::fs::write(
+        args.out.join("routes.geojson"),
+        serde_json::to_vec_pretty(&geojson(&trips, &media)).unwrap(),
+    )
+    .expect("write geojson");
+    std::fs::write(args.out.join("map.html"), map_html(&trips, &media)).expect("write map.html");
     std::fs::write(args.out.join("report.md"), &md).expect("write report.md");
     std::fs::write(
         args.out.join("report.json"),
@@ -500,4 +552,108 @@ async fn main() {
         media.len(), with_time, with_gps, organize1["groups"], keepers.len(), trips.len(), signal_ms, organize1_ms, enrich_ms
     );
     println!("report: {}", args.out.join("report.md").display());
+    println!("map:    {}", args.out.join("map.html").display());
+}
+
+fn stem_of(media: &[MediaItem], id: &MediaId) -> String {
+    media
+        .iter()
+        .find(|m| &m.id == id)
+        .and_then(|m| {
+            Path::new(&m.original_filename)
+                .file_stem()
+                .map(|s| s.to_string_lossy().to_string())
+        })
+        .unwrap_or_else(|| id.to_string())
+}
+
+/// One FeatureCollection: a LineString per day (GPS and estimated points flagged per
+/// vertex in `properties.estimated`), a Point per landmark with its photo count, and a
+/// Point per route photo linking to its thumbnail.
+fn geojson(trips: &[memorylane_core::trip::Trip], media: &[MediaItem]) -> Value {
+    let mut features = vec![];
+    for trip in trips {
+        for d in &trip.days {
+            let coords: Vec<Value> = d
+                .route
+                .points
+                .iter()
+                .map(|p| json!([p.at.lon, p.at.lat]))
+                .collect();
+            if coords.len() >= 2 {
+                features.push(json!({
+                    "type": "Feature",
+                    "geometry": { "type": "LineString", "coordinates": coords },
+                    "properties": { "trip": trip.name, "day": d.index, "date": d.date.to_string(), "title": d.title, "estimated": d.route.points.iter().map(|p| p.estimated).collect::<Vec<_>>(), "length_m": memorylane_trips::route::length_m(&d.route) }
+                }));
+            }
+            for p in &d.route.points {
+                features.push(json!({
+                    "type": "Feature",
+                    "geometry": { "type": "Point", "coordinates": [p.at.lon, p.at.lat] },
+                    "properties": { "kind": "photo", "day": d.index, "media": p.media, "file": stem_of(media, &p.media), "time": fmt_time(Some(p.time)), "estimated": p.estimated, "thumb": format!("renditions/{}-thumb.jpg", stem_of(media, &p.media)) }
+                }));
+            }
+            for l in &d.landmarks {
+                features.push(json!({
+                    "type": "Feature",
+                    "geometry": { "type": "Point", "coordinates": [l.at.lon, l.at.lat] },
+                    "properties": { "kind": "landmark", "day": d.index, "name": l.name, "photos": l.media.len(), "distance_m": l.distance_m, "source": l.source }
+                }));
+            }
+        }
+    }
+    json!({ "type": "FeatureCollection", "features": features })
+}
+
+/// Leaflet over OpenStreetMap tiles, data inlined: routes per day, dashed where the
+/// position was estimated, landmark pins with counts, photo dots with thumbnails.
+fn map_html(trips: &[memorylane_core::trip::Trip], media: &[MediaItem]) -> String {
+    let data = serde_json::to_string(&geojson(trips, media)).unwrap();
+    let title = trips
+        .iter()
+        .map(|t| t.name.as_str())
+        .collect::<Vec<_>>()
+        .join(" · ");
+    format!(
+        r#"<!doctype html>
+<html><head><meta charset="utf-8"><title>{title}</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>html,body,#map{{height:100%;margin:0}} .legend{{background:#fff;padding:8px 10px;font:13px system-ui;line-height:1.5}} img.thumb{{max-width:220px;display:block;margin-top:4px}}</style>
+</head><body><div id="map"></div>
+<script>
+const data = {data};
+const map = L.map('map');
+L.tileLayer('https://tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png', {{maxZoom: 19, attribution: '&copy; OpenStreetMap'}}).addTo(map);
+const colors = ['#d62828','#1d3557','#2a9d8f','#e76f51','#6a4c93','#f4a261','#264653'];
+const bounds = [];
+for (const f of data.features) {{
+  const c = colors[(f.properties.day - 1) % colors.length];
+  if (f.geometry.type === 'LineString') {{
+    const pts = f.geometry.coordinates.map(([lon, lat]) => [lat, lon]);
+    for (let i = 1; i < pts.length; i++) {{
+      const est = f.properties.estimated[i] || f.properties.estimated[i - 1];
+      L.polyline([pts[i - 1], pts[i]], {{color: c, weight: 4, opacity: 0.85, dashArray: est ? '6 8' : null}}).addTo(map)
+        .bindTooltip(`${{f.properties.title || 'Day ' + f.properties.day}} · ${{(f.properties.length_m / 1000).toFixed(1)}} km`);
+    }}
+    pts.forEach(p => bounds.push(p));
+  }} else if (f.properties.kind === 'photo') {{
+    const [lon, lat] = f.geometry.coordinates;
+    L.circleMarker([lat, lon], {{radius: 5, color: c, fillColor: f.properties.estimated ? '#fff' : c, fillOpacity: 1, weight: 2}}).addTo(map)
+      .bindPopup(`<b>${{f.properties.file}}</b><br>${{f.properties.time}}${{f.properties.estimated ? '<br><i>position estimated from neighbours</i>' : ''}}<img class="thumb" src="${{f.properties.thumb}}">`);
+    bounds.push([lat, lon]);
+  }} else if (f.properties.kind === 'landmark') {{
+    const [lon, lat] = f.geometry.coordinates;
+    L.marker([lat, lon]).addTo(map).bindTooltip(`${{f.properties.name}} (${{f.properties.photos}} photo${{f.properties.photos === 1 ? '' : 's'}})`, {{permanent: f.properties.photos > 0, direction: 'right', offset: [8, -20]}});
+    bounds.push([lat, lon]);
+  }}
+}}
+if (bounds.length) map.fitBounds(bounds, {{padding: [30, 30]}}); else map.setView([0, 0], 2);
+const legend = L.control({{position: 'bottomleft'}});
+legend.onAdd = () => {{ const d = L.DomUtil.create('div', 'legend'); d.innerHTML = '<b>{title}</b><br>solid: GPS from the photo · dashed: position estimated from neighbours<br>pins: places along the route (Wikipedia geosearch) · dots: photos'; return d; }};
+legend.addTo(map);
+</script></body></html>
+"#
+    )
 }
