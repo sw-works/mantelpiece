@@ -22,6 +22,9 @@ aws-sdk-s3vectors.workspace = true
 aws-sdk-geomaps.workspace = true
 aws-sdk-polly.workspace = true
 aws-sdk-sesv2.workspace = true
+aws-sdk-geoplaces.workspace = true
+ureq.workspace = true
+tokio = { workspace = true, features = ["time"] }
 aws-sdk-eventbridge.workspace = true
 aws-smithy-types.workspace = true
 serde_dynamo.workspace = true

@@ -28,6 +28,8 @@ pub struct Sample {
     /// Camera zone if EXIF carried one; used to bucket by local date.
     pub offset: Option<UtcOffset>,
     pub gps: Option<GeoPoint>,
+    /// `gps` was interpolated from geotagged neighbours, not read from the camera.
+    pub gps_estimated: bool,
     pub score: f32,
     pub burst_group: Option<String>,
     pub landmark: Option<String>,
@@ -59,6 +61,7 @@ pub(crate) mod fixtures {
             captured: base() + Duration::seconds((hours * 3600.0) as i64),
             offset: Some(UtcOffset::from_hms(9, 0, 0).unwrap()),
             gps: gps.map(|(lat, lon)| GeoPoint::new(lat, lon)),
+            gps_estimated: false,
             score: 5.0,
             burst_group: None,
             landmark: None,

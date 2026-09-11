@@ -41,6 +41,8 @@ aws-sdk-s3vectors = "1"
 aws-sdk-geomaps = "1"
 aws-sdk-polly = "1"
 aws-sdk-sesv2 = "1"
+aws-sdk-geoplaces = "1"
+ureq = { version = "3", features = ["json"] }
 aws-smithy-types = "1"
 serde_dynamo = { version = "4", features = ["aws-sdk-dynamodb+1"] }
 hmac = "0.12"

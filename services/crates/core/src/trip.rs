@@ -11,6 +11,142 @@ pub struct RoutePoint {
     #[serde(with = "time::serde::rfc3339")]
     pub time: OffsetDateTime,
     pub media: MediaId,
+    /// The photo had no GPS; its position was interpolated in time between geotagged
+    /// neighbours (F-206). Drawn dashed.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub estimated: bool,
+}
+
+/// A named place along a day's route, looked up from the route's positions (F-206,
+/// constitution V: a lookup, not a model). Feeds day titles, the trip name, the map and
+/// the facts a story may use.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Landmark {
+    pub name: String,
+    pub at: GeoPoint,
+    /// Metres from the closest route point.
+    pub distance_m: f64,
+    /// `wikipedia`, `aws`, or `photo` (recognised in the picture itself).
+    pub source: String,
+    /// Provider's type when it gave one: `city`, `mountain`, `waterbody`, `landmark`, `edu`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kind: Option<String>,
+    /// Provider's size estimate in metres, when given (a city is 10 km, a church 200 m).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dim_m: Option<u32>,
+    /// Photos taken within reach of the place.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub media: Vec<MediaId>,
+}
+
+impl Landmark {
+    /// How far from the place a photo still counts as taken there: two kilometres for a
+    /// building, half the provider's size for a town or a region, thirty at most.
+    #[must_use]
+    pub fn reach_m(&self) -> f64 {
+        let scaled = self.is_region()
+            || matches!(
+                self.kind.as_deref(),
+                Some("mountain" | "waterbody" | "forest" | "glacier")
+            );
+        let half = if scaled {
+            self.dim_m.map_or(0.0, |d| f64::from(d) / 2.0)
+        } else {
+            0.0
+        };
+        half.clamp(2_000.0, 30_000.0)
+    }
+
+    /// True for a town, an island, a district or a country: the places a day or a trip
+    /// is naturally named after.
+    #[must_use]
+    pub fn is_region(&self) -> bool {
+        match self.kind.as_deref() {
+            Some("city" | "isle" | "country") => true,
+            Some(k) => k.starts_with("adm"),
+            None => false,
+        }
+    }
+
+    /// The place to name a day or a trip after: regions first (the widest one, up to a
+    /// hundred kilometres, so a district beats an islet), then nature, then any named
+    /// place; most photographed within a tier, the first met on the route on a tie; never
+    /// a noise entry.
+    #[must_use]
+    pub fn best_name<'a>(
+        landmarks: impl IntoIterator<Item = &'a Landmark>,
+    ) -> Option<&'a Landmark> {
+        let key = |l: &Landmark| {
+            let width = if l.is_region() {
+                l.dim_m.unwrap_or(0).min(100_000)
+            } else {
+                0
+            };
+            (l.prominence(), width, l.media.len())
+        };
+        let mut best: Option<&'a Landmark> = None;
+        for l in landmarks.into_iter().filter(|l| l.prominence() >= 4) {
+            let better = best.is_none_or(|b| {
+                key(l)
+                    .cmp(&key(b))
+                    .then(b.distance_m.total_cmp(&l.distance_m))
+                    == std::cmp::Ordering::Greater
+            });
+            if better {
+                best = Some(l);
+            }
+        }
+        best
+    }
+
+    /// Words that mark an article as a building or body nobody names a day after.
+    const NOISE: &'static [&'static str] = &[
+        "court",
+        "hospital",
+        "society",
+        "bookshop",
+        "shop",
+        "radio",
+        "foundry",
+        "drill hall",
+        "lifeboat",
+        "school",
+        "sgoil",
+        "constituency",
+        "district",
+        "diocese",
+        "street",
+        "road",
+        "company",
+        "& co",
+        "station",
+        "club",
+        "office",
+        "centre",
+        "center",
+        "council",
+    ];
+
+    /// How fit a place is to name a day or a trip: higher is better. Towns, mountains and
+    /// waters first, then plain named places, then buildings the provider calls landmarks,
+    /// then institutions; anything with a noise word or a parenthesised qualifier last.
+    #[must_use]
+    pub fn prominence(&self) -> u8 {
+        let lower = self.name.to_lowercase();
+        if lower.contains('(') || Self::NOISE.iter().any(|w| lower.contains(w)) {
+            return 0;
+        }
+        if self.is_region() {
+            return 6;
+        }
+        match self.kind.as_deref() {
+            Some("mountain" | "waterbody" | "river" | "forest" | "glacier" | "pass") => 5,
+            None if self.dim_m.is_none_or(|d| d >= 1_000) => 4,
+            Some("landmark") => 2,
+            // edu, event, airport, railwaystation, camera, or a tiny untyped spot.
+            _ => 1,
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Default)]
@@ -35,6 +171,9 @@ pub struct TripDay {
     /// Media with no capture time or GPS, placed here by upload time (edge case, US4).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub undated: Vec<MediaId>,
+    /// Places along the day's route, nearest first.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub landmarks: Vec<Landmark>,
 }
 
 /// Outcome of the place-and-date check every story goes through (F-301).
@@ -109,6 +248,33 @@ pub struct Trip {
 }
 
 impl Trip {
+    /// Every place along the trip, merged across days with their photos, most
+    /// photographed first.
+    #[must_use]
+    pub fn landmarks(&self) -> Vec<Landmark> {
+        let mut all: Vec<Landmark> = Vec::new();
+        for l in self.days.iter().flat_map(|d| d.landmarks.iter()) {
+            if let Some(seen) = all.iter_mut().find(|s| s.name == l.name) {
+                seen.distance_m = seen.distance_m.min(l.distance_m);
+                for m in &l.media {
+                    if !seen.media.contains(m) {
+                        seen.media.push(m.clone());
+                    }
+                }
+            } else {
+                all.push(l.clone());
+            }
+        }
+        all.sort_by(|a, b| {
+            (b.prominence() > 0)
+                .cmp(&(a.prominence() > 0))
+                .then(b.media.len().cmp(&a.media.len()))
+                .then(b.prominence().cmp(&a.prominence()))
+                .then(a.name.cmp(&b.name))
+        });
+        all
+    }
+
     pub fn media_count(&self) -> usize {
         self.days.iter().map(|d| d.media.len()).sum()
     }
