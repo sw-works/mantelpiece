@@ -25,7 +25,7 @@ Tracks: Fire TV (primary), Alexa+ (secondary). Mini-challenges: AWS Builder, Ope
 ```
 packages/tv-ui/  Fire TV screens, hooks and API client: React Native core only, no native modules
 apps/tv-vega/    Vega OS shell: manifest, Metro, React Native pinned to the Vega SDK line (0.83)
-apps/web/        Phone pages: link (approve the TV code) and upload (join by code, resumable uploads, share-sheet target)
+apps/web/        Phone pages: link (approve the TV code), upload (join by code, resumable uploads, share-sheet target), trips, people, ask
 services/        Rust workspace
   crates/core    domain types, device-code and trip-code flows, confirmation tokens
   crates/ingest  checksum, EXIF, pHash, quality signals, burst grouping, renditions

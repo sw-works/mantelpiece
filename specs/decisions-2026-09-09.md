@@ -623,3 +623,18 @@ compile-checked only.
 - Alternatives left on the table: a `memorylane-import` mode for `ingest-local` that
   uploads a folder through the same presigned endpoints (good for USB drives on a laptop),
   and a Fire OS-only build with Storage Access Framework for a real TV-side USB import.
+
+## 28. All trips: years on the TV home, My trips on the phone (2026-09-12)
+
+- The TV home was one flat scroll of trips. With more than one year it now shows a
+  heading per start year, newest year first, and a row of year buttons above the list
+  that scrolls to that heading (`groupByYear` in `packages/tv-ui/src/trips.ts`). One year
+  keeps the plain list. Focus still lands on the newest trip.
+- The phone had no list at all; `trips.html` lists every trip for the owner session
+  (link page handoff, same as People and Ask), grouped by year with anchor links, and
+  opens one inline: story, day lines with credits, first four thumbnails through
+  `GET /trips/{id}` and `GET /media/{id}/url`. Upload sessions still see only their own
+  trip, unchanged in the API. The uploader links to My trips, People and Ask when the
+  phone holds the owner session.
+- Untested on a device or a phone; jest and vitest cover grouping, headings, the jump row
+  and the trip fetch.

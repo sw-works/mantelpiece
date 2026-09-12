@@ -49,7 +49,8 @@ modal on the TV can mint the token that lets the tool run.
 - Agents on Bedrock AgentCore: a Strands Concierge with Memory, six workflows (Trip
   Curator, Ask Your Archive, Household Patterns, Dedup Steward, Share, Trip Merge), tools
   through AgentCore Gateway with Lambda targets, Cedar policy on irreversible tools.
-- Phone pages for reactions, hold-to-talk questions and the People consent switch; a second
+- Phone pages for reactions, hold-to-talk questions, the People consent switch and My trips
+  by year; the TV home groups trips under a heading per year with a jump row; a second
   Fire TV joins a trip by code and gets its own feed, pins and hides.
 - Expiring share links with an optional email, an ambient slideshow after idle, story
   captions with narration behind a flag, nightly On this day and Then and now.
