@@ -15,4 +15,6 @@ new MemoryLaneStack(app, "MemoryLane", {
   amazonClientId: app.node.tryGetContext("amazon-client-id") as string | undefined,
   amazonClientSecret: app.node.tryGetContext("amazon-client-secret") as string | undefined,
   lambdaAssetDir: app.node.tryGetContext("lambda-asset-dir") as string | undefined,
+  alexaSkillId: app.node.tryGetContext("alexa-skill-id") as string | undefined,
+  alexaSkillCallbackUrls: (app.node.tryGetContext("alexa-skill-callback-urls") as string | undefined)?.split(","),
 });

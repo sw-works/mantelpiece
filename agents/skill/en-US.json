@@ -1,0 +1,39 @@
+{
+  "interactionModel": {
+    "languageModel": {
+      "invocationName": "memory lane",
+      "intents": [
+        { "name": "AMAZON.CancelIntent", "samples": [] },
+        { "name": "AMAZON.HelpIntent", "samples": [] },
+        { "name": "AMAZON.StopIntent", "samples": [] },
+        { "name": "AMAZON.FallbackIntent", "samples": [] },
+        { "name": "AMAZON.NavigateHomeIntent", "samples": [] },
+        { "name": "AMAZON.YesIntent", "samples": [] },
+        { "name": "AMAZON.NoIntent", "samples": [] },
+        {
+          "name": "PlayTripIntent",
+          "slots": [{ "name": "trip", "type": "AMAZON.SearchQuery" }],
+          "samples": [
+            "play {trip}",
+            "play the {trip}",
+            "show {trip}",
+            "show me {trip}",
+            "show the {trip}",
+            "start {trip}",
+            "play the latest trip",
+            "play the last trip",
+            "show the latest trip",
+            "play photos from {trip}",
+            "show photos from {trip}"
+          ]
+        },
+        {
+          "name": "ListTripsIntent",
+          "slots": [],
+          "samples": ["list my trips", "list trips", "what trips do I have", "which trips are there", "what can I play"]
+        }
+      ],
+      "types": []
+    }
+  }
+}

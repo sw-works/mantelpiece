@@ -113,6 +113,7 @@ describe("MemoryLane stack", () => {
     template.hasResourceProperties("AWS::ApiGatewayV2::Authorizer", { AuthorizerType: "JWT" });
     template.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: "POST /device/approve", AuthorizationType: "JWT" });
     template.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: "POST /join/amazon", AuthorizationType: "JWT" });
+    template.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: "POST /session/amazon", AuthorizationType: "JWT" });
     template.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: "ANY /{proxy+}", AuthorizationType: "NONE" });
     // Guest sessions are bound to a browser install through this header (F-153).
     template.hasResourceProperties("AWS::ApiGatewayV2::Api", {
@@ -188,6 +189,18 @@ describe("MemoryLane stack", () => {
     });
   });
 
+  it("runs the Alexa skill as a Python Lambda that only Alexa may invoke", () => {
+    template.hasResourceProperties("AWS::Lambda::Function", {
+      Runtime: "python3.13",
+      Handler: "memorylane_skill.handler.lambda_handler",
+      Environment: { Variables: Match.objectLike({ API_BASE: Match.anyValue(), SKILL_ID: "" }) },
+    });
+    template.hasResourceProperties("AWS::Lambda::Permission", { Principal: "alexa-appkit.amazon.com", Action: "lambda:InvokeFunction" });
+    const pinned = synth({ alexaSkillId: "amzn1.ask.skill.abc" });
+    pinned.hasResourceProperties("AWS::Lambda::Permission", { Principal: "alexa-appkit.amazon.com", EventSourceToken: "amzn1.ask.skill.abc" });
+    pinned.hasResourceProperties("AWS::Lambda::Function", { Environment: { Variables: Match.objectLike({ SKILL_ID: "amzn1.ask.skill.abc" }) } });
+  });
+
   it("emails share links only from the verified sender, and not at all without one", () => {
     expect(template.findResources("AWS::SES::EmailIdentity")).toEqual({});
     template.hasResourceProperties("AWS::Lambda::Function", {
@@ -209,7 +222,7 @@ describe("MemoryLane stack", () => {
       Scopes: [Match.objectLike({ ScopeName: "tools" })],
     });
     const clients = Object.values(template.findResources("AWS::Cognito::UserPoolClient"));
-    expect(clients).toHaveLength(2);
+    expect(clients).toHaveLength(3);
     const alexa = clients.find((c) => JSON.stringify(c.Properties.AllowedOAuthScopes).includes("tools"));
     if (!alexa) throw new Error("no Alexa+ client");
     expect(alexa.Properties.AllowedOAuthFlows).toEqual(["code"]);
@@ -218,6 +231,13 @@ describe("MemoryLane stack", () => {
     const gateway = Object.values(template.findResources("AWS::BedrockAgentCore::Gateway"))[0];
     if (!gateway) throw new Error("no gateway");
     expect(gateway.Properties.AuthorizerConfiguration.CustomJWTAuthorizer.AllowedClients).toHaveLength(2);
+    // The skill's confidential client is a JWT audience for /session/amazon but not a Gateway caller.
+    const skill = clients.find((c) => c.Properties.GenerateSecret === true);
+    if (!skill) throw new Error("no Alexa skill client");
+    expect(skill.Properties.AllowedOAuthFlows).toEqual(["code"]);
+    const authorizer = Object.values(template.findResources("AWS::ApiGatewayV2::Authorizer"))[0];
+    if (!authorizer) throw new Error("no JWT authorizer");
+    expect(authorizer.Properties.JwtConfiguration.Audience).toHaveLength(2);
     template.hasResourceProperties("AWS::Lambda::Function", {
       Environment: { Variables: Match.objectLike({ OAUTH_ISSUER: Match.anyValue(), OAUTH_DOMAIN: Match.anyValue(), GATEWAY_URL: Match.anyValue() }) },
     });

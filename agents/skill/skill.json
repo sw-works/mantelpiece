@@ -1,0 +1,32 @@
+{
+  "manifest": {
+    "manifestVersion": "1.0",
+    "publishingInformation": {
+      "locales": {
+        "en-US": {
+          "name": "MemoryLane",
+          "summary": "Your family trips as a slideshow on the Echo Show.",
+          "description": "Play any trip from your MemoryLane household on an Echo Show. Say \"Alexa, ask Memory Lane to play the latest trip\" or name a trip. Devices without a screen hear the trip's story instead.",
+          "examplePhrases": ["Alexa, open Memory Lane", "Alexa, ask Memory Lane to play the latest trip", "Alexa, ask Memory Lane to show Skye"],
+          "keywords": ["photos", "family", "trips", "slideshow", "memories"]
+        }
+      },
+      "category": "PHOTO_AND_VIDEO_SERVICES",
+      "distributionCountries": ["US"],
+      "isAvailableWorldwide": false,
+      "testingInstructions": "Link an Amazon account that has signed in a MemoryLane TV. Say \"play the latest trip\" on an Echo Show."
+    },
+    "apis": {
+      "custom": {
+        "endpoint": { "uri": "arn:aws:lambda:REGION:ACCOUNT:function:SKILL_FUNCTION" },
+        "interfaces": [{ "type": "ALEXA_PRESENTATION_APL", "supportedViewports": [
+          { "mode": "HUB", "shape": "RECTANGLE", "minWidth": 960, "maxWidth": 2560, "minHeight": 480, "maxHeight": 1440 },
+          { "mode": "HUB", "shape": "ROUND", "minWidth": 480, "maxWidth": 480, "minHeight": 480, "maxHeight": 480 },
+          { "mode": "TV", "shape": "RECTANGLE", "minWidth": 960, "maxWidth": 1920, "minHeight": 540, "maxHeight": 1080 }
+        ] }]
+      }
+    },
+    "permissions": [],
+    "privacyAndCompliance": { "allowsPurchases": false, "usesPersonalInfo": false, "isChildDirected": false, "isExportCompliant": true, "containsAds": false }
+  }
+}

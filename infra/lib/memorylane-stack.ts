@@ -48,12 +48,21 @@ export interface MemoryLaneStackProps extends StackProps {
   alexaCallbackUrls?: string[];
   /** Where route landmarks come from: "aws" (Amazon Location Places), "wikipedia", "none". */
   placesProvider?: "aws" | "wikipedia" | "none";
+  /**
+   * The custom Alexa skill (Echo Show slideshow, `agents/skill/`). The skill id locks the
+   * Lambda's invoke permission to that skill; the callback URLs are the account-linking
+   * redirects the developer console shows for the skill. Both are known only after the
+   * skill is created in the console, so defaults are placeholders.
+   */
+  alexaSkillId?: string;
+  alexaSkillCallbackUrls?: string[];
 }
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const placeholderDir = path.resolve(here, "..", "assets", "placeholder");
 const cedarPolicyPath = path.resolve(here, "..", "policy", "tools.cedar");
 const ffmpegLayerDir = path.resolve(here, "..", "assets", "ffmpeg-layer");
+const skillAssetDir = path.resolve(here, "..", "..", "agents", "src");
 
 export class MemoryLaneStack extends Stack {
   readonly table: dynamodb.Table;
@@ -156,6 +165,21 @@ export class MemoryLaneStack extends Stack {
     });
     alexaClient.node.addDependency(resourceServer);
     if (amazonProvider) alexaClient.node.addDependency(amazonProvider);
+
+    // Custom Alexa skill account linking: a confidential client (Alexa keeps the secret),
+    // authorization-code grant, the same profile scopes as the web client.
+    const skillClient = this.userPool.addClient("AlexaSkill", {
+      supportedIdentityProviders: providers,
+      generateSecret: true,
+      oAuth: {
+        flows: { authorizationCodeGrant: true },
+        scopes: [cognito.OAuthScope.OPENID, cognito.OAuthScope.PROFILE, cognito.OAuthScope.EMAIL],
+        callbackUrls: props.alexaSkillCallbackUrls ?? ["https://layla.amazon.com/api/skill/link/placeholder", "https://pitangui.amazon.com/api/skill/link/placeholder"],
+      },
+      accessTokenValidity: Duration.hours(1),
+      refreshTokenValidity: Duration.days(90),
+    });
+    if (amazonProvider) skillClient.node.addDependency(amazonProvider);
 
     // Hackathon shortcut: the HMAC secret for TV and upload sessions rides in the Lambda
     // environment. Production would fetch it from Secrets Manager at cold start.
@@ -385,10 +409,28 @@ export class MemoryLaneStack extends Stack {
     });
     const integration = new HttpLambdaIntegration("ApiIntegration", apiFn);
     const jwt = new HttpJwtAuthorizer("CognitoJwt", this.userPool.userPoolProviderUrl, {
-      jwtAudience: [client.userPoolClientId],
+      jwtAudience: [client.userPoolClientId, skillClient.userPoolClientId],
     });
     this.api.addRoutes({ path: "/device/approve", methods: [apigw.HttpMethod.POST], integration, authorizer: jwt });
     this.api.addRoutes({ path: "/join/amazon", methods: [apigw.HttpMethod.POST], integration, authorizer: jwt });
+    this.api.addRoutes({ path: "/session/amazon", methods: [apigw.HttpMethod.POST], integration, authorizer: jwt });
+
+    // The custom Alexa skill (Echo Show slideshow): stdlib-only Python, so the source tree
+    // is the asset. Alexa invokes it directly; the skill id, once known, pins the caller.
+    const skillFn = new lambda.Function(this, "SkillFn", {
+      runtime: lambda.Runtime.PYTHON_3_13,
+      architecture: lambda.Architecture.ARM_64,
+      handler: "memorylane_skill.handler.lambda_handler",
+      code: lambda.Code.fromAsset(skillAssetDir, { exclude: ["**/__pycache__", "**/*.pyc"] }),
+      memorySize: 256,
+      timeout: Duration.seconds(8),
+      environment: { API_BASE: this.api.apiEndpoint, SKILL_ID: props.alexaSkillId ?? "" },
+    });
+    skillFn.addPermission("AlexaInvoke", {
+      principal: new iam.ServicePrincipal("alexa-appkit.amazon.com"),
+      action: "lambda:InvokeFunction",
+      ...(props.alexaSkillId ? { eventSourceToken: props.alexaSkillId } : {}),
+    });
     this.api.addRoutes({ path: "/{proxy+}", methods: [apigw.HttpMethod.ANY], integration });
 
     // AgentCore Gateway: the one tool surface for the Concierge and Alexa+ (F-505, W2).
@@ -461,6 +503,8 @@ export class MemoryLaneStack extends Stack {
     new CfnOutput(this, "PolicyEngineArn", { value: policyEngine.attrPolicyEngineArn });
     new CfnOutput(this, "UserPoolId", { value: this.userPool.userPoolId });
     new CfnOutput(this, "UserPoolClientId", { value: client.userPoolClientId });
+    new CfnOutput(this, "AlexaSkillClientId", { value: skillClient.userPoolClientId });
+    new CfnOutput(this, "AlexaSkillFunctionArn", { value: skillFn.functionArn });
     new CfnOutput(this, "MediaBucket", { value: this.bucket.bucketName });
     new CfnOutput(this, "TableName", { value: this.table.tableName });
     new CfnOutput(this, "EventBusName", { value: this.bus.eventBusName });
