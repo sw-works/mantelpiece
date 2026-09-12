@@ -73,9 +73,19 @@ what would have helped. Dates are when we hit it.
   back for a walk down Broad Street. Amazon Location's reverse geocode is the answer
   once deployed; until then day names in cities come from a college or a memorial.
 
+- **2026-09-12, no local drop.** Fire TV has nothing like AirDrop. DIAL only launches an
+  app with a small payload and needs a native second-screen client (UDP multicast, out
+  of reach for a web page); Matter Casting is for video; the Vega app has no listening
+  socket and no external storage, so a USB drive or a phone on the same Wi-Fi cannot hand
+  bytes to the TV. Uploads go through S3, and the phone side shortens the path instead: a
+  Web Share Target so the page sits in the Android share sheet, and a remembered trip so
+  a return visit skips the QR. iOS Safari has no share target, so iPhones keep the QR.
+
 ## What would help most
 
 1. One compatibility page per Vega SDK version: React Native pin, system-deployed ports,
    CLI-only install.
 2. An Amazon Photos read API or MCP tool.
 3. A Cognito device-code grant.
+4. A local path from phone to Fire TV: a DIAL payload a web page could send, or a
+   share-sheet target on Fire OS that a Vega app can receive.

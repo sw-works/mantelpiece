@@ -38,7 +38,9 @@ modal on the TV can mint the token that lets the tool run.
 - Fire TV app in React Native for Vega, fetch-only, no native modules, one codebase for
   Vega OS and Fire OS.
 - Phone uploader as a PWA: no install, resumable multipart uploads straight to S3,
-  streaming SHA-256 for exact-duplicate rejection before any processing.
+  streaming SHA-256 for exact-duplicate rejection before any processing. The phone
+  remembers the trip, and on Android the page is a share-sheet target, so after the first
+  scan photos go from the camera roll to the TV without opening anything.
 - Backend in Rust on Lambda behind API Gateway: device-code sign-in through Cognito
   federated to Login with Amazon, trip codes, presigned uploads, a long-poll event feed.
 - Ingest as Step Functions: a per-object signal task (EXIF, perceptual hash, sharpness,

@@ -601,3 +601,25 @@ compile-checked only.
   them, so stories may name places the route passed.
 - `ingest-local` gained `--min-trip-days`, `--no-places`, `routes.geojson` and a Leaflet
   `map.html` with the route, estimated segments dashed, landmark pins and photo dots.
+
+## 27. Share-sheet uploads and a remembered trip (2026-09-12)
+
+- Asked for a USB import and an AirDrop-style drop, and neither exists on Fire TV: the
+  Vega sandbox has no external storage and its file APIs read strings only, DIAL is a
+  launch trigger that needs a native client, and the app cannot listen on a socket. The
+  cloud hop stays; the phone side gets shorter instead.
+- `apps/web` is now a Web Share Target: the manifest declares a `share_target` POST to
+  `/share-target` for images and videos, the service worker answers it by parking each
+  file in the `memorylane-shared` cache and redirecting to `/?shared=<n>`, and the
+  uploader takes the files out and runs the normal queue. Android Chrome only; iOS Safari
+  has no share target. Untested on a phone: the flow is unit-tested with a fake cache,
+  and the manifest and worker are hand-checked against the spec, not run on a device.
+- The upload session (30 days) was already remembered; the page now says which trip it
+  adds to, offers "Switch trip", and on a share-sheet launch checks the session with
+  `GET /me` first, so an expired one sends the person back to the QR instead of a list of
+  401s. Offline or a server error is not treated as expired.
+- PWA icons are rendered by `apps/web/scripts/icons.mjs` (no image library) and committed,
+  so installation on Android has the 192 and 512 px icons Chrome requires.
+- Alternatives left on the table: a `memorylane-import` mode for `ingest-local` that
+  uploads a folder through the same presigned endpoints (good for USB drives on a laptop),
+  and a Fire OS-only build with Storage Access Framework for a real TV-side USB import.

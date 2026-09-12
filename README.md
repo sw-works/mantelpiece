@@ -3,7 +3,8 @@
 Turn a family trip into a shared album that builds itself, on the living-room TV.
 
 MemoryLane is a Fire TV app plus a hosted backend. Install the app, scan the QR on the TV,
-pick photos on your phone. Everyone on the trip scans the same QR and adds theirs. The
+pick photos on your phone. Everyone on the trip scans the same QR and adds theirs; after
+that the phone remembers the trip, and on Android the page sits in the share sheet. The
 backend groups bursts, scores highlights, reconstructs the route, writes a day-by-day story,
 and an agent keeps the archive tidy. Ask about any trip from the TV or from Alexa+.
 
@@ -24,7 +25,7 @@ Tracks: Fire TV (primary), Alexa+ (secondary). Mini-challenges: AWS Builder, Ope
 ```
 packages/tv-ui/  Fire TV screens, hooks and API client: React Native core only, no native modules
 apps/tv-vega/    Vega OS shell: manifest, Metro, React Native pinned to the Vega SDK line (0.83)
-apps/web/        Phone pages: link (approve the TV code) and upload (join by code, resumable uploads)
+apps/web/        Phone pages: link (approve the TV code) and upload (join by code, resumable uploads, share-sheet target)
 services/        Rust workspace
   crates/core    domain types, device-code and trip-code flows, confirmation tokens
   crates/ingest  checksum, EXIF, pHash, quality signals, burst grouping, renditions
