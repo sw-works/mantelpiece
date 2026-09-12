@@ -6,7 +6,8 @@ MemoryLane is a Fire TV app plus a hosted backend. Install the app, scan the QR 
 pick photos on your phone. Everyone on the trip scans the same QR and adds theirs; after
 that the phone remembers the trip, and on Android the page sits in the share sheet. The
 backend groups bursts, scores highlights, reconstructs the route, writes a day-by-day story,
-and an agent keeps the archive tidy. Ask about any trip from the TV or from Alexa+.
+and an agent keeps the archive tidy. Ask about any trip from the TV or from Alexa+, or play
+one as a slideshow on an Echo Show.
 
 Entry for Build, Ship, Shape: Amazon Developer Hackathon 2026.
 Tracks: Fire TV (primary), Alexa+ (secondary). Mini-challenges: AWS Builder, Open Source.
@@ -34,7 +35,7 @@ services/        Rust workspace
   lambdas/api    backend API Lambda behind API Gateway
   lambdas/ingest Step Functions tasks: signal, enrich, organize
   lambdas/poster poster frames for videos (ffmpeg from a Lambda layer)
-agents/          Concierge workflows W1 to W6 for AgentCore Runtime (Python, uv)
+agents/          Concierge workflows W1 to W6 for AgentCore Runtime, and the Echo Show skill (Python, uv)
 infra/           CDK stack (TypeScript)
 scripts/         tv-walkthrough.sh: Virtual Device key presses and screenshots
 ```

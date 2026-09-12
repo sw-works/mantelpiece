@@ -638,3 +638,21 @@ compile-checked only.
   phone holds the owner session.
 - Untested on a device or a phone; jest and vitest cover grouping, headings, the jump row
   and the trip fetch.
+
+## 29. Echo Show slideshow through a custom Alexa skill (2026-09-12)
+
+- Amazon Photos' Photo Frame mode takes no third-party feed (friction log, 2026-09-12),
+  so the Echo Show gets MemoryLane through a classic custom skill with APL: `Pager` of
+  `Image` pages plus `AutoPage`, the documented slideshow pattern. Alexa+ add-ons stay the
+  voice and tool surface; the skill is only the screen.
+- `POST /session/amazon` (Cognito JWT) mints the same owner session the phone gets after
+  approving a device code, creating the owner contributor on a first sign-in. The skill
+  Lambda trades the account-linked token once per container. A new `AlexaSkill` Cognito
+  client with a secret serves account linking; it is a JWT audience for the API but not an
+  allowed client on the AgentCore Gateway.
+- The skill is stdlib Python under `agents/src/memorylane_skill` so the Lambda asset is
+  the source tree; `agents/skill/` holds the interaction model and manifest. Tests cover
+  linking, listing, play with and without a screen, name matching and the skill-id check.
+- Unverified: never run against Alexa. The APL document follows the published examples;
+  `idleTimeout` is a recommendation the device may bound, so the slideshow's tail is
+  unknown until a real Echo Show shows it. Registration steps are in `docs/alexa-plus.md`.

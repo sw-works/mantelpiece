@@ -12,6 +12,7 @@ sessions) or Cognito JWTs (`/join/amazon`). Errors are `{ "error": "<message>" }
 | POST | /device/code | none | issues `{code, link, expires_at, poll_seconds}` |
 | POST | /device/approve | phone (Cognito JWT) | `{code}`; first approval wins |
 | GET | /device/poll?code=&device= | TV | `{state}` pending, expired, or approved with `{household, token}` |
+| POST | /session/amazon | Alexa skill (Cognito JWT) | trades an account-linked token for an owner session: `{household, household_name, token}`; creates the owner contributor on first sign-in |
 | GET | /me | any | session summary |
 
 ## Codes and joining (US3, US7)
