@@ -17,3 +17,5 @@ input[type="text"] { font: inherit; padding: 12px; border-radius: 10px; border: 
 .item.done .state { color: #7ed49a; }
 .item.failed .state, .error { color: #ff7a7a; }
 .link { background: none; border: 0; color: var(--accent); font: inherit; padding: 0; cursor: pointer; grid-column: 2; }
+.where { display: flex; gap: 8px; align-items: baseline; }
+.hint { font-size: .85rem; }

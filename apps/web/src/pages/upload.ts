@@ -1,11 +1,13 @@
-// upload.<domain>/?t=<trip code> | ?h=<household code> | ?owner=1
-// Join as a guest or with Amazon, pick photos, watch them go up, remove your own.
+// upload.<domain>/?t=<trip code> | ?h=<household code> | ?owner=1 | ?shared=<n>
+// Join as a guest or with Amazon, pick photos, watch them go up, remove your own. The
+// phone remembers the trip, so a return visit or a share-sheet launch skips the QR.
 
-import { Api } from "../api.js";
+import { Api, ApiError } from "../api.js";
 import { OWNER_TOKEN_KEY, beginSignIn, completeSignIn, savedTokens, takeOwnerHandoff } from "../auth.js";
 import { loadConfig } from "../config.js";
 import { el, formatBytes, mount } from "../ui.js";
 import { labelFor, retryItem, runQueue, type QueueItem } from "../upload/queue.js";
+import { openSharedCache, sharedCount, takeSharedFiles } from "../upload/shared.js";
 import { IndexedDbResumeStore } from "../upload/store.js";
 
 const SESSION = "ml.upload.session";
@@ -50,6 +52,24 @@ export async function main(root: HTMLElement, location: Location, storage: Stora
   const code = url.searchParams.get("t") ?? url.searchParams.get("h");
   let session = readSession(storage, code);
 
+  // Photos from the share sheet: upload them into the remembered trip straight away.
+  const shared = sharedCount(url) > 0 ? await takeSharedFiles(await openSharedCache()) : [];
+  if (shared.length > 0) {
+    url.searchParams.delete("shared");
+    globalThis.history?.replaceState(null, "", url.toString());
+    if (session && (await sessionAlive(api, session.token))) {
+      renderUploader(root, api, session, storage, shared);
+      return;
+    }
+    storage.removeItem(SESSION);
+    mount(
+      root,
+      el("h1", {}, "Scan the TV first"),
+      el("p", {}, `${shared.length} photo${shared.length === 1 ? "" : "s"} arrived, but this phone is not in a trip yet. Scan the Invite code on the TV, then share again.`),
+    );
+    return;
+  }
+
   if (!session && (handoff || url.searchParams.get("owner") === "1")) {
     const token = storage.getItem(OWNER_TOKEN_KEY);
     if (token) session = { token, displayName: "You", code: null };
@@ -73,7 +93,7 @@ export async function main(root: HTMLElement, location: Location, storage: Stora
       const joined = await api.joinAsGuest(code, name);
       session = { token: joined.token, displayName: joined.display_name, code };
       storage.setItem(SESSION, JSON.stringify(session));
-      renderUploader(root, api, session);
+      renderUploader(root, api, session, storage);
     }, async () => {
       url.searchParams.set("amazon", "1");
       location.assign(await beginSignIn(auth, storage, url.toString()));
@@ -81,7 +101,7 @@ export async function main(root: HTMLElement, location: Location, storage: Stora
     return;
   }
 
-  renderUploader(root, api, session);
+  renderUploader(root, api, session, storage);
 }
 
 function readSession(storage: Storage, code: string | null): Session | null {
@@ -89,6 +109,17 @@ function readSession(storage: Storage, code: string | null): Session | null {
   if (!raw) return null;
   const s = JSON.parse(raw) as Session;
   return code === null || s.code === code ? s : null;
+}
+
+/** Upload sessions last 30 days; a dead one means back to the QR, not a wall of failures. */
+async function sessionAlive(api: Api, token: string): Promise<boolean> {
+  try {
+    await api.me(token);
+    return true;
+  } catch (e) {
+    if (e instanceof ApiError && (e.status === 401 || e.status === 403)) return false;
+    return true; // offline or a server hiccup: let the queue retry
+  }
 }
 
 function renderJoin(root: HTMLElement, code: string, asGuest: (name: string) => Promise<void>, withAmazon: () => Promise<void>) {
@@ -121,14 +152,13 @@ function renderJoin(root: HTMLElement, code: string, asGuest: (name: string) => 
   );
 }
 
-function renderUploader(root: HTMLElement, api: Api, session: Session) {
+function renderUploader(root: HTMLElement, api: Api, session: Session, storage: Storage, pending: File[] = []) {
   const input = el("input", { type: "file", multiple: "", accept: "image/*,video/*" });
   const list = el("ul", { class: "uploads" });
   const status = el("p", { class: "status" }, `Uploading as ${session.displayName}.`);
   const store = new IndexedDbResumeStore();
 
-  input.onchange = async () => {
-    const files = Array.from(input.files ?? []);
+  const upload = async (files: File[]) => {
     if (files.length === 0) return;
     input.disabled = true;
     status.textContent = `Uploading ${files.length} file${files.length === 1 ? "" : "s"}…`;
@@ -166,12 +196,24 @@ function renderUploader(root: HTMLElement, api: Api, session: Session) {
     input.disabled = false;
     input.value = "";
   };
+  input.onchange = () => void upload(Array.from(input.files ?? []));
+
+  // Where the photos go, and a way out when this phone should join a different trip.
+  const where = el("span", {}, session.code ? `Adding to trip ${session.code}.` : "Adding to your household.");
+  const leave = el("button", { class: "link" }, "Switch trip");
+  leave.onclick = () => {
+    storage.removeItem(SESSION);
+    mount(root, el("h1", {}, "MemoryLane"), el("p", {}, "Scan the Invite code on the TV to join another trip."));
+  };
 
   mount(
     root,
-    el("h1", {}, "Pick photos"),
+    el("h1", {}, pending.length > 0 ? "Sending your photos" : "Pick photos"),
     status,
+    el("p", { class: "where" }, where, " ", leave),
     el("label", { class: "picker" }, "Choose from your camera roll", input),
+    el("p", { class: "hint" }, "On Android, add this page to your home screen and MemoryLane shows up in the share sheet."),
     list,
   );
+  if (pending.length > 0) void upload(pending);
 }
