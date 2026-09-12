@@ -2226,6 +2226,71 @@ async fn an_alexa_skill_trades_its_cognito_token_for_an_owner_session() {
     assert_eq!(trips.status, 200);
 }
 
+#[tokio::test]
+async fn a_play_request_reaches_the_tv_through_the_feed() {
+    let h = harness();
+    h.storage
+        .put_trip(&trip("amzn-owner", "kyoto"))
+        .await
+        .unwrap();
+    let session = h.owner(Method::Post, "/session/amazon", None).await;
+    let token = session.body["token"].as_str().unwrap().to_owned();
+
+    let missing = h
+        .bearer(Method::Post, "/trips/nope/play", None, &token)
+        .await;
+    assert_eq!(missing.status, 404);
+
+    let asked = h
+        .bearer(
+            Method::Post,
+            "/trips/kyoto/play",
+            Some(json!({ "source": "alexa" })),
+            &token,
+        )
+        .await;
+    assert_eq!(asked.status, 200, "{}", asked.body);
+    assert_eq!(asked.body["requested"], true);
+    assert_eq!(asked.body["trip"], "kyoto");
+
+    let feed = h.bearer(Method::Get, "/events?since=0", None, &token).await;
+    let events = feed.body["events"].as_array().unwrap();
+    let play = events
+        .iter()
+        .find(|e| e["type"] == "play.requested")
+        .expect("play.requested on the feed");
+    assert_eq!(play["trip"], "kyoto");
+    assert_eq!(play["source"], "alexa");
+    assert!(play["playlist"].is_null());
+
+    // Playlists play the same way, with an empty body allowed.
+    let created = h
+        .bearer(
+            Method::Post,
+            "/playlists",
+            Some(json!({ "name": "Beach days", "media": ["m1"], "source": "search" })),
+            &token,
+        )
+        .await;
+    assert_eq!(created.status, 201, "{}", created.body);
+    let id = created.body["id"].as_str().unwrap().to_owned();
+    let asked = h
+        .bearer(Method::Post, &format!("/playlists/{id}/play"), None, &token)
+        .await;
+    assert_eq!(asked.status, 200, "{}", asked.body);
+    let feed = h.bearer(Method::Get, "/events?since=0", None, &token).await;
+    let last = feed.body["events"]
+        .as_array()
+        .unwrap()
+        .last()
+        .unwrap()
+        .clone();
+    assert_eq!(last["type"], "play.requested");
+    assert_eq!(last["playlist"], id);
+    assert_eq!(last["name"], "Beach days");
+    assert_eq!(last["source"], "agent");
+}
+
 fn owner_jwt() -> Jwt {
     Jwt {
         sub: "amzn-owner".into(),

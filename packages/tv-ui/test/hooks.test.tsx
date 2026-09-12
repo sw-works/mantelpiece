@@ -69,12 +69,28 @@ describe("events feed", () => {
   });
 
   it("reduces pages into recent, ticker and trips version", () => {
-    const s0 = { since: 0, recent: [], ticker: null, tripsVersion: 0 };
+    const s0 = { since: 0, recent: [], ticker: null, tripsVersion: 0, play: null };
     const s1 = reduce(s0, [{ seq: 1, at: "", type: "upload.progress", done: 1, total: 3 }], 1);
-    expect(s1).toMatchObject({ since: 1, ticker: "Uploading 1 of 3", tripsVersion: 0 });
+    expect(s1).toMatchObject({ since: 1, ticker: "Uploading 1 of 3", tripsVersion: 0, play: null });
     const s2 = reduce(s1, [{ seq: 2, at: "", type: "trip.detected", trip: "t", new_media: 9 }], 2);
     expect(s2.tripsVersion).toBe(1);
     expect(reduce(s2, [], 2)).toBe(s2);
+  });
+
+  it("keeps the newest play request and its ticker line", () => {
+    const s0 = { since: 0, recent: [], ticker: null, tripsVersion: 0, play: null };
+    const s1 = reduce(
+      s0,
+      [
+        { seq: 1, at: "", type: "play.requested", trip: "kyoto", playlist: null, name: "Kyoto", source: "alexa" },
+        { seq: 2, at: "", type: "play.requested", trip: null, playlist: "p1", name: "Beach days", source: "agent" },
+      ],
+      2,
+    );
+    expect(s1.play).toEqual({ seq: 2, trip: null, playlist: "p1", name: "Beach days", source: "agent" });
+    expect(s1.ticker).toBe("Playing Beach days");
+    const s2 = reduce(s1, [{ seq: 3, at: "", type: "memory.ready", trip: "t" }], 3);
+    expect(s2.play).toBe(s1.play);
   });
 
   it("long-polls and advances since", async () => {

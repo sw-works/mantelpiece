@@ -24,3 +24,4 @@ input[type="text"] { font: inherit; padding: 12px; border-radius: 10px; border: 
 .jump a { color: var(--accent); text-decoration: none; }
 .item.trip { grid-template-columns: 1fr auto; }
 .item.trip .detail { grid-column: 1 / -1; }
+.item.trip .actions { grid-column: 2; display: flex; gap: 12px; }

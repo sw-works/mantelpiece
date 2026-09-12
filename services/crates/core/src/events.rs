@@ -17,6 +17,16 @@ pub enum EventKind {
     MemoryReady { trip: TripId },
     #[serde(rename = "playlist.created")]
     PlaylistCreated { playlist: PlaylistId, name: String },
+    /// Someone asked for a slideshow on the TV: the Echo Show skill, the phone, Alexa+.
+    /// Exactly one of `trip` and `playlist` is set; the TV opens it.
+    #[serde(rename = "play.requested")]
+    PlayRequested {
+        trip: Option<TripId>,
+        playlist: Option<PlaylistId>,
+        name: String,
+        /// Where the request came from: `alexa`, `phone`, `agent`.
+        source: String,
+    },
     /// Dedup Steward has groups to review; TV opens Review Changes.
     #[serde(rename = "dedup.proposal")]
     DedupProposal {
@@ -116,6 +126,7 @@ impl Event {
             EventKind::TripDetected { .. } => "trip.detected",
             EventKind::MemoryReady { .. } => "memory.ready",
             EventKind::PlaylistCreated { .. } => "playlist.created",
+            EventKind::PlayRequested { .. } => "play.requested",
             EventKind::DedupProposal { .. } => "dedup.proposal",
             EventKind::ContributionReceived { .. } => "contribution.received",
             EventKind::UploadProgress { .. } => "upload.progress",
@@ -154,7 +165,8 @@ impl Event {
             EventKind::DedupProposal { trip, .. }
             | EventKind::ContributionReceived { trip, .. }
             | EventKind::CleanupProposal { trip, .. }
-            | EventKind::CleanupCandidates { trip, .. } => trip.as_ref(),
+            | EventKind::CleanupCandidates { trip, .. }
+            | EventKind::PlayRequested { trip, .. } => trip.as_ref(),
             EventKind::PlaylistCreated { .. }
             | EventKind::UploadProgress { .. }
             | EventKind::MediaRemoved { .. }

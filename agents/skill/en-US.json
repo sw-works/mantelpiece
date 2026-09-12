@@ -28,6 +28,19 @@
           ]
         },
         {
+          "name": "PlayOnTvIntent",
+          "slots": [{ "name": "trip", "type": "AMAZON.SearchQuery" }],
+          "samples": [
+            "play {trip} on the TV",
+            "play {trip} on my TV",
+            "show {trip} on the TV",
+            "show {trip} on the television",
+            "put {trip} on the TV",
+            "play the latest trip on the TV",
+            "show the latest trip on the TV"
+          ]
+        },
+        {
           "name": "ListTripsIntent",
           "slots": [],
           "samples": ["list my trips", "list trips", "what trips do I have", "which trips are there", "what can I play"]

@@ -47,6 +47,40 @@ pub async fn list(app: &App, req: &Req) -> Result<Resp, ApiError> {
     Resp::ok(app.storage.list_playlists(&household).await?)
 }
 
+#[derive(Deserialize, Default)]
+struct PlayBody {
+    #[serde(default)]
+    source: Option<String>,
+}
+
+/// Ask the household's TV to play this playlist (`play.requested` on the feed).
+pub async fn play(app: &App, req: &Req, id: &str) -> Result<Resp, ApiError> {
+    let household = app.owner(req)?;
+    let playlist = app
+        .storage
+        .get_playlist(&household, &PlaylistId::new(id))
+        .await?
+        .ok_or_else(|| ApiError::not_found("no such playlist"))?;
+    let body: PlayBody = if req.body.is_empty() {
+        PlayBody::default()
+    } else {
+        req.json()?
+    };
+    app.emit(
+        &household,
+        EventKind::PlayRequested {
+            trip: None,
+            playlist: Some(playlist.id.clone()),
+            name: playlist.name.clone(),
+            source: body.source.unwrap_or_else(|| "agent".into()),
+        },
+    )
+    .await?;
+    Resp::ok(
+        serde_json::json!({ "requested": true, "playlist": playlist.id, "name": playlist.name }),
+    )
+}
+
 /// One playlist for the TV: pinned items first, hidden ones dropped, removed ones gone
 /// (F-406 for the ambient set, F-163 for every other).
 pub async fn get(app: &App, req: &Req, id: &str) -> Result<Resp, ApiError> {

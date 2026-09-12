@@ -210,6 +210,11 @@ export class Api {
     return this.call<TripView>("GET", `/trips/${id}`, undefined, { bearer });
   }
 
+  /** Ask the household's TV to play a trip; the TV opens it from its feed. */
+  playTrip(bearer: string, id: string) {
+    return this.call<{ requested: boolean; trip: string; name: string }>("POST", `/trips/${id}/play`, { source: "phone" }, { bearer });
+  }
+
   mediaUrl(bearer: string, mediaId: string, rendition: "thumb" | "tv") {
     return this.call<{ url: string }>("GET", `/media/${mediaId}/url?rendition=${rendition}`, undefined, { bearer });
   }

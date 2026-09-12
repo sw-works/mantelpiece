@@ -248,6 +248,9 @@ impl App {
             (Method::Post, ["playlists"]) => handlers::playlists::create(self, req).await,
             (Method::Get, ["playlists"]) => handlers::playlists::list(self, req).await,
             (Method::Get, ["playlists", id]) => handlers::playlists::get(self, req, id).await,
+            (Method::Post, ["playlists", id, "play"]) => {
+                handlers::playlists::play(self, req, id).await
+            }
             (Method::Put, ["presence"]) => handlers::presence::put(self, req).await,
             (Method::Get, ["presence"]) => handlers::presence::list(self, req).await,
             (Method::Post, ["ask"]) => handlers::ask::ask(self, req).await,
@@ -257,6 +260,7 @@ impl App {
             (Method::Get, ["trips"]) => handlers::trips::list(self, req).await,
             (Method::Get, ["trips", trip]) => handlers::trips::get(self, req, trip).await,
             (Method::Get, ["trips", trip, "map"]) => handlers::trips::map(self, req, trip).await,
+            (Method::Post, ["trips", trip, "play"]) => handlers::trips::play(self, req, trip).await,
             (Method::Patch, ["trips", trip]) => handlers::trips::rename(self, req, trip).await,
             (Method::Post, ["trips", trip, "roles"]) => {
                 handlers::trips::set_role(self, req, trip).await

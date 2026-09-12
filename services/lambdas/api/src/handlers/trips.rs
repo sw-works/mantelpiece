@@ -48,6 +48,40 @@ pub async fn list(app: &App, req: &Req) -> Result<Resp, ApiError> {
     Resp::ok(visible)
 }
 
+#[derive(Deserialize, Default)]
+struct PlayBody {
+    #[serde(default)]
+    source: Option<String>,
+}
+
+/// Ask the household's TV to play this trip as a slideshow (F-405 by voice): the TV picks
+/// the `play.requested` event off its feed and opens the show. Owner sessions only.
+pub async fn play(app: &App, req: &Req, trip: &str) -> Result<Resp, ApiError> {
+    let household = app.owner(req)?;
+    let trip_id = TripId::new(trip);
+    let found = app
+        .storage
+        .get_trip(&household, &trip_id)
+        .await?
+        .ok_or_else(|| ApiError::not_found("no such trip"))?;
+    let body: PlayBody = if req.body.is_empty() {
+        PlayBody::default()
+    } else {
+        req.json()?
+    };
+    app.emit(
+        &household,
+        EventKind::PlayRequested {
+            trip: Some(trip_id),
+            playlist: None,
+            name: found.name.clone(),
+            source: body.source.unwrap_or_else(|| "phone".into()),
+        },
+    )
+    .await?;
+    Resp::ok(json!({ "requested": true, "trip": found.id, "name": found.name }))
+}
+
 /// Per-household view of the highlights (F-163): this household's pins first, its
 /// hidden items gone, the owner's own flags untouched.
 fn personalise(trip: &mut Trip, viewer: &HouseholdId, media: &[memorylane_core::media::MediaItem]) {

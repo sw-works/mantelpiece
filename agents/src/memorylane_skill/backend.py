@@ -28,6 +28,9 @@ class Backend(Protocol):
 
     def media_url(self, token: str, media_id: str, rendition: str = "tv") -> str: ...
 
+    def play_on_tv(self, token: str, trip_id: str) -> dict[str, Any]:
+        """Ask the household's Fire TV to open the trip (`POST /trips/{id}/play`)."""
+
 
 @dataclass
 class InMemoryBackend:
@@ -61,6 +64,12 @@ class InMemoryBackend:
     def media_url(self, token: str, media_id: str, rendition: str = "tv") -> str:
         self.calls.append(f"url {media_id} {rendition}")
         return f"https://cdn.test/{media_id}-{rendition}.jpg"
+
+    def play_on_tv(self, token: str, trip_id: str) -> dict[str, Any]:
+        self.calls.append(f"play {trip_id}")
+        if trip_id not in self.details:
+            raise BackendError(404, "no such trip")
+        return {"requested": True, "trip": trip_id, "name": self.details[trip_id]["name"]}
 
 
 class HttpBackend:
@@ -115,3 +124,6 @@ class HttpBackend:
     def media_url(self, token: str, media_id: str, rendition: str = "tv") -> str:
         out = self._call("GET", f"/media/{media_id}/url?rendition={rendition}", bearer=token)
         return out["url"]
+
+    def play_on_tv(self, token: str, trip_id: str) -> dict[str, Any]:
+        return self._call("POST", f"/trips/{trip_id}/play", bearer=token, body={"source": "alexa"})

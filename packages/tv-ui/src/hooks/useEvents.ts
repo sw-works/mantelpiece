@@ -11,6 +11,16 @@ export interface FeedState {
   ticker: string | null;
   /** Bumped whenever trips may have changed; screens refetch on it. */
   tripsVersion: number;
+  /** The newest `play.requested` seen: the TV opens it once (F-405 by voice). */
+  play: PlayRequest | null;
+}
+
+export interface PlayRequest {
+  seq: number;
+  trip: string | null;
+  playlist: string | null;
+  name: string;
+  source: string;
 }
 
 const MAX_RECENT = 20;
@@ -27,6 +37,8 @@ export function describe(event: FeedEvent): string | null {
       return "Memory ready";
     case "playlist.created":
       return `Playlist ready: ${String(event.name)}`;
+    case "play.requested":
+      return `Playing ${String(event.name)}`;
     case "dedup.proposal":
       return `${String(event.removable)} duplicates found to review`;
     case "cleanup.proposal":
@@ -55,18 +67,23 @@ export function reduce(state: FeedState, events: FeedEvent[], next: number): Fee
   const recent = [...state.recent, ...events].slice(-MAX_RECENT);
   const last = events[events.length - 1]!;
   const touchesTrips = events.some((e) => ["trip.detected", "memory.ready", "media.removed", "contribution.received", "membership.joined"].includes(e.type));
+  const asked = [...events].reverse().find((e) => e.type === "play.requested");
+  const play: PlayRequest | null = asked
+    ? { seq: asked.seq, trip: typeof asked.trip === "string" ? asked.trip : null, playlist: typeof asked.playlist === "string" ? asked.playlist : null, name: String(asked.name ?? ""), source: String(asked.source ?? "") }
+    : state.play;
   return {
     since: next,
     recent,
     ticker: describe(last) ?? state.ticker,
     tripsVersion: touchesTrips ? state.tripsVersion + 1 : state.tripsVersion,
+    play,
   };
 }
 
 export function useEvents(api: TvApi, token: string | null, opts: { errorBackoffMs?: number; sleep?: (ms: number) => Promise<void> } = {}): FeedState {
   const [state, dispatch] = useReducer(
     (s: FeedState, a: { events: FeedEvent[]; next: number }) => reduce(s, a.events, a.next),
-    { since: 0, recent: [], ticker: null, tripsVersion: 0 },
+    { since: 0, recent: [], ticker: null, tripsVersion: 0, play: null },
   );
   // The loop owns its own cursor: React batches the dispatch, so reading state after it
   // would re-poll the sequence just consumed.

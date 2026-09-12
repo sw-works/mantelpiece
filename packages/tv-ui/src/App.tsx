@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { View } from "react-native";
-import { type Trip, TvApi } from "./api/client";
+import { playlistAsTrip, type Trip, TvApi } from "./api/client";
 import { Ticker } from "./components/Ticker";
 import { useEvents } from "./hooks/useEvents";
 import { useRemoteKeys } from "./hooks/useRemoteKeys";
@@ -82,6 +82,26 @@ export function App({ apiBase, api: injectedApi, sessionStore, tvName, audio = n
     const t = setTimeout(() => setRoute({ name: "ambient" }), idleMs);
     return () => clearTimeout(t);
   }, [route, session, idleMs]);
+
+  // "Play Skye on the TV" from the Echo Show skill, the phone or Alexa+: the feed carries a
+  // play.requested and the TV opens the slideshow, once per request (F-405 by voice).
+  const playedSeq = useRef(0);
+  useEffect(() => {
+    const ask = feed.play;
+    if (!ask || !session || ask.seq <= playedSeq.current) return;
+    playedSeq.current = ask.seq;
+    const load = ask.trip
+      ? api.trip(session.token, ask.trip)
+      : ask.playlist
+        ? api.playlist(session.token, ask.playlist).then((p) => playlistAsTrip(p.name, p.media))
+        : null;
+    if (!load) return;
+    let alive = true;
+    load.then((trip) => alive && setRoute({ name: "slideshow", trip })).catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [feed.play, session, api]);
 
   // What is on screen, for "what's that statue" from the phone or Alexa+ (research R3).
   const token = session?.token;

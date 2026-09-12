@@ -20,6 +20,17 @@ describe("my trips", () => {
     expect(tripSummaryLine({ start: "2026-04-03T10:00:00Z", end: "2026-04-03T18:00:00Z", highlights: [] })).toBe("2026-04-03 · 1 day");
   });
 
+  it("asks the TV to play a trip with the owner session", async () => {
+    const seen: Array<{ url: string; method: string | undefined; body: unknown }> = [];
+    const fetchFn = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      seen.push({ url: String(input), method: init?.method, body: typeof init?.body === "string" ? JSON.parse(init.body) : init?.body });
+      return new Response(JSON.stringify({ requested: true, trip: "kyoto", name: "Kyoto" }), { status: 200 });
+    }) as typeof fetch;
+    const out = await new Api("https://api.test", fetchFn).playTrip("owner-token", "kyoto");
+    expect(out.requested).toBe(true);
+    expect(seen).toEqual([{ url: "https://api.test/trips/kyoto/play", method: "POST", body: { source: "phone" } }]);
+  });
+
   it("fetches one trip with the owner session", async () => {
     const seen: Array<{ url: string; auth: string | undefined }> = [];
     const fetchFn = (async (input: RequestInfo | URL, init?: RequestInit) => {

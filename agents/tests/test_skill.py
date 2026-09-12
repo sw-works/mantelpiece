@@ -164,3 +164,19 @@ def test_wrong_skill_id_is_refused_and_stop_ends():
     stop = handle(envelope("IntentRequest", "AMAZON.StopIntent"), backend())
     assert stop["response"]["shouldEndSession"] is True
     assert handle(envelope("SessionEndedRequest"), backend()) == {"version": "1.0", "response": {}}
+
+
+def test_on_the_tv_sends_the_trip_to_the_fire_tv_instead_of_the_screen():
+    b = backend()
+    res = handle(envelope("IntentRequest", "PlayOnTvIntent", {"trip": "skye"}), b)
+    assert speech(res) == "Playing Skye and Lochalsh, April 2025 on your TV."
+    assert "directives" not in res["response"]
+    assert "play skye" in b.calls
+    assert res["response"]["shouldEndSession"] is True
+
+    # The phrase inside a PlayTripIntent slot works too, and the name still matches.
+    b = backend()
+    res = handle(envelope("IntentRequest", "PlayTripIntent", {"trip": "kyoto on the tv"}), b)
+    assert speech(res) == "Playing Kyoto, April 2026 on your TV."
+    assert "play kyoto" in b.calls
+    assert "trip kyoto" not in b.calls

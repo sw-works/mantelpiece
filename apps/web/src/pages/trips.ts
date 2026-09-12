@@ -37,7 +37,17 @@ export async function main(root: HTMLElement, _location: Location, storage: Stor
 
 function tripRow(api: Api, token: string, trip: { id: string; name: string; start: string; end: string; highlights: string[] }): HTMLElement {
   const open = el("button", { class: "link" }, "Open");
-  const row = el("li", { class: "item trip" }, el("span", { class: "name" }, trip.name), el("span", { class: "state" }, tripSummaryLine(trip)), open);
+  const play = el("button", { class: "link" }, "Play on TV");
+  play.onclick = async () => {
+    play.disabled = true;
+    try {
+      await api.playTrip(token, trip.id);
+      play.textContent = "Playing on the TV";
+    } catch (e) {
+      play.textContent = e instanceof Error ? e.message : String(e);
+    }
+  };
+  const row = el("li", { class: "item trip" }, el("span", { class: "name" }, trip.name), el("span", { class: "state" }, tripSummaryLine(trip)), el("span", { class: "actions" }, play, " ", open));
   let detail: HTMLElement | null = null;
   open.onclick = async () => {
     if (detail) {

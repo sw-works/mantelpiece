@@ -16,6 +16,7 @@ from .backend import Backend, BackendError, HttpBackend
 
 MAX_SLIDES = 24
 STOP_WORDS = {"the", "a", "an", "of", "in", "to", "my", "our", "trip", "trips", "photos"}
+ON_TV = re.compile(r"\b(on|to)\s+(the\s+|my\s+|our\s+)?(tv|television|fire tv|big screen)\b", re.I)
 LATEST = {"latest", "last", "newest", "recent", "most recent", "new"}
 
 
@@ -56,8 +57,10 @@ def handle(envelope: dict[str, Any], backend: Backend, skill_id: str | None = No
 
     if kind == "LaunchRequest" or intent in {"ListTripsIntent", "AMAZON.FallbackIntent"}:
         return _list(trips, session.get("household_name"))
-    if intent in {"PlayTripIntent", "AMAZON.YesIntent"}:
-        query = _slot(request, "trip")
+    if intent in {"PlayTripIntent", "PlayOnTvIntent", "AMAZON.YesIntent"}:
+        raw = _slot(request, "trip")
+        on_tv = intent == "PlayOnTvIntent" or bool(raw and ON_TV.search(raw))
+        query = ON_TV.sub("", raw).strip() if raw else raw
         trip = find_trip(trips, query)
         if trip is None:
             if not trips:
@@ -66,6 +69,8 @@ def handle(envelope: dict[str, Any], backend: Backend, skill_id: str | None = No
                 f"I could not find a trip called {query}. " + _names_sentence(trips),
                 reprompt="Which trip would you like?",
             )
+        if on_tv:
+            return _play_on_tv(backend, owner, trip)
         return _play(backend, owner, trip, supports_apl(envelope))
     return _speak("Say play, then the name of a trip.", reprompt="Which trip would you like?")
 
@@ -154,6 +159,16 @@ def _play(backend: Backend, token: str, summary: dict[str, Any], apl: bool) -> d
             "shouldEndSession": True,
         },
     }
+
+
+def _play_on_tv(backend: Backend, token: str, summary: dict[str, Any]) -> dict:
+    """Send the trip to the household's Fire TV over the feed instead of this screen."""
+    try:
+        out = backend.play_on_tv(token, summary["id"])
+    except BackendError:
+        return _speak("I could not reach your TV.", end=True)
+    name = out.get("name") or summary.get("name") or "the trip"
+    return _speak(f"Playing {name} on your TV.", end=True)
 
 
 def _list(trips: list[dict[str, Any]], household_name: str | None) -> dict:
