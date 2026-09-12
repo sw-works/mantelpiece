@@ -206,11 +206,13 @@ function renderUploader(root: HTMLElement, api: Api, session: Session, storage: 
     mount(root, el("h1", {}, "MemoryLane"), el("p", {}, "Scan the Invite code on the TV to join another trip."));
   };
 
+  const mine = storage.getItem(OWNER_TOKEN_KEY) ? [el("p", {}, el("a", { href: "/trips.html" }, "My trips"), " · ", el("a", { href: "/people.html" }, "People"), " · ", el("a", { href: "/ask.html" }, "Ask"))] : [];
   mount(
     root,
     el("h1", {}, pending.length > 0 ? "Sending your photos" : "Pick photos"),
     status,
     el("p", { class: "where" }, where, " ", leave),
+    ...mine,
     el("label", { class: "picker" }, "Choose from your camera roll", input),
     el("p", { class: "hint" }, "On Android, add this page to your home screen and MemoryLane shows up in the share sheet."),
     list,

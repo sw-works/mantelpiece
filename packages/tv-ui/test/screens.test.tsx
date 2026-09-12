@@ -63,6 +63,28 @@ describe("screens", () => {
     await waitFor(() => expect(screen.queryByTestId("new-kyoto")).toBeNull());
   });
 
+  it("MemoriesHome groups trips under a heading per year with a jump row when there is more than one", async () => {
+    const api = new FakeApi();
+    api.tripList = [trip, { ...trip, id: "skye", name: "Skye", start: "2025-04-04T00:00:00Z", end: "2025-04-06T00:00:00Z" }, { ...trip, id: "rome", name: "Rome", start: "2025-09-01T00:00:00Z", end: "2025-09-03T00:00:00Z" }];
+    await render(<MemoriesHome api={api} token="t" tripsVersion={0} onOpenTrip={() => undefined} onInvite={() => undefined} />);
+    await waitFor(() => expect(screen.getByTestId("year-heading-2026")).toBeTruthy());
+    expect(screen.getByTestId("year-heading-2025")).toBeTruthy();
+    expect(screen.getByTestId("jump-2025")).toBeTruthy();
+    // Newest year first; inside a year the API order (newest start first) is kept.
+    const names = screen.getAllByText(/^(Kyoto, April 2026|Skye|Rome)$/).map((n) => n.props.children);
+    expect(names).toEqual(["Kyoto, April 2026", "Skye", "Rome"]);
+    await fireEvent.press(screen.getByTestId("jump-2025"));
+  });
+
+  it("MemoriesHome shows no year headings when every trip is from one year", async () => {
+    const api = new FakeApi();
+    api.tripList = [trip];
+    await render(<MemoriesHome api={api} token="t" tripsVersion={0} onOpenTrip={() => undefined} onInvite={() => undefined} />);
+    await waitFor(() => expect(screen.getByTestId("trip-kyoto")).toBeTruthy());
+    expect(screen.queryByTestId("year-jump")).toBeNull();
+    expect(screen.queryByTestId("year-heading-2026")).toBeNull();
+  });
+
   it("MemoriesHome badges trips shared from another TV and lets you leave them", async () => {
     const api = new FakeApi();
     api.tripList = [{ ...trip, id: "lisbon", name: "Lisbon", shared_by: "Ruth's living room" }, trip];

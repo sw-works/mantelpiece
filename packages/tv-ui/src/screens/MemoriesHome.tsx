@@ -1,11 +1,15 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
 import { playlistAsTrip, type MemoriesHomeView, type Trip, type TripSummary, type TvApi } from "../api/client";
 import { FocusButton } from "../components/FocusButton";
 import { RemoteImage } from "../components/RemoteImage";
 import { theme } from "../theme";
+import { groupByYear } from "../trips";
 
-/** F-402: trips as rows, hero from the top-scored photo, new-memory badge. */
+/**
+ * F-402: trips as rows under a heading per year, hero from the top-scored photo,
+ * new-memory badge. With more than one year a jump row scrolls to that year's heading.
+ */
 export function MemoriesHome({
   api,
   token,
@@ -48,6 +52,9 @@ export function MemoriesHome({
     };
   }, [api, token, tripsVersion]);
   const [seen, setSeen] = useState<Set<string>>(new Set());
+  const scroller = useRef<ScrollView>(null);
+  const yearTop = useRef<Record<string, number>>({});
+  const years = groupByYear(trips ?? []);
   useEffect(() => {
     let alive = true;
     api
@@ -80,7 +87,19 @@ export function MemoriesHome({
           No trips yet. Press Add photos, scan the code with your phone, and pick a trip's worth of pictures.
         </Text>
       )}
-      <ScrollView>
+      {years.length > 1 && (
+        <View testID="year-jump" style={{ flexDirection: "row", gap: 12, flexWrap: "wrap" }}>
+          {years.map((group) => (
+            <FocusButton
+              key={group.year}
+              label={group.year}
+              testID={`jump-${group.year}`}
+              onPress={() => scroller.current?.scrollTo?.({ y: yearTop.current[group.year] ?? 0, animated: true })}
+            />
+          ))}
+        </View>
+      )}
+      <ScrollView ref={scroller}>
         {memories && memories.on_this_day.length > 0 && (
           <View testID="on-this-day" style={{ gap: 8, marginBottom: theme.gap }}>
             <View style={{ flexDirection: "row", gap: 16, alignItems: "center" }}>
@@ -104,7 +123,14 @@ export function MemoriesHome({
             </View>
           </View>
         )}
-        {trips?.map((trip, i) => (
+        {years.map((group, g) => (
+          <View key={group.year} testID={`year-${group.year}`} onLayout={(e) => (yearTop.current[group.year] = e.nativeEvent.layout.y)} style={{ gap: theme.gap }}>
+            {years.length > 1 && (
+              <Text testID={`year-heading-${group.year}`} style={{ color: theme.muted, fontSize: 30, fontWeight: "600", marginTop: g === 0 ? 0 : theme.gap }}>
+                {group.year}
+              </Text>
+            )}
+        {group.trips.map((trip, i) => (
           <View key={trip.id} testID={`trip-${trip.id}`} style={{ flexDirection: "row", gap: theme.gap, marginBottom: theme.gap, alignItems: "center" }}>
             {trip.hero && <RemoteImage api={api} token={token} mediaId={trip.hero} rendition="thumb" width={320} height={200} />}
             <View style={{ flex: 1, gap: 8 }}>
@@ -130,12 +156,14 @@ export function MemoriesHome({
             )}
             <FocusButton
               label="Open"
-              preferred={i === 0}
+              preferred={g === 0 && i === 0}
               onPress={() => {
                 setSeen(new Set([...seen, trip.id]));
                 onOpenTrip(trip);
               }}
             />
+          </View>
+        ))}
           </View>
         ))}
       </ScrollView>

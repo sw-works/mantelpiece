@@ -205,6 +205,11 @@ export class Api {
     return this.call<Array<{ id: string; name: string; start: string; end: string; highlights: string[] }>>("GET", "/trips", undefined, { bearer });
   }
 
+  /** One trip with its days, for the owner's phone (My trips). */
+  trip(bearer: string, id: string) {
+    return this.call<TripView>("GET", `/trips/${id}`, undefined, { bearer });
+  }
+
   mediaUrl(bearer: string, mediaId: string, rendition: "thumb" | "tv") {
     return this.call<{ url: string }>("GET", `/media/${mediaId}/url?rendition=${rendition}`, undefined, { bearer });
   }

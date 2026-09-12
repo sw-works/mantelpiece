@@ -19,3 +19,8 @@ input[type="text"] { font: inherit; padding: 12px; border-radius: 10px; border: 
 .link { background: none; border: 0; color: var(--accent); font: inherit; padding: 0; cursor: pointer; grid-column: 2; }
 .where { display: flex; gap: 8px; align-items: baseline; }
 .hint { font-size: .85rem; }
+.year h2 { font-size: 1.1rem; color: var(--muted); margin: 8px 0 4px; }
+.jump { display: flex; gap: 12px; flex-wrap: wrap; }
+.jump a { color: var(--accent); text-decoration: none; }
+.item.trip { grid-template-columns: 1fr auto; }
+.item.trip .detail { grid-column: 1 / -1; }
