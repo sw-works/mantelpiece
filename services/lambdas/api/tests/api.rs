@@ -2192,6 +2192,40 @@ impl Harness {
     }
 }
 
+#[tokio::test]
+async fn an_alexa_skill_trades_its_cognito_token_for_an_owner_session() {
+    let h = harness();
+    let anon = h
+        .call(Method::Post, "/session/amazon", None, None, None)
+        .await;
+    assert_eq!(anon.status, 401);
+
+    let first = h.owner(Method::Post, "/session/amazon", None).await;
+    assert_eq!(first.status, 200, "{}", first.body);
+    assert_eq!(first.body["household"], "amzn-owner");
+    assert!(first.body["household_name"].is_null());
+    let token = first.body["token"].as_str().unwrap().to_owned();
+    let me = h.bearer(Method::Get, "/me", None, &token).await;
+    assert_eq!(me.body["role"], "owner");
+    assert_eq!(me.body["household"], "amzn-owner");
+
+    // The owner contributor exists after a first sign-in, named from the JWT.
+    let contributors = h.bearer(Method::Get, "/contributors", None, &token).await;
+    assert_eq!(contributors.status, 200, "{}", contributors.body);
+    let names: Vec<&str> = contributors
+        .body
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|c| c["display_name"].as_str())
+        .collect();
+    assert!(names.contains(&"Hanyu"), "{names:?}");
+
+    // Trips are visible through the session like on the TV.
+    let trips = h.bearer(Method::Get, "/trips", None, &token).await;
+    assert_eq!(trips.status, 200);
+}
+
 fn owner_jwt() -> Jwt {
     Jwt {
         sub: "amzn-owner".into(),

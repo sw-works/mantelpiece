@@ -194,6 +194,9 @@ impl App {
             (Method::Post, ["device", "code"]) => handlers::device::issue(self, req).await,
             (Method::Post, ["device", "approve"]) => handlers::device::approve(self, req).await,
             (Method::Get, ["device", "poll"]) => handlers::device::poll(self, req).await,
+            (Method::Post, ["session", "amazon"]) => {
+                handlers::device::session_from_amazon(self, req).await
+            }
 
             (Method::Get, [".well-known", "oauth-authorization-server"]) => {
                 Ok(handlers::wellknown::authorization_server(self))

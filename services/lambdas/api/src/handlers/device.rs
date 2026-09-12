@@ -6,6 +6,7 @@ use memorylane_core::household::Household;
 use memorylane_core::ids::{ContributorId, DeviceId, HouseholdId};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use time::OffsetDateTime;
 
 use crate::app::App;
 use crate::error::ApiError;
@@ -91,14 +92,48 @@ pub async fn approve(app: &App, req: &Req) -> Result<Resp, ApiError> {
             .await?;
     }
     // The phone continues straight to the uploader with its own owner session.
+    let token = phone_session(app, &household, &jwt.sub, now);
+    Resp::ok(json!({ "approved": true, "household": household, "token": token }))
+}
+
+/// An owner session for a signed-in Amazon account: the phone after approving a code, or
+/// an Alexa skill after account linking. Same session shape as the phone's.
+fn phone_session(app: &App, household: &HouseholdId, subject: &str, now: OffsetDateTime) -> String {
     let claims = Claims {
         session: Session::Phone {
             household: household.clone(),
-            subject: jwt.sub.clone(),
+            subject: subject.to_owned(),
         },
         exp: now + PHONE_TTL,
     };
-    Resp::ok(json!({ "approved": true, "household": household, "token": app.signer.sign(&claims) }))
+    app.signer.sign(&claims)
+}
+
+/// Alexa skill (Echo Show slideshow). Account linking hands the skill a Cognito token;
+/// this trades it for the same owner session the phone gets, so every later call carries
+/// no Cognito JWT. Creates the owner contributor on a first sign-in, like `approve`.
+pub async fn session_from_amazon(app: &App, req: &Req) -> Result<Resp, ApiError> {
+    let jwt = req
+        .jwt
+        .as_ref()
+        .ok_or_else(|| ApiError::unauthorized("sign in with Amazon first"))?;
+    let now = app.now();
+    let household = HouseholdId::new(jwt.sub.clone());
+    let owner_id = ContributorId::new(household.as_str());
+    if app
+        .storage
+        .get_contributor(&household, &owner_id)
+        .await?
+        .is_none()
+    {
+        let name = jwt.name.clone().unwrap_or_else(|| "Owner".into());
+        app.storage
+            .put_contributor(&Contributor::owner(household.clone(), name, now))
+            .await?;
+    }
+    let token = phone_session(app, &household, &jwt.sub, now);
+    let name = app.storage.get_household(&household).await?.map(|h| h.name);
+    Resp::ok(json!({ "household": household, "household_name": name, "token": token }))
 }
 
 /// TV. Holds up to `poll_hold`, then answers pending. Approval is handed over once as a
