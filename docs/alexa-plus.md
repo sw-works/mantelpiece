@@ -67,6 +67,10 @@ feed, so trips reach an Echo Show through a classic custom skill in `agents/src/
   day titles when no story passed the check.
 - "Alexa, open Memory Lane" lists the newest trips and waits for a name. Names match by
   word overlap, so "the Skye one" finds "Skye and Lochalsh, April 2025".
+- "... to play Skye on the TV": the skill calls `POST /trips/{id}/play`, the API puts a
+  `play.requested` event on the household feed, and the Fire TV app opens the slideshow.
+  Same path the phone's My trips page uses; a playlist plays through
+  `POST /playlists/{id}/play`.
 - Account linking: the `AlexaSkill` Cognito client (confidential, authorization code,
   profile scopes). The skill trades the linked token for an owner session with
   `POST /session/amazon`, cached per container for 20 minutes, so later calls carry no JWT.

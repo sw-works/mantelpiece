@@ -52,6 +52,7 @@ sessions) or Cognito JWTs (`/join/amazon`). Errors are `{ "error": "<message>" }
 | POST | /media/{media}/keeper | owner, co-editor | NEW moves the burst group's keeper; non-keepers re-inherit (F-201, F-164) |
 | PATCH | /trips/{trip} | owner, co-editor | NEW rename |
 | POST | /trips/{trip}/roles | owner | NEW `{contributor, role}` promote or demote (F-164) |
+| POST | /trips/{trip}/play | owner (phone, Alexa skill) | NEW `{source?}`; emits `play.requested`, the TV opens the slideshow |
 
 ## Search, playlists, Ask (US5)
 
@@ -60,6 +61,7 @@ sessions) or Cognito JWTs (`/join/amazon`). Errors are `{ "error": "<message>" }
 | POST | /search | owner, member | NEW `{query, trip?, filters}` → media ids (F-303) |
 | POST | /playlists | owner | NEW from media ids or a source |
 | GET | /playlists, /playlists/{id} | owner, member | NEW |
+| POST | /playlists/{id}/play | owner | NEW `{source?}`; emits `play.requested` for the playlist |
 | PUT | /presence | TV | NEW `{media, trip, day, paused}` now-showing (R3) |
 | POST | /ask | owner (phone or TV) | NEW `{question, tv?}` → `{card | playlist}`; target TV = `tv` param, else the presence record with the newest `at` (F-405) |
 

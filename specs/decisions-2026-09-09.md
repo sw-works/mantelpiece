@@ -656,3 +656,19 @@ compile-checked only.
 - Unverified: never run against Alexa. The APL document follows the published examples;
   `idleTimeout` is a recommendation the device may bound, so the slideshow's tail is
   unknown until a real Echo Show shows it. Registration steps are in `docs/alexa-plus.md`.
+
+## 30. Voice to the Fire TV through the feed (2026-09-12)
+
+- The TV app takes no voice itself (no microphone API on Vega, no Content Launcher or
+  media-controls integration yet). Instead any voice surface asks the API and the TV
+  reacts: `POST /trips/{id}/play` and `POST /playlists/{id}/play` emit `play.requested`
+  (`trip` or `playlist`, `name`, `source`), the feed reducer keeps the newest one, and
+  `App` opens the slideshow once per request sequence, loading the trip or turning the
+  playlist into a one-day trip. Owner sessions only, so the Echo Show skill, the phone
+  and a future Alexa+ tool all share it.
+- The skill gained `PlayOnTvIntent` and also recognises "on the TV" inside the trip slot;
+  the phone's My trips rows gained Play on TV.
+- Left out: an AgentCore Gateway tool for it. The API has no tool dispatch by name yet, so
+  the Alexa+ add-on cannot call the route until that lands; noted, not built.
+- Untested end to end: the API test proves the event lands on the feed and the reducer
+  test proves the TV keeps it; opening the slideshow from the feed has not run on a device.
