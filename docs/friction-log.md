@@ -46,6 +46,17 @@ what would have helped. Dates are when we hit it.
 - **2026-09-08, Amazon Photos.** No public API, so photos come from the phone's camera
   roll through the browser file picker. An Amazon Photos MCP tool, or an LWA scope such
   as `photos:read`, is the single biggest gap for memory apps on Fire TV and Alexa+.
+- **2026-09-12, Amazon Photos, checked.** No public API, developer program, plugin, LWA
+  scope, MCP tool or Fire TV hook for third parties. Amazon Drive API access ended for
+  third parties on 2020-11-01 and the service closed on 2023-12-31; its docs now return
+  404. Amazon staff on the developer forum, 2026-03-16: "there's no direct successor to
+  Amazon Drive" (community.amazondeveloper.com/t/amazon-drive-api-documentation/27885).
+  LWA scopes are `profile`, `profile:user_id`, `postal_code` only. The Fire TV Ambient
+  Experience and the Vega screensaver have no public API (staff, 2025-01-15 and
+  2026-07-07). The 2026-05 Amazon Photos redesign added Alexa+ voice search, first party
+  only; the Alexa+ add-on categories and the hackathon resources page do not mention
+  Photos. Only an unofficial cookie-based scraper exists, against the terms. MemoryLane
+  treats Amazon Photos as closed: camera roll in, nothing pulled.
 - **2026-09-08, device sign-in.** Cognito has no OAuth device grant. The TV shows a code,
   the phone approves it, the TV polls; a small custom flow that every TV app rebuilds.
 - **2026-09-09, Alexa+ preview.** The add-on console is behind a preview we do not have,
