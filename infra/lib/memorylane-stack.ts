@@ -572,16 +572,18 @@ export class MemoryLaneStack extends Stack {
       policy.node.addDependency(apiTarget);
       return policy;
     };
-    for (const file of readdirSync(cedarPolicyDir).filter((f) => f.endsWith(".cedar")).sort()) {
-      const name = file.replace(/^\d+-/, "").replace(/\.cedar$/, "").replace(/-/g, "_");
-      policyFor(name, `Cedar rule from infra/policy/${file}`, readFileSync(path.join(cedarPolicyDir, file), "utf8").split("${GATEWAY_ARN}").join(this.gateway.attrGatewayArn));
-    }
+    // The permit goes first: a forbid is rejected as "Overly Restrictive" when nothing
+    // permits its principal, so each forbid names OAuthUser and waits for the permit.
     const permitted = toolDefinitions.map((t) => `    AgentCore::Action::"api___${t.name}"`).join(",\n");
-    policyFor(
+    const permit = policyFor(
       "permit_contract_tools",
       "Generated from infra/lib/tools.ts: every contract tool for authenticated callers",
-      `// Every contract tool is open to an authenticated caller; the forbid rules above gate\n// the irreversible ones, and the API scopes each call to the caller's household.\npermit(\n  principal is AgentCore::OAuthUser,\n  action in [\n${permitted}\n  ],\n  resource == AgentCore::Gateway::"${this.gateway.attrGatewayArn}"\n);\n`,
+      `// Every contract tool is open to an authenticated caller; the forbid rules gate the\n// irreversible ones, and the API scopes each call to the caller's household.\npermit(\n  principal is AgentCore::OAuthUser,\n  action in [\n${permitted}\n  ],\n  resource == AgentCore::Gateway::"${this.gateway.attrGatewayArn}"\n);\n`,
     );
+    for (const file of readdirSync(cedarPolicyDir).filter((f) => f.endsWith(".cedar")).sort()) {
+      const name = file.replace(/^\d+-/, "").replace(/\.cedar$/, "").replace(/-/g, "_");
+      policyFor(name, `Cedar rule from infra/policy/${file}`, readFileSync(path.join(cedarPolicyDir, file), "utf8").split("${GATEWAY_ARN}").join(this.gateway.attrGatewayArn)).node.addDependency(permit);
+    }
 
     // Nightly work: one `nightly.tick` on the bus at 03:00 UTC. The Concierge is its only
     // consumer (W3 Household Patterns, memories_nightly, purge_expired) and fans out per

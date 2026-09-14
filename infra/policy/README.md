@@ -12,3 +12,6 @@ Rules the service enforces at deploy time (decision 31):
   generated from infra/lib/tools.ts with an explicit action list, not kept here.
 - Actions are checked against the Gateway's registered tools, so the stack creates every
   Policy after the `api` target; a tool that is not in tools.ts is "unrecognized".
+- A forbid must name a principal type that some permit covers (`principal is
+  AgentCore::OAuthUser`); an unscoped `principal` is "Overly Restrictive" because it also
+  covers `AgentCore::IamEntity`, which nothing permits. Forbids are created after the permit.

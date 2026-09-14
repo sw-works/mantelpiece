@@ -1,6 +1,6 @@
 // Removing a contributor is the owner's call alone; agents may only propose it.
 forbid(
-  principal,
+  principal is AgentCore::OAuthUser,
   action == AgentCore::Action::"api___remove_contributor",
   resource == AgentCore::Gateway::"${GATEWAY_ARN}"
 ) unless {

@@ -3,7 +3,7 @@
 // checks it names this exact action and, for RemoveMedia, that the confirming subject holds
 // the co-editor role or owns the trip. Cedar sees only that a token was supplied.
 forbid(
-  principal,
+  principal is AgentCore::OAuthUser,
   action in [
     AgentCore::Action::"api___apply_dedup",
     AgentCore::Action::"api___apply_cleanup",

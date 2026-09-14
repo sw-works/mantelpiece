@@ -696,6 +696,10 @@ compile-checked only.
      depends on the `api` GatewayTarget; before it exists only
      `x_amz_bedrock_agentcore_search` is known and `api___remove_contributor` is
      "unrecognized".
+  6. A forbid with an unscoped `principal` is "Overly Restrictive": it covers
+     `AgentCore::IamEntity`, which nothing permits, so the engine would deny that
+     principal outright. Forbids say `principal is AgentCore::OAuthUser` and are created
+     after the permit.
 - Cost rule (user, 2026-09-14): the stack is up only for a test session. `make up` deploys,
   publishes the web app and points the Vega shell at the API; `make down` destroys. Table,
   media bucket and user pool stay RETAIN by default (idle cost near zero);
