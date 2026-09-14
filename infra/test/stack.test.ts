@@ -192,6 +192,11 @@ describe("MemoryLane stack", () => {
     // Tool-specific rules name the Gateway ARN; nothing leaks the placeholder.
     expect(all).not.toContain("${GATEWAY_ARN}");
     expect(JSON.stringify(policies)).toContain("GatewayArn");
+    // The permit lists every contract tool for OAuth callers, no wildcards.
+    const permit = statements.find((s) => s.includes("permit("));
+    if (!permit) throw new Error("no permit policy");
+    expect(permit).toContain("principal is AgentCore::OAuthUser");
+    for (const tool of toolDefinitions) expect(permit).toContain(`api___${tool.name}`);
     template.hasResourceProperties("AWS::BedrockAgentCore::PolicyEngine", { Name: "memorylane_tools" });
   });
 

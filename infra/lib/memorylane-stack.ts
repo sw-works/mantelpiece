@@ -528,19 +528,27 @@ export class MemoryLaneStack extends Stack {
       },
     });
 
-    // Cedar policies from infra/policy: a confirmation token on every irreversible tool
-    // (constitution III). AgentCore takes one Cedar statement per Policy, so one file
-    // each; tool-specific rules must name this Gateway (`${GATEWAY_ARN}` placeholder).
-    for (const file of readdirSync(cedarPolicyDir).filter((f) => f.endsWith(".cedar")).sort()) {
-      const name = file.replace(/^\d+-/, "").replace(/\.cedar$/, "").replace(/-/g, "_");
-      const statement = readFileSync(path.join(cedarPolicyDir, file), "utf8").split("${GATEWAY_ARN}").join(this.gateway.attrGatewayArn);
-      new agentcore.CfnPolicy(this, `ToolPolicy_${name}`, {
-        name,
+    // Cedar policies (constitution III). AgentCore takes one statement per Policy and
+    // refuses wildcards, so: one file per forbid rule in infra/policy (tool-specific rules
+    // name this Gateway through the `${GATEWAY_ARN}` placeholder), plus a generated permit
+    // that lists every contract tool for OAuth callers. Forbid wins over permit.
+    const policyFor = (id: string, file: string, statement: string) =>
+      new agentcore.CfnPolicy(this, `ToolPolicy_${id}`, {
+        name: id,
         policyEngineId: policyEngine.attrPolicyEngineId,
-        description: `Cedar rule from infra/policy/${file}`,
+        description: file,
         definition: { cedar: { statement } },
       });
+    for (const file of readdirSync(cedarPolicyDir).filter((f) => f.endsWith(".cedar")).sort()) {
+      const name = file.replace(/^\d+-/, "").replace(/\.cedar$/, "").replace(/-/g, "_");
+      policyFor(name, `Cedar rule from infra/policy/${file}`, readFileSync(path.join(cedarPolicyDir, file), "utf8").split("${GATEWAY_ARN}").join(this.gateway.attrGatewayArn));
     }
+    const permitted = toolDefinitions.map((t) => `    AgentCore::Action::"api___${t.name}"`).join(",\n");
+    policyFor(
+      "permit_contract_tools",
+      "Generated from infra/lib/tools.ts: every contract tool for authenticated callers",
+      `// Every contract tool is open to an authenticated caller; the forbid rules above gate\n// the irreversible ones, and the API scopes each call to the caller's household.\npermit(\n  principal is AgentCore::OAuthUser,\n  action in [\n${permitted}\n  ],\n  resource == AgentCore::Gateway::"${this.gateway.attrGatewayArn}"\n);\n`,
+    );
 
     // Nightly work: one `nightly.tick` on the bus at 03:00 UTC. The Concierge is its only
     // consumer (W3 Household Patterns, memories_nightly, purge_expired) and fans out per
