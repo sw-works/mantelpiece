@@ -541,7 +541,7 @@ export class MemoryLaneStack extends Stack {
     this.gateway.node.addDependency(engineAccess);
     // The API serves the OAuth metadata documents that point Alexa+ at this endpoint.
     apiFn.addEnvironment("GATEWAY_URL", this.gateway.attrGatewayUrl);
-    new agentcore.CfnGatewayTarget(this, "ApiTools", {
+    const apiTarget = new agentcore.CfnGatewayTarget(this, "ApiTools", {
       gatewayIdentifier: this.gateway.attrGatewayIdentifier,
       name: "api",
       description: "Every tool in contracts/tools.md, served by the API Lambda",
@@ -559,14 +559,19 @@ export class MemoryLaneStack extends Stack {
     // Cedar policies (constitution III). AgentCore takes one statement per Policy and
     // refuses wildcards, so: one file per forbid rule in infra/policy (tool-specific rules
     // name this Gateway through the `${GATEWAY_ARN}` placeholder), plus a generated permit
-    // that lists every contract tool for OAuth callers. Forbid wins over permit.
-    const policyFor = (id: string, file: string, statement: string) =>
-      new agentcore.CfnPolicy(this, `ToolPolicy_${id}`, {
+    // that lists every contract tool for OAuth callers. Forbid wins over permit. Each
+    // policy is validated against the Gateway's registered actions, so it must wait for
+    // the target that registers `api___<tool>`.
+    const policyFor = (id: string, file: string, statement: string) => {
+      const policy = new agentcore.CfnPolicy(this, `ToolPolicy_${id}`, {
         name: id,
         policyEngineId: policyEngine.attrPolicyEngineId,
         description: file,
         definition: { cedar: { statement } },
       });
+      policy.node.addDependency(apiTarget);
+      return policy;
+    };
     for (const file of readdirSync(cedarPolicyDir).filter((f) => f.endsWith(".cedar")).sort()) {
       const name = file.replace(/^\d+-/, "").replace(/\.cedar$/, "").replace(/-/g, "_");
       policyFor(name, `Cedar rule from infra/policy/${file}`, readFileSync(path.join(cedarPolicyDir, file), "utf8").split("${GATEWAY_ARN}").join(this.gateway.attrGatewayArn));

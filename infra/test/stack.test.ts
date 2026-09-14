@@ -208,6 +208,9 @@ describe("MemoryLane stack", () => {
     if (!permit) throw new Error("no permit policy");
     expect(permit).toContain("principal is AgentCore::OAuthUser");
     for (const tool of toolDefinitions) expect(permit).toContain(`api___${tool.name}`);
+    // Policies are validated against registered actions, so each waits for the api target.
+    const targetId = Object.keys(template.findResources("AWS::BedrockAgentCore::GatewayTarget"))[0];
+    for (const policy of policies) expect(policy.DependsOn).toContain(targetId);
     template.hasResourceProperties("AWS::BedrockAgentCore::PolicyEngine", { Name: "memorylane_tools" });
     // The Gateway's execution role may read the engine and ask it for decisions.
     template.hasResourceProperties("AWS::IAM::Policy", {
