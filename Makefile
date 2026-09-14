@@ -1,4 +1,4 @@
-.PHONY: test lint fmt test-rust lint-rust test-node lint-node test-py lint-py build-lambdas deploy deploy-web tv-vvd-start tv-vvd-install tv-vvd-logs tv-vvd-shot tv-vvd-stop tv-walkthrough
+.PHONY: test lint fmt test-rust lint-rust test-node lint-node test-py lint-py build-lambdas deploy deploy-web up down tv-vvd-start tv-vvd-install tv-vvd-logs tv-vvd-shot tv-vvd-stop tv-walkthrough
 
 test: test-rust test-node test-py
 lint: lint-rust lint-node lint-py
@@ -37,6 +37,17 @@ deploy: build-lambdas
 # `make deploy` first (the pages need the API URL), then this; repeat for page changes.
 deploy-web:
 	scripts/deploy-web.sh $(CDK_ARGS)
+
+# The stack is stood up for a test session and torn down after; nothing stays running
+# between sessions. `up` is deploy + pages + TV config; `down` destroys the stack. The
+# table, media bucket and user pool are retained (near-zero idle cost) unless both were run
+# with CDK_ARGS="-c retain-data=false"; a fresh `up` does not reattach retained stores.
+up: deploy deploy-web
+	scripts/tv-config.sh
+
+down:
+	cd infra && pnpm cdk destroy --force $(CDK_ARGS)
+	@echo "Stack gone. Retained stores: aws dynamodb list-tables; aws cognito-idp list-user-pools --max-results 20; aws s3 ls"
 
 # Vega Virtual Device loop (needs the Vega SDK 0.24 with the `vega` CLI on PATH). Unverified
 # on a device until the week 1 spike; see specs/001-memorylane-baseline/quickstart.md.

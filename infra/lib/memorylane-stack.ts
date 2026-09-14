@@ -67,6 +67,12 @@ export interface MemoryLaneStackProps extends StackProps {
    */
   alexaSkillId?: string;
   alexaSkillCallbackUrls?: string[];
+  /**
+   * Keep the table, media bucket and user pool when the stack is destroyed. On by default
+   * (they cost next to nothing idle); `false` for a throwaway run. A fresh deploy does not
+   * reattach retained stores, they are a backup, not continuity.
+   */
+  retainData?: boolean;
 }
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -86,6 +92,8 @@ export class MemoryLaneStack extends Stack {
 
   constructor(scope: Construct, id: string, props: MemoryLaneStackProps) {
     super(scope, id, props);
+    const retain = props.retainData ?? true;
+    const dataRemoval = retain ? RemovalPolicy.RETAIN : RemovalPolicy.DESTROY;
 
     // Phone pages: one private bucket behind two CloudFront distributions, so the link page
     // and the uploader keep separate origins (the owner session crosses them in a URL
@@ -133,7 +141,7 @@ export class MemoryLaneStack extends Stack {
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       timeToLiveAttribute: "ttl",
       pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
-      removalPolicy: RemovalPolicy.RETAIN,
+      removalPolicy: dataRemoval,
     });
     this.table.addGlobalSecondaryIndex({
       indexName: "gsi1",
@@ -146,7 +154,8 @@ export class MemoryLaneStack extends Stack {
       encryption: s3.BucketEncryption.S3_MANAGED,
       enforceSSL: true,
       eventBridgeEnabled: true,
-      removalPolicy: RemovalPolicy.RETAIN,
+      removalPolicy: dataRemoval,
+      autoDeleteObjects: !retain,
       cors: [
         {
           allowedOrigins: [uploadBase, linkBase],
@@ -165,7 +174,7 @@ export class MemoryLaneStack extends Stack {
     this.userPool = new cognito.UserPool(this, "Users", {
       selfSignUpEnabled: false,
       signInAliases: { email: true },
-      removalPolicy: RemovalPolicy.RETAIN,
+      removalPolicy: dataRemoval,
     });
     const providers: cognito.UserPoolClientIdentityProvider[] = [];
     let amazonProvider: cognito.UserPoolIdentityProviderAmazon | undefined;
@@ -498,16 +507,22 @@ export class MemoryLaneStack extends Stack {
     apiFn.grantInvoke(gatewayRole);
     // Policy evaluation at request time (policy-permissions guide): the three actions the
     // Gateway calls on its Policy Engine, on both engine and gateway ARNs. Wildcards because
-    // the Gateway's own ARN is not known until it exists.
-    gatewayRole.addToPolicy(
-      new iam.PolicyStatement({
-        actions: ["bedrock-agentcore:GetPolicyEngine", "bedrock-agentcore:AuthorizeAction", "bedrock-agentcore:PartiallyAuthorizeActions"],
-        resources: [
-          `arn:aws:bedrock-agentcore:${this.region}:${this.account}:policy-engine/*`,
-          `arn:aws:bedrock-agentcore:${this.region}:${this.account}:gateway/*`,
-        ],
-      }),
-    );
+    // the Gateway's own ARN is not known until it exists. A separate policy resource so the
+    // Gateway can depend on it without a cycle through the API Lambda's GATEWAY_URL.
+    const engineAccess = new iam.Policy(this, "GatewayPolicyEngineAccess", {
+      statements: [
+        new iam.PolicyStatement({
+          actions: ["bedrock-agentcore:GetPolicyEngine", "bedrock-agentcore:AuthorizeAction", "bedrock-agentcore:PartiallyAuthorizeActions"],
+          resources: [
+            `arn:aws:bedrock-agentcore:${this.region}:${this.account}:policy-engine/*`,
+            `arn:aws:bedrock-agentcore:${this.region}:${this.account}:gateway/*`,
+          ],
+        }),
+      ],
+    });
+    engineAccess.attachToRole(gatewayRole);
+    // CreateGateway checks GetPolicyEngine with the role at once, so the role's policy
+    // must exist first; without these the Gateway raced its own permissions.
     this.gateway = new agentcore.CfnGateway(this, "ToolGateway", {
       name: "memorylane-tools",
       description: "MemoryLane tools over MCP for the Concierge and Alexa+",
@@ -523,6 +538,7 @@ export class MemoryLaneStack extends Stack {
       },
       policyEngineConfiguration: { arn: policyEngine.attrPolicyEngineArn, mode: "ENFORCE" },
     });
+    this.gateway.node.addDependency(engineAccess);
     // The API serves the OAuth metadata documents that point Alexa+ at this endpoint.
     apiFn.addEnvironment("GATEWAY_URL", this.gateway.attrGatewayUrl);
     new agentcore.CfnGatewayTarget(this, "ApiTools", {

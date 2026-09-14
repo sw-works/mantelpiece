@@ -35,6 +35,17 @@ describe("MemoryLane stack", () => {
     t.hasOutput("UploadBase", {});
   });
 
+  it("retains its data stores by default and destroys them only when asked", () => {
+    template.hasResource("AWS::DynamoDB::Table", { DeletionPolicy: "Retain" });
+    template.hasResource("AWS::Cognito::UserPool", { DeletionPolicy: "Retain" });
+    const throwaway = synth({ retainData: false });
+    throwaway.hasResource("AWS::DynamoDB::Table", { DeletionPolicy: "Delete" });
+    throwaway.hasResource("AWS::Cognito::UserPool", { DeletionPolicy: "Delete" });
+    const media = Object.values(throwaway.findResources("AWS::S3::Bucket")).filter((b) => b.Properties.CorsConfiguration);
+    expect(media).toHaveLength(1);
+    expect(media[0]!.DeletionPolicy).toBe("Delete");
+  });
+
   it("has one household-partitioned table with the lookup index and TTL", () => {
     template.hasResourceProperties("AWS::DynamoDB::Table", {
       KeySchema: [
