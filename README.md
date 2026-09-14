@@ -47,8 +47,18 @@ make test        # cargo test, vitest/jest, pytest
 make lint        # rustfmt + clippy, eslint + tsc, ruff
 make build-lambdas   # cargo-lambda, arm64, into services/target/lambda
 scripts/ffmpeg-layer.sh   # static ffmpeg into infra/assets/ffmpeg-layer for the poster Lambda
-make deploy      # cdk deploy (needs AWS credentials and Login with Amazon client id/secret)
+make deploy      # cdk deploy: API, ingest, Gateway, Cognito, CloudFront for the phone pages
+make deploy-web  # second pass: build apps/web against the outputs and publish it
 ```
+
+Deploy needs AWS credentials (`aws configure`), a bootstrapped account (`cd infra && pnpm cdk
+bootstrap`), and cargo-lambda with zig. Login with Amazon is optional
+(`CDK_ARGS="-c amazon-client-id=… -c amazon-client-secret=…"`); without it sign-in uses
+Cognito accounts you create in the console. Without `-c link-base` and `-c upload-base` the
+phone pages are served from the stack's own CloudFront URLs, printed as `LinkBase` and
+`UploadBase`. On macOS with an unaccepted Xcode licence, point cargo's host linker at zig:
+`CARGO_TARGET_AARCH64_APPLE_DARWIN_LINKER=zig-cc-host` (a `zig cc -target aarch64-macos
+--sysroot <SDK>` wrapper).
 
 Run the ingest pipeline over your own photos without AWS (signal, organize and enrich with
 in-memory stores; models stubbed unless `--aws`):

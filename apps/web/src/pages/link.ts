@@ -55,7 +55,7 @@ export async function main(root: HTMLElement, location: Location, storage: Stora
     const approved = await api.approveDeviceCode(code, tokens.idToken);
     storage.setItem(OWNER_TOKEN_KEY, approved.token);
     // Straight on to the uploader as the owner: no second sign-in (US1).
-    const uploadUrl = ownerHandoffUrl(location.origin.replace("link.", "upload."), approved.token);
+    const uploadUrl = ownerHandoffUrl(config.uploadBase ?? location.origin.replace("link.", "upload."), approved.token);
     mount(
       root,
       el("h1", {}, "Your TV is signed in"),

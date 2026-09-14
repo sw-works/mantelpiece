@@ -1,4 +1,4 @@
-.PHONY: test lint fmt test-rust lint-rust test-node lint-node test-py lint-py build-lambdas deploy tv-vvd-start tv-vvd-install tv-vvd-logs tv-vvd-shot tv-vvd-stop tv-walkthrough
+.PHONY: test lint fmt test-rust lint-rust test-node lint-node test-py lint-py build-lambdas deploy deploy-web tv-vvd-start tv-vvd-install tv-vvd-logs tv-vvd-shot tv-vvd-stop tv-walkthrough
 
 test: test-rust test-node test-py
 lint: lint-rust lint-node lint-py
@@ -32,6 +32,11 @@ build-lambdas:
 
 deploy: build-lambdas
 	cd infra && pnpm cdk deploy --require-approval never $(CDK_ARGS)
+
+# Second pass: build the phone pages against the deployed stack's outputs and publish them.
+# `make deploy` first (the pages need the API URL), then this; repeat for page changes.
+deploy-web:
+	scripts/deploy-web.sh $(CDK_ARGS)
 
 # Vega Virtual Device loop (needs the Vega SDK 0.24 with the `vega` CLI on PATH). Unverified
 # on a device until the week 1 spike; see specs/001-memorylane-baseline/quickstart.md.

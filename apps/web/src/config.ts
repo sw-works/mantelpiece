@@ -4,6 +4,8 @@ export interface WebConfig {
   apiBase: string;
   cognitoDomain: string;
   cognitoClientId: string;
+  /** Origin of the uploader when it is not `upload.` beside `link.` (CloudFront hosting). */
+  uploadBase?: string;
 }
 
 export function loadConfig(env: Record<string, string | undefined> = import.meta.env): WebConfig {
@@ -13,5 +15,6 @@ export function loadConfig(env: Record<string, string | undefined> = import.meta
   if (!apiBase || !cognitoDomain || !cognitoClientId) {
     throw new Error("set VITE_API_BASE, VITE_COGNITO_DOMAIN and VITE_COGNITO_CLIENT_ID");
   }
-  return { apiBase, cognitoDomain, cognitoClientId };
+  const uploadBase = env.VITE_UPLOAD_BASE?.replace(/\/+$/, "") || undefined;
+  return { apiBase, cognitoDomain, cognitoClientId, uploadBase };
 }

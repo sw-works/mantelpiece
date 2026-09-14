@@ -18,6 +18,23 @@ function synth(extra: Partial<ConstructorParameters<typeof MemoryLaneStack>[2]> 
 describe("MemoryLane stack", () => {
   const template = synth();
 
+  it("hosts the phone pages on two CloudFront distributions and uses their URLs when no domain is given", () => {
+    template.resourceCountIs("AWS::CloudFront::Distribution", 2);
+    template.hasResourceProperties("AWS::CloudFront::Distribution", { DistributionConfig: Match.objectLike({ DefaultRootObject: "link.html" }) });
+    template.hasResourceProperties("AWS::CloudFront::Distribution", { DistributionConfig: Match.objectLike({ DefaultRootObject: "index.html" }) });
+    template.resourceCountIs("Custom::CDKBucketDeployment", 1);
+    const app = new App();
+    const stack = new MemoryLaneStack(app, "NoDomain", { env: { account: "123456789012", region: "us-east-1" } });
+    const t = Template.fromStack(stack);
+    const fns = Object.values(t.findResources("AWS::Lambda::Function", { Properties: { Handler: "bootstrap" } }));
+    const api = fns.find((f) => f.Properties.Environment?.Variables?.LINK_BASE !== undefined);
+    if (!api) throw new Error("no API function");
+    const linkBase = api.Properties.Environment.Variables.LINK_BASE;
+    expect(JSON.stringify(linkBase)).toContain("DomainName");
+    t.hasOutput("LinkBase", {});
+    t.hasOutput("UploadBase", {});
+  });
+
   it("has one household-partitioned table with the lookup index and TTL", () => {
     template.hasResourceProperties("AWS::DynamoDB::Table", {
       KeySchema: [
@@ -67,8 +84,8 @@ describe("MemoryLane stack", () => {
   });
 
   it("gives videos a poster frame from an ffmpeg layer after signal", () => {
-    template.resourceCountIs("AWS::Lambda::LayerVersion", 1);
-    template.hasResourceProperties("AWS::Lambda::LayerVersion", { CompatibleArchitectures: ["arm64"] });
+    // One arm64 layer of ours; the web deployment brings its own AWS CLI layer.
+    expect(Object.keys(template.findResources("AWS::Lambda::LayerVersion", { Properties: { CompatibleArchitectures: ["arm64"] } }))).toHaveLength(1);
     template.hasResourceProperties("AWS::Lambda::Function", {
       EphemeralStorage: { Size: 2048 },
       Environment: { Variables: Match.objectLike({ FFMPEG: "/opt/bin/ffmpeg" }) },

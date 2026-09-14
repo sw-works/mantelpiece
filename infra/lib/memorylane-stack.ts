@@ -4,6 +4,9 @@ import { fileURLToPath } from "node:url";
 import { CfnOutput, Duration, RemovalPolicy, Size, Stack, type StackProps } from "aws-cdk-lib";
 import * as apigw from "aws-cdk-lib/aws-apigatewayv2";
 import * as agentcore from "aws-cdk-lib/aws-bedrockagentcore";
+import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
+import * as origins from "aws-cdk-lib/aws-cloudfront-origins";
+import * as s3deploy from "aws-cdk-lib/aws-s3-deployment";
 import { HttpJwtAuthorizer } from "aws-cdk-lib/aws-apigatewayv2-authorizers";
 import { HttpLambdaIntegration } from "aws-cdk-lib/aws-apigatewayv2-integrations";
 import * as cognito from "aws-cdk-lib/aws-cognito";
@@ -23,10 +26,18 @@ import type { Construct } from "constructs";
 import { toolDefinitions } from "./tools.js";
 
 export interface MemoryLaneStackProps extends StackProps {
-  /** Base URL of the sign-in approval page, e.g. https://link.example.com */
-  linkBase: string;
-  /** Base URL of the uploader page, e.g. https://upload.example.com */
-  uploadBase: string;
+  /**
+   * Base URL of the sign-in approval page, e.g. https://link.example.com. Omit to serve the
+   * page from the stack's own CloudFront distribution (no domain needed).
+   */
+  linkBase?: string;
+  /** Base URL of the uploader page, e.g. https://upload.example.com; same default. */
+  uploadBase?: string;
+  /**
+   * Built phone pages (`apps/web/dist`) to publish to the web bucket. Missing on a first
+   * deploy, since the build needs the stack's outputs; a placeholder page goes up instead.
+   */
+  webDistDir?: string;
   /** Login with Amazon credentials. Without them the user pool has no federated sign-in. */
   amazonClientId?: string;
   amazonClientSecret?: string;
@@ -63,6 +74,7 @@ const placeholderDir = path.resolve(here, "..", "assets", "placeholder");
 const cedarPolicyPath = path.resolve(here, "..", "policy", "tools.cedar");
 const ffmpegLayerDir = path.resolve(here, "..", "assets", "ffmpeg-layer");
 const skillAssetDir = path.resolve(here, "..", "..", "agents", "src");
+const webDistDefault = path.resolve(here, "..", "..", "apps", "web", "dist");
 
 export class MemoryLaneStack extends Stack {
   readonly table: dynamodb.Table;
@@ -74,6 +86,45 @@ export class MemoryLaneStack extends Stack {
 
   constructor(scope: Construct, id: string, props: MemoryLaneStackProps) {
     super(scope, id, props);
+
+    // Phone pages: one private bucket behind two CloudFront distributions, so the link page
+    // and the uploader keep separate origins (the owner session crosses them in a URL
+    // fragment) without anyone owning a domain. A custom domain overrides either base.
+    const webBucket = new s3.Bucket(this, "Web", {
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      encryption: s3.BucketEncryption.S3_MANAGED,
+      enforceSSL: true,
+      removalPolicy: RemovalPolicy.DESTROY,
+      autoDeleteObjects: true,
+    });
+    const webOrigin = origins.S3BucketOrigin.withOriginAccessControl(webBucket);
+    const site = (id: string, root: string) =>
+      new cloudfront.Distribution(this, id, {
+        defaultBehavior: {
+          origin: webOrigin,
+          viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+          allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
+          cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
+        },
+        defaultRootObject: root,
+        // `/callback` and other client routes are the page itself.
+        errorResponses: [403, 404].map((httpStatus) => ({ httpStatus, responseHttpStatus: 200, responsePagePath: `/${root}`, ttl: Duration.minutes(1) })),
+        httpVersion: cloudfront.HttpVersion.HTTP2_AND_3,
+        priceClass: cloudfront.PriceClass.PRICE_CLASS_100,
+        comment: `MemoryLane ${root}`,
+      });
+    const linkSite = site("LinkSite", "link.html");
+    const uploadSite = site("UploadSite", "index.html");
+    const linkBase = props.linkBase ?? `https://${linkSite.distributionDomainName}`;
+    const uploadBase = props.uploadBase ?? `https://${uploadSite.distributionDomainName}`;
+    const webDist = props.webDistDir ?? webDistDefault;
+    new s3deploy.BucketDeployment(this, "WebDeploy", {
+      destinationBucket: webBucket,
+      sources: [s3deploy.Source.asset(existsSync(path.join(webDist, "index.html")) ? webDist : placeholderDir)],
+      distribution: uploadSite,
+      distributionPaths: ["/*"],
+      prune: true,
+    });
 
     // Storage: one table, one bucket, one event bus. All partitioned by household.
     this.table = new dynamodb.Table(this, "Table", {
@@ -98,7 +149,7 @@ export class MemoryLaneStack extends Stack {
       removalPolicy: RemovalPolicy.RETAIN,
       cors: [
         {
-          allowedOrigins: [props.uploadBase, props.linkBase],
+          allowedOrigins: [uploadBase, linkBase],
           allowedMethods: [s3.HttpMethods.PUT, s3.HttpMethods.GET, s3.HttpMethods.HEAD],
           allowedHeaders: ["*"],
           exposedHeaders: ["ETag"],
@@ -138,13 +189,13 @@ export class MemoryLaneStack extends Stack {
       oAuth: {
         flows: { authorizationCodeGrant: true },
         scopes: [cognito.OAuthScope.OPENID, cognito.OAuthScope.PROFILE, cognito.OAuthScope.EMAIL],
-        callbackUrls: [`${props.linkBase}/callback`, `${props.uploadBase}/callback`],
-        logoutUrls: [props.linkBase, props.uploadBase],
+        callbackUrls: [`${linkBase}/callback`, `${uploadBase}/callback`],
+        logoutUrls: [linkBase, uploadBase],
       },
     });
     if (amazonProvider) client.node.addDependency(amazonProvider);
     const domain = this.userPool.addDomain("Domain", {
-      cognitoDomain: { domainPrefix: `memorylane-${this.account}`.toLowerCase() },
+      cognitoDomain: { domainPrefix: `memorylane-${this.account}` },
     });
 
     // Alexa+ MCP add-on (research R6): OAuth 2.1 with PKCE against the same user pool. The
@@ -359,8 +410,8 @@ export class MemoryLaneStack extends Stack {
         ORGANIZE_STATE_MACHINE_ARN: organizeMachine.stateMachineArn,
         EVENT_BUS: this.bus.eventBusName,
         TOKEN_SECRET: tokenSecret.secretValue.unsafeUnwrap(),
-        LINK_BASE: props.linkBase,
-        UPLOAD_BASE: props.uploadBase,
+        LINK_BASE: linkBase,
+        UPLOAD_BASE: uploadBase,
         POLL_HOLD_SECONDS: "25",
         RUST_LOG: "info",
       },
@@ -401,7 +452,7 @@ export class MemoryLaneStack extends Stack {
     // HTTP API. Everything routes to the API Lambda; two routes require a Cognito JWT.
     this.api = new apigw.HttpApi(this, "Api", {
       corsPreflight: {
-        allowOrigins: [props.uploadBase, props.linkBase],
+        allowOrigins: [uploadBase, linkBase],
         allowMethods: [apigw.CorsHttpMethod.GET, apigw.CorsHttpMethod.POST, apigw.CorsHttpMethod.DELETE],
         allowHeaders: ["authorization", "content-type", "x-device-id"],
         maxAge: Duration.hours(1),
@@ -453,7 +504,7 @@ export class MemoryLaneStack extends Stack {
     });
     apiFn.grantInvoke(gatewayRole);
     this.gateway = new agentcore.CfnGateway(this, "ToolGateway", {
-      name: "memorylane_tools",
+      name: "memorylane-tools",
       description: "MemoryLane tools over MCP for the Concierge and Alexa+",
       roleArn: gatewayRole.roleArn,
       protocolType: "MCP",
@@ -499,6 +550,10 @@ export class MemoryLaneStack extends Stack {
     });
 
     new CfnOutput(this, "ApiUrl", { value: this.api.apiEndpoint });
+    new CfnOutput(this, "LinkBase", { value: linkBase });
+    new CfnOutput(this, "UploadBase", { value: uploadBase });
+    new CfnOutput(this, "CognitoDomain", { value: domain.baseUrl() });
+    new CfnOutput(this, "WebBucket", { value: webBucket.bucketName });
     new CfnOutput(this, "GatewayUrl", { value: this.gateway.attrGatewayUrl });
     new CfnOutput(this, "PolicyEngineArn", { value: policyEngine.attrPolicyEngineArn });
     new CfnOutput(this, "UserPoolId", { value: this.userPool.userPoolId });

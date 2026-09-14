@@ -37,10 +37,16 @@ Virtual Device run it with `SHOT=host` to capture the window from macOS.
 
 ```sh
 export AWS_REGION=us-east-1   # R4
-make deploy CDK_ARGS="-c lwaClientId=… -c lwaClientSecret=…"
+aws configure                  # once
+(cd infra && pnpm cdk bootstrap)   # once per account and region
+scripts/ffmpeg-layer.sh        # static ffmpeg for the poster Lambda
+make deploy CDK_ARGS="-c amazon-client-id=… -c amazon-client-secret=…"   # LWA optional
+make deploy-web                # builds apps/web against the outputs and publishes it
 ```
 
-Expected outputs: API URL, upload and link page URLs, Gateway MCP endpoint, event bus name.
+Expected outputs: `ApiUrl`, `LinkBase`, `UploadBase` (CloudFront unless `-c link-base` and
+`-c upload-base` name custom domains), `CognitoDomain`, `UserPoolClientId`, `GatewayUrl`,
+`AlexaSkillClientId`, `AlexaSkillFunctionArn`, `MediaBucket`, `WebBucket`.
 
 ## Scenarios by user story
 
