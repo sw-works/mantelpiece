@@ -672,3 +672,35 @@ compile-checked only.
   the Alexa+ add-on cannot call the route until that lands; noted, not built.
 - Untested end to end: the API test proves the event lands on the feed and the reducer
   test proves the TV keeps it; opening the slideshow from the feed has not run on a device.
+
+## 31. First deploy to us-west-2: what AgentCore Policy actually accepts (2026-09-14)
+
+- Region: us-west-2. us-west-1 has neither Amazon Location nor AgentCore Memory; us-east-1
+  was never required. Account bootstrapped, Bedrock models (nova-lite, claude-sonnet-4,
+  titan-embed-image) authorised there.
+- AgentCore Policy rules learned one failed round at a time (each rollback orphaned the
+  RETAIN table and user pool, pruned by hand):
+  1. One Cedar statement per `AWS::BedrockAgentCore::Policy`; a file with two rules fails
+     with "unexpected token `permit`". So `infra/policy` is one file per forbid rule.
+  2. No wildcard resource. An untargeted rule says `resource is AgentCore::Gateway`; a
+     rule that names actions must name the Gateway: `resource == AgentCore::Gateway::"<arn>"`,
+     filled from the `${GATEWAY_ARN}` placeholder at synth.
+  3. A permit-everything rule is rejected as "Overly Permissive". The permit is generated
+     from `infra/lib/tools.ts`: `principal is AgentCore::OAuthUser`, explicit `action in
+     [api___<tool>, ...]`, this Gateway.
+  4. The Gateway's execution role needs `bedrock-agentcore:GetPolicyEngine`,
+     `AuthorizeAction` and `PartiallyAuthorizeActions`, and the Gateway must depend on that
+     policy explicitly (a separate `iam.Policy`; hanging it off the invoke grant creates a
+     cycle through the API Lambda's `GATEWAY_URL`).
+  5. Policies are validated against the Gateway's registered actions, so every Policy
+     depends on the `api` GatewayTarget; before it exists only
+     `x_amz_bedrock_agentcore_search` is known and `api___remove_contributor` is
+     "unrecognized".
+- Cost rule (user, 2026-09-14): the stack is up only for a test session. `make up` deploys,
+  publishes the web app and points the Vega shell at the API; `make down` destroys. Table,
+  media bucket and user pool stay RETAIN by default (idle cost near zero);
+  `CDK_ARGS="-c retain-data=false"` makes a throwaway run. Retained stores are not
+  reattached by the next deploy.
+- Build machine: no sudo, Xcode licence unaccepted at the time, so Lambdas were built with
+  cargo-lambda + a ziglang wheel and a zig host-linker wrapper (README "Deploy"). The
+  ffmpeg layer is a static arm64 binary fetched by `scripts/ffmpeg-layer.sh`.
