@@ -182,7 +182,7 @@ describe("MemoryLane stack", () => {
       return typeof raw === "string" ? raw : JSON.stringify(raw);
     });
     for (const statement of statements) {
-      expect(statement.match(/^(permit|forbid)\s*\(/gm)).toHaveLength(1);
+      expect(statement.match(/(permit|forbid)\s*\(/g) ?? []).toHaveLength(1);
     }
     const all = statements.join("\n");
     for (const tool of irreversibleTools) {
