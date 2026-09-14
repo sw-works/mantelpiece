@@ -496,6 +496,18 @@ export class MemoryLaneStack extends Stack {
       description: "Lets the AgentCore Gateway invoke the API Lambda as its tool target",
     });
     apiFn.grantInvoke(gatewayRole);
+    // Policy evaluation at request time (policy-permissions guide): the three actions the
+    // Gateway calls on its Policy Engine, on both engine and gateway ARNs. Wildcards because
+    // the Gateway's own ARN is not known until it exists.
+    gatewayRole.addToPolicy(
+      new iam.PolicyStatement({
+        actions: ["bedrock-agentcore:GetPolicyEngine", "bedrock-agentcore:AuthorizeAction", "bedrock-agentcore:PartiallyAuthorizeActions"],
+        resources: [
+          `arn:aws:bedrock-agentcore:${this.region}:${this.account}:policy-engine/*`,
+          `arn:aws:bedrock-agentcore:${this.region}:${this.account}:gateway/*`,
+        ],
+      }),
+    );
     this.gateway = new agentcore.CfnGateway(this, "ToolGateway", {
       name: "memorylane-tools",
       description: "MemoryLane tools over MCP for the Concierge and Alexa+",

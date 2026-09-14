@@ -198,6 +198,12 @@ describe("MemoryLane stack", () => {
     expect(permit).toContain("principal is AgentCore::OAuthUser");
     for (const tool of toolDefinitions) expect(permit).toContain(`api___${tool.name}`);
     template.hasResourceProperties("AWS::BedrockAgentCore::PolicyEngine", { Name: "memorylane_tools" });
+    // The Gateway's execution role may read the engine and ask it for decisions.
+    template.hasResourceProperties("AWS::IAM::Policy", {
+      PolicyDocument: {
+        Statement: Match.arrayWith([Match.objectLike({ Action: Match.arrayWith(["bedrock-agentcore:GetPolicyEngine", "bedrock-agentcore:AuthorizeAction", "bedrock-agentcore:PartiallyAuthorizeActions"]) })]),
+      },
+    });
   });
 
   it("emits nightly.tick on the bus from a schedule, with no timer on any Lambda", () => {
