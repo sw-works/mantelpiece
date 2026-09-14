@@ -1,5 +1,5 @@
 import * as path from "node:path";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { CfnOutput, Duration, RemovalPolicy, Size, Stack, type StackProps } from "aws-cdk-lib";
 import * as apigw from "aws-cdk-lib/aws-apigatewayv2";
@@ -71,7 +71,7 @@ export interface MemoryLaneStackProps extends StackProps {
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const placeholderDir = path.resolve(here, "..", "assets", "placeholder");
-const cedarPolicyPath = path.resolve(here, "..", "policy", "tools.cedar");
+const cedarPolicyDir = path.resolve(here, "..", "policy");
 const ffmpegLayerDir = path.resolve(here, "..", "assets", "ffmpeg-layer");
 const skillAssetDir = path.resolve(here, "..", "..", "agents", "src");
 const webDistDefault = path.resolve(here, "..", "..", "apps", "web", "dist");
@@ -485,19 +485,21 @@ export class MemoryLaneStack extends Stack {
     this.api.addRoutes({ path: "/{proxy+}", methods: [apigw.HttpMethod.ANY], integration });
 
     // AgentCore Gateway: the one tool surface for the Concierge and Alexa+ (F-505, W2).
-    // Cedar policy from policy/tools.cedar requires a confirmation token on every
-    // irreversible tool (constitution III). Property values follow the CloudFormation
-    // schema for AWS::BedrockAgentCore; not yet deployed.
+    // Cedar policies from infra/policy: a confirmation token on every irreversible tool
+    // (constitution III). AgentCore takes one Cedar statement per Policy, so one file each.
     const policyEngine = new agentcore.CfnPolicyEngine(this, "ToolPolicyEngine", {
       name: "memorylane_tools",
       description: "Confirmation tokens for irreversible MemoryLane tools",
     });
-    new agentcore.CfnPolicy(this, "ToolPolicy", {
-      name: "irreversible_requires_confirmation",
-      policyEngineId: policyEngine.attrPolicyEngineId,
-      description: "Cedar rules from infra/policy/tools.cedar",
-      definition: { cedar: { statement: readFileSync(cedarPolicyPath, "utf8") } },
-    });
+    for (const file of readdirSync(cedarPolicyDir).filter((f) => f.endsWith(".cedar")).sort()) {
+      const name = file.replace(/^\d+-/, "").replace(/\.cedar$/, "").replace(/-/g, "_");
+      new agentcore.CfnPolicy(this, `ToolPolicy_${name}`, {
+        name,
+        policyEngineId: policyEngine.attrPolicyEngineId,
+        description: `Cedar rule from infra/policy/${file}`,
+        definition: { cedar: { statement: readFileSync(path.join(cedarPolicyDir, file), "utf8") } },
+      });
+    }
     const gatewayRole = new iam.Role(this, "GatewayRole", {
       assumedBy: new iam.ServicePrincipal("bedrock-agentcore.amazonaws.com"),
       description: "Lets the AgentCore Gateway invoke the API Lambda as its tool target",

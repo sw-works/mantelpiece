@@ -173,15 +173,18 @@ describe("MemoryLane stack", () => {
   });
 
   it("loads the Cedar policy that gates every irreversible tool", () => {
-    const policies = template.findResources("AWS::BedrockAgentCore::Policy");
-    expect(Object.keys(policies)).toHaveLength(1);
-    const policy = Object.values(policies)[0];
-    if (!policy) throw new Error("no policy");
-    const statement = policy.Properties.Definition.Cedar.Statement as string;
-    for (const tool of irreversibleTools) {
-      expect(statement).toContain(`api___${tool.name}`);
+    // One Cedar statement per Policy resource (AgentCore rejects several in one).
+    const policies = Object.values(template.findResources("AWS::BedrockAgentCore::Policy"));
+    expect(policies).toHaveLength(3);
+    const statements = policies.map((p) => p.Properties.Definition.Cedar.Statement as string);
+    for (const statement of statements) {
+      expect(statement.match(/^(permit|forbid)\s*\(/gm)).toHaveLength(1);
     }
-    expect(statement).toContain("context.input.confirmation");
+    const all = statements.join("\n");
+    for (const tool of irreversibleTools) {
+      expect(all).toContain(`api___${tool.name}`);
+    }
+    expect(all).toContain("context.input.confirmation");
     template.hasResourceProperties("AWS::BedrockAgentCore::PolicyEngine", { Name: "memorylane_tools" });
   });
 

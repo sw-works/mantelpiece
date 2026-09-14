@@ -1,7 +1,7 @@
 /**
  * Gateway tool definitions (contracts/tools.md). One MCP tool per row, all served by the
  * API Lambda. The Concierge and Alexa+ see the same list; the Cedar policy in
- * `policy/tools.cedar` gates the irreversible ones.
+ * `policy/*.cedar` gate the irreversible ones, one Cedar statement per file.
  */
 
 interface Schema {

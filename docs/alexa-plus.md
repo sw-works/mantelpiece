@@ -17,7 +17,7 @@ marked *unverified* comes from the preview documentation, not from a run.
 | Protected resource metadata | `GET /.well-known/oauth-protected-resource` | RFC 9728 document naming the Gateway as the resource |
 | OAuth client | Cognito app client `AlexaPlus`, no secret, PKCE required | client id in the Cognito console |
 | Scope | Cognito resource server `memorylane`, scope `tools` | `memorylane/tools` |
-| Tool policy | `infra/policy/tools.cedar` | irreversible tools deny without a TV-minted confirmation |
+| Tool policy | `infra/policy/*.cedar` | irreversible tools deny without a TV-minted confirmation |
 
 The redirect URI on the `AlexaPlus` client is a placeholder until the preview says which
 to use; pass the real ones through the `alexaCallbackUrls` stack prop.
