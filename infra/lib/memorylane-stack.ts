@@ -485,21 +485,12 @@ export class MemoryLaneStack extends Stack {
     this.api.addRoutes({ path: "/{proxy+}", methods: [apigw.HttpMethod.ANY], integration });
 
     // AgentCore Gateway: the one tool surface for the Concierge and Alexa+ (F-505, W2).
-    // Cedar policies from infra/policy: a confirmation token on every irreversible tool
-    // (constitution III). AgentCore takes one Cedar statement per Policy, so one file each.
+    // Policy Engine first: the Gateway points at it. The rules themselves come after the
+    // Gateway, since tool-specific Cedar must name the Gateway's ARN.
     const policyEngine = new agentcore.CfnPolicyEngine(this, "ToolPolicyEngine", {
       name: "memorylane_tools",
       description: "Confirmation tokens for irreversible MemoryLane tools",
     });
-    for (const file of readdirSync(cedarPolicyDir).filter((f) => f.endsWith(".cedar")).sort()) {
-      const name = file.replace(/^\d+-/, "").replace(/\.cedar$/, "").replace(/-/g, "_");
-      new agentcore.CfnPolicy(this, `ToolPolicy_${name}`, {
-        name,
-        policyEngineId: policyEngine.attrPolicyEngineId,
-        description: `Cedar rule from infra/policy/${file}`,
-        definition: { cedar: { statement: readFileSync(path.join(cedarPolicyDir, file), "utf8") } },
-      });
-    }
     const gatewayRole = new iam.Role(this, "GatewayRole", {
       assumedBy: new iam.ServicePrincipal("bedrock-agentcore.amazonaws.com"),
       description: "Lets the AgentCore Gateway invoke the API Lambda as its tool target",
@@ -536,6 +527,20 @@ export class MemoryLaneStack extends Stack {
         },
       },
     });
+
+    // Cedar policies from infra/policy: a confirmation token on every irreversible tool
+    // (constitution III). AgentCore takes one Cedar statement per Policy, so one file
+    // each; tool-specific rules must name this Gateway (`${GATEWAY_ARN}` placeholder).
+    for (const file of readdirSync(cedarPolicyDir).filter((f) => f.endsWith(".cedar")).sort()) {
+      const name = file.replace(/^\d+-/, "").replace(/\.cedar$/, "").replace(/-/g, "_");
+      const statement = readFileSync(path.join(cedarPolicyDir, file), "utf8").split("${GATEWAY_ARN}").join(this.gateway.attrGatewayArn);
+      new agentcore.CfnPolicy(this, `ToolPolicy_${name}`, {
+        name,
+        policyEngineId: policyEngine.attrPolicyEngineId,
+        description: `Cedar rule from infra/policy/${file}`,
+        definition: { cedar: { statement } },
+      });
+    }
 
     // Nightly work: one `nightly.tick` on the bus at 03:00 UTC. The Concierge is its only
     // consumer (W3 Household Patterns, memories_nightly, purge_expired) and fans out per

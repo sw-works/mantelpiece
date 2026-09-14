@@ -176,7 +176,11 @@ describe("MemoryLane stack", () => {
     // One Cedar statement per Policy resource (AgentCore rejects several in one).
     const policies = Object.values(template.findResources("AWS::BedrockAgentCore::Policy"));
     expect(policies).toHaveLength(3);
-    const statements = policies.map((p) => p.Properties.Definition.Cedar.Statement as string);
+    // Statements with the Gateway ARN token render as Fn::Join; flatten them to text.
+    const statements = policies.map((p) => {
+      const raw = p.Properties.Definition.Cedar.Statement as unknown;
+      return typeof raw === "string" ? raw : JSON.stringify(raw);
+    });
     for (const statement of statements) {
       expect(statement.match(/^(permit|forbid)\s*\(/gm)).toHaveLength(1);
     }
@@ -185,6 +189,9 @@ describe("MemoryLane stack", () => {
       expect(all).toContain(`api___${tool.name}`);
     }
     expect(all).toContain("context.input.confirmation");
+    // Tool-specific rules name the Gateway ARN; nothing leaks the placeholder.
+    expect(all).not.toContain("${GATEWAY_ARN}");
+    expect(JSON.stringify(policies)).toContain("GatewayArn");
     template.hasResourceProperties("AWS::BedrockAgentCore::PolicyEngine", { Name: "memorylane_tools" });
   });
 

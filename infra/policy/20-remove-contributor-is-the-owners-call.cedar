@@ -2,7 +2,7 @@
 forbid(
   principal,
   action == AgentCore::Action::"api___remove_contributor",
-  resource is AgentCore::Gateway
+  resource == AgentCore::Gateway::"${GATEWAY_ARN}"
 ) unless {
   context has input &&
   context.input has requested_by &&

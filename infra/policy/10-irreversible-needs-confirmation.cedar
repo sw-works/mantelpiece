@@ -11,7 +11,7 @@ forbid(
     AgentCore::Action::"api___share_album",
     AgentCore::Action::"api___remove_contributor"
   ],
-  resource is AgentCore::Gateway
+  resource == AgentCore::Gateway::"${GATEWAY_ARN}"
 ) unless {
   context has input &&
   context.input has confirmation &&
