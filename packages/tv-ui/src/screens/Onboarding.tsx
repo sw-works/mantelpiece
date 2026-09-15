@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Text, View } from "react-native";
 import { type TvApi } from "../api/client";
 import { FocusButton } from "../components/FocusButton";
@@ -21,9 +22,12 @@ export function Onboarding({
   now?: () => number;
 }) {
   const state = useDeviceSignIn({ api, deviceId, tvName, retryMs, now });
-  if (state.phase === "approved") {
-    onSignedIn({ token: state.token, household: state.household });
-  }
+  // Hand the session up after render, never during it: App sets state on this call and
+  // React refuses a parent update while the child renders.
+  const approved = state.phase === "approved" ? state : null;
+  useEffect(() => {
+    if (approved) onSignedIn({ token: approved.token, household: approved.household });
+  }, [approved?.token]);
   return (
     <View style={{ flex: 1, backgroundColor: theme.bg, paddingHorizontal: theme.safe.x, paddingVertical: theme.safe.y, flexDirection: "row", gap: 64, alignItems: "center" }}>
       <View style={{ flex: 1, gap: theme.gap }}>

@@ -44,6 +44,10 @@ id = "/com.amazon.kepler.keplerscript_4@IKeplerScript_0"
 [[needs.privilege]]
 id = "com.amazon.network.privilege.net-info"
 
+[[needs.module]]
+id = "/com.amazon.kepler.async_storage__async_storage_2@IAsyncStorage__AsyncStorage_1"
+
+
 [offers]
 [[offers.interaction]]
 id = "com.hanyu.memorylane.main"

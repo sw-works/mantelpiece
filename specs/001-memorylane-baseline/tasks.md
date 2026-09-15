@@ -106,7 +106,7 @@ policy that every story builds on.
 - [X] T032 [P] [US1] Make the second approval of an already-approved code return 409 "already signed in" in `services/lambdas/api/src/handlers/device.rs`; test in `services/lambdas/api/tests/api.rs`
 - [X] T033 [P] [US1] After approval, redirect the phone from `apps/web/src/pages/link.ts` to the upload page with the household session (no second sign-in); test in `apps/web/test/auth.test.ts`
 - [X] T034 [US1] Record TV name on `POST /device/poll` approval and expose it on `GET /me` in `services/lambdas/api/src/handlers/session.rs`
-- [ ] T035 [US1] (partial 2026-09-09, SDK 0.24.9914: .vpkg builds, installs, launches and renders Onboarding on the Virtual Device, `docs/screens/vvd-onboarding-2026-09-09.png`; sign-in needs a deployed API and an API base in the shell) Verify on the Vega Virtual Device via `make tv-vvd-install`: code and QR shown, approval lands on Home under 5 s, session survives restart; record results in `specs/decisions-2026-09-09.md` section 6 (research R1, R2 verified: device)
+- [X] T035 [US1] (2026-09-14 on the deployed stack: code and QR shown, approval lands on Home, session survives terminate and relaunch after the async-storage port fix, decision 31) (partial 2026-09-09, SDK 0.24.9914: .vpkg builds, installs, launches and renders Onboarding on the Virtual Device, `docs/screens/vvd-onboarding-2026-09-09.png`; sign-in needs a deployed API and an API base in the shell) Verify on the Vega Virtual Device via `make tv-vvd-install`: code and QR shown, approval lands on Home under 5 s, session survives restart; record results in `specs/decisions-2026-09-09.md` section 6 (research R1, R2 verified: device)
 
 **Checkpoint**: US1 demonstrable on the Virtual Device (code complete 2026-09-09; device run pending T035)
 
@@ -306,7 +306,7 @@ policy that every story builds on.
 - [X] T104 [P] Ensure every agent run and Gateway tool call is traced in AgentCore Observability with household and workflow tags in `agents/src/memorylane_agents/runtime.py` (F-506)
 - [X] T105 [P] Audit log entries for auth, share, delete and tool calls in `services/lambdas/api/src/app.rs` (F-605); test in `services/lambdas/api/tests/api.rs`
 - [X] T106 [P] Add `docs/diagrams/src/08-planned-2026-09-09.mjs` showing the member TV, phone reactions and voice, the Alexa+ context path and the widened token gate; update `docs/diagrams/README.md`
-- [ ] T107 (partial 2026-09-09: `make lint` and `make test` green; Virtual Device and deployed-stack scenarios blocked, no Vega SDK and no deploy) Run `make lint` and `make test`, then every scenario in `specs/001-memorylane-baseline/quickstart.md` on the Virtual Device and the deployed stack, timing the US4 scenario from last upload to `memory.ready` against the 15-minute target (SC-003); record outcomes in `specs/decisions-2026-09-09.md`
+- [ ] T107 (2026-09-14: US1, US2 and US4 pass on the deployed stack and the Virtual Device, decision 31; other scenarios and the SC-003 timing not run) (partial 2026-09-09: `make lint` and `make test` green; Virtual Device and deployed-stack scenarios blocked, no Vega SDK and no deploy) Run `make lint` and `make test`, then every scenario in `specs/001-memorylane-baseline/quickstart.md` on the Virtual Device and the deployed stack, timing the US4 scenario from last upload to `memory.ready` against the 15-minute target (SC-003); record outcomes in `specs/decisions-2026-09-09.md`
 - [X] T108 [P] Update `README.md`, `docs/devpost-overview.md` and the friction log with what shipped and what stayed unverified
 
 ---

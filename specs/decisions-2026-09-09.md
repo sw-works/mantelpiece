@@ -708,3 +708,31 @@ compile-checked only.
 - Build machine: no sudo, Xcode licence unaccepted at the time, so Lambdas were built with
   cargo-lambda + a ziglang wheel and a zig host-linker wrapper (README "Deploy"). The
   ffmpeg layer is a static arm64 binary fetched by `scripts/ffmpeg-layer.sh`.
+- Outcome (2026-09-14, deploy nine): stack up in us-west-2 after eight failed rounds, all on
+  the Policy rules above. Smoke against the live stack: device code issued, approved with a
+  Cognito user, TV session polled back; 13 photos uploaded through the multipart routes
+  (re-upload returns 409 duplicate); Signal ran Rekognition on every photo; Organize built
+  "Trip, October 25 to 26, 2025" from six photos on two consecutive days (the seven
+  single-day photos stay unorganised: `min_trip_days` is 2). The Virtual Device build with
+  the API base from `scripts/tv-config.sh` showed the code and QR, landed on Memories home
+  with the trip poster and the "6 photos organised" ticker after approval
+  (`docs/screens/vvd-*-deployed-2026-09-14.png`).
+- Two surprises. (1) Bedrock on a fresh account answered "Your account is currently being
+  verified" for about an hour; the failed Organize run was redriven
+  (`aws stepfunctions redrive-execution`) once the hold lifted and succeeded. (2) The TV
+  session did not survive a terminate-and-relaunch: the legacy `AsyncStorage` export on
+  react-native-kepler logs "Application data root path is not set" on the Virtual Device.
+  The shell now uses the system-deployed port
+  `@amazon-devices/react-native-async-storage__async-storage` 2.1.9000000001 (the
+  `-rn-83` prerelease fails the SDK's kepler-compatibility check); verified: terminate
+  and relaunch comes back signed in (`docs/screens/vvd-relaunch-signed-in-2026-09-14.png`).
+- Open, seen on the Virtual Device and not chased: after sign-in the TV moved from Home to
+  the slideshow on its own, and after relaunch from Home to Trip view, with no
+  `play.requested` on the feed (possibly key events injected by the CLI launch, possibly a
+  focus bug); and two ticker lines rendered on top of each other when `trip.detected` and
+  the upload summary arrived together.
+- Also fixed: Onboarding handed the session up during render (React warning "Cannot update
+  a component while rendering a different component"); it now does so in an effect.
+- Not run: US3, US5 to US12 of the quickstart, the 15-minute SC-003 timing, Alexa skill
+  registration. Sign-in used `ADMIN_USER_PASSWORD_AUTH` added by hand to the web client
+  (no LWA client in this account); the hosted-UI phone path itself is untested.

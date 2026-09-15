@@ -1,14 +1,21 @@
-// Persistent TV session on Vega (research R2). The Vega React Native (react-native-kepler 4)
-// keeps AsyncStorage exported from "react-native" as a system module, so no package is
-// bundled; upstream React Native has no such export, hence the runtime lookup. Falls back
-// to memory when the export is missing, which is what happens under jest or on a platform
-// without it. Not yet verified on a Vega device.
+// Persistent TV session on Vega (research R2). The system-deployed port of the community
+// async-storage package (@amazon-devices/react-native-async-storage__async-storage) writes
+// under the app's /data sandbox; the legacy AsyncStorage export on react-native-kepler is
+// deprecated and, on the Virtual Device, failed with "Application data root path is not
+// set" (verified 2026-09-14). Falls back to memory when the module is missing, which is
+// what happens under jest or on a platform without it.
 
 import { KeyValueSessionStore, MemorySessionStore, type AsyncStorageLike, type SessionStore } from "@memorylane/tv-ui";
-import * as ReactNative from "react-native";
 
 export function nativeAsyncStorage(): AsyncStorageLike | null {
-  const candidate = (ReactNative as unknown as { AsyncStorage?: Partial<AsyncStorageLike> }).AsyncStorage;
+  let candidate: Partial<AsyncStorageLike> | undefined;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const mod = require("@amazon-devices/react-native-async-storage__async-storage") as { default?: Partial<AsyncStorageLike> } & Partial<AsyncStorageLike>;
+    candidate = mod.default ?? mod;
+  } catch {
+    return null;
+  }
   if (candidate && typeof candidate.getItem === "function" && typeof candidate.setItem === "function" && typeof candidate.removeItem === "function") {
     return candidate as AsyncStorageLike;
   }

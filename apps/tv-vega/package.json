@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@amazon-devices/kepler-module-resolver-preset": "^0.1.16",
+    "@amazon-devices/react-native-async-storage__async-storage": "2.1.9000000001",
     "@amazon-devices/react-native-kepler": "~4.0.1",
     "@babel/runtime": "^7.28.0",
     "@memorylane/tv-ui": "workspace:*",
