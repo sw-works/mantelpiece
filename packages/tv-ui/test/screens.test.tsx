@@ -291,6 +291,28 @@ describe("screens", () => {
     expect(screen.getByTestId("caption-story")).toBeTruthy();
   });
 
+  it("Slideshow opens at the cast photo and jumps when another one is cast", async () => {
+    const api = new FakeApi();
+    const kyoto = {
+      ...trip,
+      days: [
+        { index: 1, date: "2026-04-03", media: ["m1", "m2"], title: "Day 1", route: { points: [], inferred: false, map_key: null } },
+        { index: 2, date: "2026-04-04", media: ["m3"], title: "Day 2", route: { points: [], inferred: false, map_key: null } },
+      ],
+      narrative: null,
+      route: { points: [], inferred: false, map_key: null },
+    };
+    const shown: Array<{ media: string; day: number }> = [];
+    const onPresence = (now: { media: string; day: number; paused: boolean }) => void shown.push({ media: now.media, day: now.day });
+    const view = await render(<Slideshow api={api} token="t" trip={kyoto} startAt="m3" onBack={() => undefined} onPresence={onPresence} intervalMs={100000} />);
+    await waitFor(() => expect(shown.at(-1)).toEqual({ media: "m3", day: 2 }));
+    view.rerender(<Slideshow api={api} token="t" trip={kyoto} startAt="m2" onBack={() => undefined} onPresence={onPresence} intervalMs={100000} />);
+    await waitFor(() => expect(shown.at(-1)).toEqual({ media: "m2", day: 1 }));
+    // An unknown id falls back to the first photo.
+    await render(<Slideshow api={api} token="t" trip={kyoto} startAt="nope" onBack={() => undefined} onPresence={onPresence} intervalMs={100000} />);
+    await waitFor(() => expect(shown.at(-1)).toEqual({ media: "m1", day: 1 }));
+  });
+
   it("Slideshow draws the answer card over the photo", async () => {
     const api = new FakeApi();
     const kyoto = { ...trip, days: [{ index: 1, date: "2026-04-03", media: ["m1"], title: "Day 1", route: { points: [], inferred: false, map_key: null } }], narrative: null, route: { points: [], inferred: false, map_key: null } };

@@ -2229,10 +2229,18 @@ async fn an_alexa_skill_trades_its_cognito_token_for_an_owner_session() {
 #[tokio::test]
 async fn a_play_request_reaches_the_tv_through_the_feed() {
     let h = harness();
-    h.storage
-        .put_trip(&trip("amzn-owner", "kyoto"))
-        .await
-        .unwrap();
+    let mut kyoto = trip("amzn-owner", "kyoto");
+    kyoto.days = vec![memorylane_core::trip::TripDay {
+        landmarks: vec![],
+        index: 1,
+        date: time::macros::date!(2026 - 04 - 03),
+        media: vec![MediaId::new("m1"), MediaId::new("m2")],
+        route: Route::default(),
+        title: None,
+        story: None,
+        undated: vec![],
+    }];
+    h.storage.put_trip(&kyoto).await.unwrap();
     let session = h.owner(Method::Post, "/session/amazon", None).await;
     let token = session.body["token"].as_str().unwrap().to_owned();
 
@@ -2262,6 +2270,69 @@ async fn a_play_request_reaches_the_tv_through_the_feed() {
     assert_eq!(play["trip"], "kyoto");
     assert_eq!(play["source"], "alexa");
     assert!(play["playlist"].is_null());
+    assert!(play.get("start").is_none(), "no start when none was asked");
+
+    // "Play this photo on the TV" from the phone: the event carries where to open.
+    let at_photo = h
+        .bearer(
+            Method::Post,
+            "/trips/kyoto/play",
+            Some(json!({ "start": "m2" })),
+            &token,
+        )
+        .await;
+    assert_eq!(at_photo.status, 200, "{}", at_photo.body);
+    assert_eq!(at_photo.body["start"], "m2");
+    let feed = h.bearer(Method::Get, "/events?since=0", None, &token).await;
+    let last = feed.body["events"]
+        .as_array()
+        .unwrap()
+        .last()
+        .unwrap()
+        .clone();
+    assert_eq!(last["type"], "play.requested");
+    assert_eq!(last["start"], "m2");
+    assert_eq!(last["source"], "phone");
+    // A photo that is not in the trip is refused, and nothing is emitted.
+    let elsewhere = h
+        .bearer(
+            Method::Post,
+            "/trips/kyoto/play",
+            Some(json!({ "start": "zzz" })),
+            &token,
+        )
+        .await;
+    assert_eq!(elsewhere.status, 400, "{}", elsewhere.body);
+    let feed = h.bearer(Method::Get, "/events?since=0", None, &token).await;
+    let owner_events = feed.body["events"].as_array().unwrap().len();
+    assert_eq!(owner_events, 2);
+
+    // A member household plays a joined trip on its own TVs (F-162): the event lands on
+    // the member's feed, not the owner's.
+    let ruth = h
+        .member_household("amzn-ruth", "Ruth's living room", "kyoto")
+        .await;
+    let by_member = h
+        .bearer(
+            Method::Post,
+            "/trips/kyoto/play",
+            Some(json!({ "start": "m1" })),
+            &ruth,
+        )
+        .await;
+    assert_eq!(by_member.status, 200, "{}", by_member.body);
+    let ruth_feed = h.bearer(Method::Get, "/events?since=0", None, &ruth).await;
+    let ruth_last = ruth_feed.body["events"]
+        .as_array()
+        .unwrap()
+        .last()
+        .unwrap()
+        .clone();
+    assert_eq!(ruth_last["type"], "play.requested");
+    assert_eq!(ruth_last["trip"], "kyoto");
+    assert_eq!(ruth_last["start"], "m1");
+    let feed = h.bearer(Method::Get, "/events?since=0", None, &token).await;
+    assert_eq!(feed.body["events"].as_array().unwrap().len(), owner_events);
 
     // Playlists play the same way, with an empty body allowed.
     let created = h

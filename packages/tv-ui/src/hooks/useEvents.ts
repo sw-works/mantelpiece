@@ -21,6 +21,8 @@ export interface PlayRequest {
   playlist: string | null;
   name: string;
   source: string;
+  /** Media id to open the show at, when the phone cast one photo. */
+  start: string | null;
 }
 
 const MAX_RECENT = 20;
@@ -69,7 +71,7 @@ export function reduce(state: FeedState, events: FeedEvent[], next: number): Fee
   const touchesTrips = events.some((e) => ["trip.detected", "memory.ready", "media.removed", "contribution.received", "membership.joined"].includes(e.type));
   const asked = [...events].reverse().find((e) => e.type === "play.requested");
   const play: PlayRequest | null = asked
-    ? { seq: asked.seq, trip: typeof asked.trip === "string" ? asked.trip : null, playlist: typeof asked.playlist === "string" ? asked.playlist : null, name: String(asked.name ?? ""), source: String(asked.source ?? "") }
+    ? { seq: asked.seq, trip: typeof asked.trip === "string" ? asked.trip : null, playlist: typeof asked.playlist === "string" ? asked.playlist : null, name: String(asked.name ?? ""), source: String(asked.source ?? ""), start: typeof asked.start === "string" ? asked.start : null }
     : state.play;
   return {
     since: next,

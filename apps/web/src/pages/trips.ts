@@ -6,7 +6,7 @@ import { Api, type TripView } from "../api.js";
 import { OWNER_TOKEN_KEY } from "../auth.js";
 import { loadConfig } from "../config.js";
 import { tripLines } from "./trip.js";
-import { groupByYear, tripSummaryLine } from "../trips.js";
+import { castConfirmation, groupByYear, type NowShowing, tripSummaryLine, untilConfirmed } from "../trips.js";
 import { el, mount } from "../ui.js";
 
 export async function main(root: HTMLElement, _location: Location, storage: Storage): Promise<void> {
@@ -35,19 +35,42 @@ export async function main(root: HTMLElement, _location: Location, storage: Stor
   mount(root, el("h1", {}, "My trips"), el("p", {}, `${trips.length} trip${trips.length === 1 ? "" : "s"}.`), ...(jump ? [jump] : []), ...sections);
 }
 
+/**
+ * "Play on TV", the Chromecast moment: the phone posts a play request, every TV in the
+ * household picks it up off its feed, and the phone watches `/presence` until one of them
+ * reports the trip (and the cast photo) on screen.
+ */
+export function caster(api: Api, token: string, tripId: string, status: HTMLElement): (start?: string, label?: string) => Promise<void> {
+  return async (start, label) => {
+    status.textContent = `Asking your TV to play ${label ?? "this trip"}…`;
+    let before: NowShowing[] = [];
+    try {
+      before = await api.presence(token).catch(() => []);
+      await api.playTrip(token, tripId, start);
+    } catch (e) {
+      status.textContent = e instanceof Error ? e.message : String(e);
+      return;
+    }
+    status.textContent = "Sent. Watching for the TV to switch…";
+    const seen = await untilConfirmed(() => api.presence(token).then((now) => castConfirmation(now, before, start ? { trip: tripId, start } : { trip: tripId })));
+    status.textContent = seen ?? "Sent. The TV switches when it next checks in.";
+  };
+}
+
 function tripRow(api: Api, token: string, trip: { id: string; name: string; start: string; end: string; highlights: string[] }): HTMLElement {
   const open = el("button", { class: "link" }, "Open");
   const play = el("button", { class: "link" }, "Play on TV");
+  const status = el("span", { class: "muted cast" });
+  const cast = caster(api, token, trip.id, status);
   play.onclick = async () => {
     play.disabled = true;
     try {
-      await api.playTrip(token, trip.id);
-      play.textContent = "Playing on the TV";
-    } catch (e) {
-      play.textContent = e instanceof Error ? e.message : String(e);
+      await cast(undefined, trip.name);
+    } finally {
+      play.disabled = false;
     }
   };
-  const row = el("li", { class: "item trip" }, el("span", { class: "name" }, trip.name), el("span", { class: "state" }, tripSummaryLine(trip)), el("span", { class: "actions" }, play, " ", open));
+  const row = el("li", { class: "item trip" }, el("span", { class: "name" }, trip.name), el("span", { class: "state" }, tripSummaryLine(trip)), el("span", { class: "actions" }, play, " ", open), status);
   let detail: HTMLElement | null = null;
   open.onclick = async () => {
     if (detail) {
@@ -59,7 +82,7 @@ function tripRow(api: Api, token: string, trip: { id: string; name: string; star
     open.disabled = true;
     try {
       const view = await api.trip(token, trip.id);
-      detail = renderDetail(api, token, view);
+      detail = renderDetail(api, token, view, cast);
       row.append(detail);
       open.textContent = "Close";
     } catch (e) {
@@ -71,7 +94,7 @@ function tripRow(api: Api, token: string, trip: { id: string; name: string; star
   return row;
 }
 
-function renderDetail(api: Api, token: string, trip: TripView): HTMLElement {
+function renderDetail(api: Api, token: string, trip: TripView, cast: (start?: string, label?: string) => Promise<void>): HTMLElement {
   const days = el("ol", { class: "days" });
   const lines = tripLines(trip);
   trip.days.forEach((d, i) => {
@@ -82,9 +105,16 @@ function renderDetail(api: Api, token: string, trip: TripView): HTMLElement {
         .mediaUrl(token, m, "thumb")
         .then((r) => (img.src = r.url))
         .catch(() => img.remove());
-      thumbs.append(el("figure", {}, img));
+      // Tap a photo: the TV opens the show at that photo.
+      const toTv = el("button", { class: "link cast-photo", title: "Play on TV from this photo" }, "▶ TV");
+      toTv.onclick = () => void cast(m, "this photo");
+      thumbs.append(el("figure", {}, img, toTv));
     }
-    days.append(el("li", {}, el("p", {}, lines[i] ?? `Day ${d.index}`), thumbs));
+    const dayLabel = d.title ?? `Day ${d.index}`;
+    const playDay = el("button", { class: "link" }, "Play this day on TV");
+    playDay.disabled = d.media.length === 0;
+    playDay.onclick = () => void cast(d.media[0], dayLabel);
+    days.append(el("li", {}, el("p", {}, lines[i] ?? `Day ${d.index}`), thumbs, playDay));
   });
   return el("div", { class: "detail" }, ...(trip.narrative ? [el("p", { class: "story" }, trip.narrative.text)] : []), days);
 }

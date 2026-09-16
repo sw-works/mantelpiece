@@ -52,7 +52,7 @@ sessions) or Cognito JWTs (`/join/amazon`). Errors are `{ "error": "<message>" }
 | POST | /media/{media}/keeper | owner, co-editor | NEW moves the burst group's keeper; non-keepers re-inherit (F-201, F-164) |
 | PATCH | /trips/{trip} | owner, co-editor | NEW rename |
 | POST | /trips/{trip}/roles | owner | NEW `{contributor, role}` promote or demote (F-164) |
-| POST | /trips/{trip}/play | owner (phone, Alexa skill) | NEW `{source?}`; emits `play.requested`, the TV opens the slideshow |
+| POST | /trips/{trip}/play | owner, member household (phone, Alexa skill) | NEW `{source?, start?}`; emits `play.requested` to the caller's household, the TV opens the slideshow at `start` (a media id of the trip, else 400). Contributors and co-editors 403 |
 
 ## Search, playlists, Ask (US5)
 

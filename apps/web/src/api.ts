@@ -211,8 +211,9 @@ export class Api {
   }
 
   /** Ask the household's TV to play a trip; the TV opens it from its feed. */
-  playTrip(bearer: string, id: string) {
-    return this.call<{ requested: boolean; trip: string; name: string }>("POST", `/trips/${id}/play`, { source: "phone" }, { bearer });
+  /** Ask the household's TVs to play a trip, from `start` (a media id) when given. */
+  playTrip(bearer: string, id: string, start?: string) {
+    return this.call<{ requested: boolean; trip: string; name: string; start: string | null }>("POST", `/trips/${id}/play`, { source: "phone", ...(start ? { start } : {}) }, { bearer });
   }
 
   mediaUrl(bearer: string, mediaId: string, rendition: "thumb" | "tv") {

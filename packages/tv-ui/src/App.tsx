@@ -27,7 +27,7 @@ export type Route =
   | { name: "people" }
   | { name: "ambient" }
   | { name: "highlights"; id: string }
-  | { name: "slideshow"; trip: Trip }
+  | { name: "slideshow"; trip: Trip; start?: string }
   | { name: "ask" }
   | { name: "review" }
   | { name: "invite"; tripId: string | null };
@@ -97,7 +97,7 @@ export function App({ apiBase, api: injectedApi, sessionStore, tvName, audio = n
         : null;
     if (!load) return;
     let alive = true;
-    load.then((trip) => alive && setRoute({ name: "slideshow", trip })).catch(() => undefined);
+    load.then((trip) => alive && setRoute({ name: "slideshow", trip, ...(ask.start ? { start: ask.start } : {}) })).catch(() => undefined);
     return () => {
       alive = false;
     };
@@ -179,7 +179,7 @@ export function App({ apiBase, api: injectedApi, sessionStore, tvName, audio = n
       screen = <JoinTrip api={api} token={session.token} onJoined={(id) => setRoute({ name: "trip", id, shared: true })} onBack={goBack} />;
       break;
     case "slideshow":
-      screen = <Slideshow api={api} token={session.token} trip={route.trip} onBack={goBack} onPresence={onPresence} answer={answer} audio={audio} narration={narration} />;
+      screen = <Slideshow api={api} token={session.token} trip={route.trip} startAt={route.start} onBack={goBack} onPresence={onPresence} answer={answer} audio={audio} narration={narration} />;
       break;
     case "ambient":
       screen = <Ambient api={api} token={session.token} onBack={goBack} onPresence={onPresence} />;

@@ -35,11 +35,14 @@ export function Slideshow({
   intervalMs = 6000,
   audio,
   narration = false,
+  startAt,
 }: {
   api: TvApi;
   token: string;
   trip: Trip;
   onBack: () => void;
+  /** Media id to open at: "play this photo on the TV" from the phone. */
+  startAt?: string;
   onPresence?: (now: NowShowing) => void;
   /** The latest answer card from the feed, drawn over the photo (F-405). */
   answer?: AnswerCard | null;
@@ -50,7 +53,13 @@ export function Slideshow({
   narration?: boolean;
 }) {
   const slides = useMemo(() => slidesOf(trip), [trip]);
-  const [index, setIndex] = useState(0);
+  const [index, setIndex] = useState(() => Math.max(0, startAt ? slides.findIndex((s) => s.media === startAt) : 0));
+  // A second cast while the show is already open jumps to the new photo.
+  useEffect(() => {
+    if (!startAt) return;
+    const at = slides.findIndex((s) => s.media === startAt);
+    if (at >= 0) setIndex(at);
+  }, [startAt, slides]);
   const [paused, setPaused] = useState(false);
   const current = slides[index];
 

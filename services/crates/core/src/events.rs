@@ -26,6 +26,10 @@ pub enum EventKind {
         name: String,
         /// Where the request came from: `alexa`, `phone`, `agent`.
         source: String,
+        /// Open the show at this photo instead of the first one: "play this photo on the
+        /// TV" from the phone, the Chromecast moment.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        start: Option<MediaId>,
     },
     /// Dedup Steward has groups to review; TV opens Review Changes.
     #[serde(rename = "dedup.proposal")]

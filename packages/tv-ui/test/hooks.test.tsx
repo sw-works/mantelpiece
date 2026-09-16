@@ -87,10 +87,13 @@ describe("events feed", () => {
       ],
       2,
     );
-    expect(s1.play).toEqual({ seq: 2, trip: null, playlist: "p1", name: "Beach days", source: "agent" });
+    expect(s1.play).toEqual({ seq: 2, trip: null, playlist: "p1", name: "Beach days", source: "agent", start: null });
     expect(s1.ticker).toBe("Playing Beach days");
     const s2 = reduce(s1, [{ seq: 3, at: "", type: "memory.ready", trip: "t" }], 3);
     expect(s2.play).toBe(s1.play);
+    // "Play this photo on the TV" from the phone carries the media id to open at.
+    const s3 = reduce(s2, [{ seq: 4, at: "", type: "play.requested", trip: "kyoto", playlist: null, name: "Kyoto", source: "phone", start: "m7" }], 4);
+    expect(s3.play).toEqual({ seq: 4, trip: "kyoto", playlist: null, name: "Kyoto", source: "phone", start: "m7" });
   });
 
   it("long-polls and advances since", async () => {

@@ -2,13 +2,13 @@
 //! read-only web view opens one trip by its code with no session.
 
 use memorylane_core::events::EventKind;
-use memorylane_core::ids::{HouseholdId, TripId};
+use memorylane_core::ids::{HouseholdId, MediaId, TripId};
 use memorylane_core::narrative_check::{check, Allowed};
 use memorylane_core::trip::{Narrative, NarrativeCheck, Trip};
 use serde::Deserialize;
 use serde_json::{json, Value};
 
-use crate::app::{App, Caller};
+use crate::app::{App, Caller, TripAccess};
 use crate::error::ApiError;
 use crate::req::{Req, Resp};
 use crate::tokens::Session;
@@ -52,16 +52,25 @@ pub async fn list(app: &App, req: &Req) -> Result<Resp, ApiError> {
 struct PlayBody {
     #[serde(default)]
     source: Option<String>,
+    /// Media id to open the show at; must belong to the trip.
+    #[serde(default)]
+    start: Option<String>,
 }
 
-/// Ask the household's TV to play this trip as a slideshow (F-405 by voice): the TV picks
-/// the `play.requested` event off its feed and opens the show. Owner sessions only.
+/// Ask the caller's TVs to play this trip as a slideshow (F-405 by voice, "Play on TV" from
+/// the phone): the TV picks the `play.requested` event off its feed and opens the show,
+/// at `start` when one is given. The owner plays their own trips; a member household plays
+/// a trip it joined (F-162) on its own TVs, so the event goes to the viewing household.
+/// Contributors and co-editors get 403.
 pub async fn play(app: &App, req: &Req, trip: &str) -> Result<Resp, ApiError> {
-    let household = app.owner(req)?;
     let trip_id = TripId::new(trip);
+    let access = app.trip_access(req, &trip_id).await?;
+    if !matches!(access, TripAccess::Owner { .. } | TripAccess::Member { .. }) {
+        return Err(ApiError::forbidden("owner or member household only"));
+    }
     let found = app
         .storage
-        .get_trip(&household, &trip_id)
+        .get_trip(access.owner_household(), &trip_id)
         .await?
         .ok_or_else(|| ApiError::not_found("no such trip"))?;
     let body: PlayBody = if req.body.is_empty() {
@@ -69,17 +78,33 @@ pub async fn play(app: &App, req: &Req, trip: &str) -> Result<Resp, ApiError> {
     } else {
         req.json()?
     };
+    let start = match body
+        .start
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+    {
+        Some(id) => {
+            let id = MediaId::new(id);
+            if !found.days.iter().any(|d| d.media.contains(&id)) {
+                return Err(ApiError::bad_request("start is not a photo of this trip"));
+            }
+            Some(id)
+        }
+        None => None,
+    };
     app.emit(
-        &household,
+        access.viewing_household(),
         EventKind::PlayRequested {
             trip: Some(trip_id),
             playlist: None,
             name: found.name.clone(),
             source: body.source.unwrap_or_else(|| "phone".into()),
+            start: start.clone(),
         },
     )
     .await?;
-    Resp::ok(json!({ "requested": true, "trip": found.id, "name": found.name }))
+    Resp::ok(json!({ "requested": true, "trip": found.id, "name": found.name, "start": start }))
 }
 
 /// Per-household view of the highlights (F-163): this household's pins first, its

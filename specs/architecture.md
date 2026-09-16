@@ -219,6 +219,7 @@ account or guest, can add and remove their own photos, view, react), **member ho
 | F-407 | Live status on TV: upload progress, memory ready, dedup proposal; works over plain HTTPS polling, WebSocket optional |
 | F-410 | Review Changes modal: any agent-proposed destructive action (dedup apply, delete, contributor removal) shows before/after counts and sample thumbnails; nothing applies until the user confirms on the remote |
 | F-411 | Join a trip (F-162): code entry on the Memories home and a scan-from-phone path; joined trips show a "shared by <household>" badge and a Leave action |
+| F-412 | Play on TV from the phone, Chromecast-style: a trip, a day or one photo from the owner's trips page; `play.requested` carries the photo to open at, every TV in the household picks it up, and the phone confirms from `/presence` which TV is showing it. A member household plays a joined trip on its own TVs. No LAN discovery: the cloud feed is the cast channel (decision 2026-09-15, `video-call-feasibility-2026-09-15.md` section 8a) |
 | F-408 | Runs on Vega OS; passes Vega Virtual Device. Fire OS from the same `packages/tv-ui` code is a stretch goal (decision 2026-09-09) |
 
 ### 4.6 Agents and Alexa+

@@ -73,6 +73,7 @@ pub async fn play(app: &App, req: &Req, id: &str) -> Result<Resp, ApiError> {
             playlist: Some(playlist.id.clone()),
             name: playlist.name.clone(),
             source: body.source.unwrap_or_else(|| "agent".into()),
+            start: None,
         },
     )
     .await?;

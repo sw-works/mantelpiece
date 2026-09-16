@@ -12,7 +12,7 @@ are in `services/crates/core/src/events.rs`; NEW kinds are added by this feature
 | trip.detected | trip, new_media | "New memory: 412 photos organised" |
 | memory.ready | trip | "Memory ready" |
 | playlist.created | playlist, name | "Playlist ready: …" |
-| play.requested | trip?, playlist?, name, source | NEW TV opens the slideshow once per request (F-405 by voice) |
+| play.requested | trip?, playlist?, name, source, start? | NEW TV opens the slideshow once per request, at `start` when the phone cast one photo (F-405 by voice, "Play on TV") |
 | dedup.proposal | trip?, groups, removable | opens Review Changes |
 | media.removed | media[] | refresh |
 | cleanup.proposal | trip?, count, reasons | NEW opens Review Changes (F-705) |

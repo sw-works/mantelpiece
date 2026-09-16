@@ -25,3 +25,9 @@ input[type="text"] { font: inherit; padding: 12px; border-radius: 10px; border: 
 .item.trip { grid-template-columns: 1fr auto; }
 .item.trip .detail { grid-column: 1 / -1; }
 .item.trip .actions { grid-column: 2; display: flex; gap: 12px; }
+
+/* Play on TV from the phone: a small cast button under each thumbnail, and the line that
+   reports which TV picked the request up. */
+.thumbs figure { display: inline-flex; flex-direction: column; align-items: center; gap: 4px; margin: 0 8px 8px 0; }
+.cast-photo { font-size: 0.85em; }
+.item .cast { grid-column: 2; display: block; }
