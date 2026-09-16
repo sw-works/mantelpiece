@@ -32,6 +32,31 @@ id = "com.amazon.inputmethod.service" # on-screen keyboard for the Ask prompt
 [[wants.service]]
 id = "com.amazon.network.service"
 
+# W3C media playback (live-latency spike, specs/video-call-feasibility-2026-09-15.md).
+[[wants.service]]
+id = "com.amazon.media.server"
+
+[[wants.service]]
+id = "com.amazon.media.playersession.service"
+
+[[wants.service]]
+id = "com.amazon.mediabuffer.service"
+
+[[wants.service]]
+id = "com.amazon.mediatransform.service"
+
+[[wants.service]]
+id = "com.amazon.mediametrics.service"
+
+[[wants.service]]
+id = "com.amazon.gipc.uuid.*"
+
+[[wants.service]]
+id = "com.amazon.audio.stream"
+
+[[wants.service]]
+id = "com.amazon.audio.control"
+
 # Required capabilities. The module ids follow the React Native 0.83 / react-native-kepler 4
 # sample (AmazonAppDev/react-native-multi-tv-helloworld); not yet verified on a device.
 [needs]
@@ -47,7 +72,21 @@ id = "com.amazon.network.privilege.net-info"
 [[needs.module]]
 id = "/com.amazon.kepler.async_storage__async_storage_2@IAsyncStorage__AsyncStorage_1"
 
+# System-deployed W3C media port (@amazon-devices/react-native-w3cmedia 2.3.4-rn-83).
+[[needs.module]]
+id = "/com.amazon.kepler.w3cmedia_2@IW3cmedia_3"
+
+# Turbo modules the W3C media port pulls in; the packager only records direct dependencies.
+[[needs.module]]
+id = "/com.amazon.kepler.keplermediadescriptor_1@IKeplermediadescriptor_1"
+
+[[needs.module]]
+id = "/com.amazon.kepler.kepler_media_controls_1@IKeplerMediaControls_0"
+
 
 [offers]
 [[offers.interaction]]
 id = "com.hanyu.memorylane.main"
+
+[[offers.service]]
+id = "com.amazon.gipc.uuid.*"

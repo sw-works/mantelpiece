@@ -24,7 +24,7 @@ const config = {
   projectRoot: __dirname,
   watchFolders: [path.resolve(workspaceRoot, "packages/tv-ui"), path.resolve(workspaceRoot, "node_modules")],
   resolver: {
-    sourceExts: ["kepler.tsx", "kepler.ts", "kepler.js", "tsx", "ts", "jsx", "js", "json"],
+    sourceExts: ["kepler.tsx", "kepler.ts", "kepler.js", "tsx", "ts", "jsx", "js", "mjs", "json"],
     nodeModulesPaths: [path.resolve(__dirname, "node_modules"), path.resolve(workspaceRoot, "node_modules")],
   },
 };

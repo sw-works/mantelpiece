@@ -28,6 +28,28 @@ what would have helped. Dates are when we hit it.
 - **2026-09-09, system-deployed ports.** The ported-library table lists AsyncStorage as a
   system module (exported from `react-native` on kepler 4) but not `react-native-w3cmedia`,
   so narration audio is behind a flag and looks for an `Audio` constructor at runtime.
+- **2026-09-15, transitive system modules.** `@amazon-devices/react-native-w3cmedia`
+  depends on `keplermediadescriptor` and `kepler-media-controls`, both system turbo modules,
+  but `build-vega` only writes `needs.module` entries for the app's direct dependencies. The
+  app installed fine and crashed on first render with `'KeplerMediaDescriptorTurboModule'
+  could not be found`. Adding both as direct dependencies fixed it. The packager could walk
+  the dependency graph, or the docs could list the full manifest a W3C media app needs.
+- **2026-09-15, rn83 port versions.** `react-native-w3cmedia@2.3.4-rn-83` (dist-tag
+  `rn83-alpha`) is not in its own `kepler-compatibility.json`; `build-vega` prints a
+  validation ERROR and continues, and the `2.3.4` row (`IW3cmedia_3`) works on the SDK 0.24
+  Virtual Device. The prerelease rows should be in the file.
+- **2026-09-15, hls.js on Hermes.** The Vega hls.js 1.5.11 patch set plays VOD, but live
+  playlists never load a fragment: hls.js calls `clearTimeout(-1)` on its reload timer and
+  Hermes on Vega throws "clearTimeout called with an invalid handle", which kills the
+  playlist loop. A tolerant `clearTimeout`, either in the runtime or in the shipped
+  polyfills, would make the patch set cover live streams.
+- **2026-09-15, no camera, no WebRTC, no `getUserMedia`.** Explored a video-call feature.
+  Vega exposes a camera privilege id but no camera library, no WebRTC, and the WebView
+  returns `NotSupportedError` for `getUserMedia` (Amazon confirmed on the forum,
+  2026-07-24). Raw PCM microphone capture exists. The only reachable shape is phones as
+  cameras and the TV as a delayed screen; measured 7.9 s glass-to-glass over IVS standard
+  HLS with tuned hls.js, 30 s with hls.js defaults (`specs/video-call-feasibility-2026-09-15.md`).
+  `getUserMedia` in the WebView would unlock the whole use case.
   A single "what is on the device" manifest per OS version would remove the guessing.
 - **2026-09-09, screenshots.** `gwsi-tool-screenshooter` hangs on the Virtual Device
   (physical devices only) and a QEMU QMP `screendump` is black because rendering goes

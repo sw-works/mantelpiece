@@ -19,3 +19,6 @@ buildinfo.json
 CMakeUserPresets.json
 .tmp/
 ingest-local-out/
+
+# Live-latency spike vendor files: Amazon-licensed polyfills and the patched hls.js build
+apps/tv-vega/spike/vendor/

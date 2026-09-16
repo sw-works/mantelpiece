@@ -16,12 +16,18 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@amazon-devices/kepler-media-controls": "1.0.25",
     "@amazon-devices/kepler-module-resolver-preset": "^0.1.16",
+    "@amazon-devices/keplermediadescriptor": "1.1.17",
     "@amazon-devices/react-native-async-storage__async-storage": "2.1.9000000001",
     "@amazon-devices/react-native-kepler": "~4.0.1",
+    "@amazon-devices/react-native-w3cmedia": "2.3.4-rn-83",
     "@babel/runtime": "^7.28.0",
     "@memorylane/tv-ui": "workspace:*",
+    "@xmldom/xmldom": "^0.9.12",
     "babel-plugin-module-resolver": "^5.0.2",
+    "base-64": "^1.0.0",
+    "fastestsmallesttextencoderdecoder": "^1.0.22",
     "react": "19.2.8",
     "react-native": "0.83.0"
   },
