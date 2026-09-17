@@ -1,14 +1,31 @@
 import { useEffect, useRef, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
-import { playlistAsTrip, type MemoriesHomeView, type Trip, type TripSummary, type TvApi } from "../api/client";
+import { type MemoriesHomeView, playlistAsTrip, type Trip, type TripSummary, type TvApi } from "../api/client";
+import { Backdrop } from "../components/Backdrop";
 import { FocusButton } from "../components/FocusButton";
+import { PhotoCard } from "../components/PhotoCard";
+import { type RailItem } from "../components/Rail";
 import { RemoteImage } from "../components/RemoteImage";
+import { type Nav, Screen } from "../components/Screen";
+import { Eyebrow, Heading, Meta, Title } from "../components/Type";
 import { theme } from "../theme";
 import { groupByYear } from "../trips";
 
+/** Uploads on the way in from a phone, off the feed's `upload.progress` (F-102). */
+export interface Arriving {
+  done: number;
+  total: number;
+  /** Who is sending, when the feed said. */
+  from?: string | null;
+}
+
+const CARD_W = 330;
+const CARD_H = 200;
+
 /**
- * F-402: trips as rows under a heading per year, hero from the top-scored photo,
- * new-memory badge. With more than one year a jump row scrolls to that year's heading.
+ * F-402: the newest memory is the screen. Its photo fills the top, its name and actions
+ * sit over it; below, On this day, Then and now and the other trips as card rows under a
+ * heading per year. While photos arrive or a trip is being organised the hero says so.
  */
 export function MemoriesHome({
   api,
@@ -24,6 +41,8 @@ export function MemoriesHome({
   onMap,
   onPlay,
   onPeople,
+  arriving = null,
+  tvName,
 }: {
   api: TvApi;
   token: string;
@@ -38,6 +57,8 @@ export function MemoriesHome({
   onMap?: () => void;
   onPlay?: (trip: Trip) => void;
   onPeople?: () => void;
+  arriving?: Arriving | null;
+  tvName?: string;
 }) {
   const [trips, setTrips] = useState<TripSummary[] | null>(null);
   const [memories, setMemories] = useState<MemoriesHomeView | null>(null);
@@ -54,7 +75,6 @@ export function MemoriesHome({
   const [seen, setSeen] = useState<Set<string>>(new Set());
   const scroller = useRef<ScrollView>(null);
   const yearTop = useRef<Record<string, number>>({});
-  const years = groupByYear(trips ?? []);
   useEffect(() => {
     let alive = true;
     api
@@ -66,107 +86,158 @@ export function MemoriesHome({
     };
   }, [api, token, tripsVersion]);
 
+  const years = groupByYear(trips ?? []);
+  const hero = years[0]?.trips[0] ?? null;
+  const open = (trip: TripSummary) => {
+    setSeen(new Set([...seen, trip.id]));
+    onOpenTrip(trip);
+  };
+  const leave = (trip: TripSummary) => {
+    if (!onLeave) return;
+    void Promise.resolve(onLeave(trip)).then(() => setTrips((t) => (t ?? []).filter((x) => x.id !== trip.id)));
+  };
+
+  const items: RailItem[] = [
+    { key: "home", label: "Memories", onPress: () => scroller.current?.scrollTo?.({ y: 0, animated: true }), testID: "home" },
+    ...(onMap ? [{ key: "map", label: "Map", onPress: onMap, testID: "map" }] : []),
+    ...(onPeople ? [{ key: "people", label: "People", onPress: onPeople, testID: "people" }] : []),
+    ...(onAsk ? [{ key: "ask", label: "Ask", onPress: onAsk, testID: "ask" }] : []),
+    ...(onJoin ? [{ key: "join", label: "Join a trip", onPress: onJoin, testID: "join" }] : []),
+    { key: "invite", label: "Add photos", onPress: onInvite, testID: "invite" },
+    ...(onReview ? [{ key: "review", label: "Review", onPress: onReview, testID: "review", badge: pendingReviews }] : []),
+  ];
+  const nav: Nav = { items, tvName };
+
   return (
-    <View style={{ flex: 1, backgroundColor: theme.bg, paddingHorizontal: theme.safe.x, paddingVertical: theme.safe.y, gap: theme.gap }}>
-      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-        <Text style={{ color: theme.fg, fontSize: theme.title, fontWeight: "700" }}>Memories</Text>
-        <View style={{ flexDirection: "row", gap: 16 }}>
-          {onReview && (pendingReviews > 0 || true) && (
-            <FocusButton label={pendingReviews > 0 ? `Review changes (${pendingReviews})` : "Review changes"} onPress={onReview} testID="review" />
-          )}
-          {onPeople && <FocusButton label="People" onPress={onPeople} testID="people" />}
-          {onMap && <FocusButton label="Map" onPress={onMap} testID="map" />}
-          {onJoin && <FocusButton label="Join a trip" onPress={onJoin} testID="join" />}
-          {onAsk && <FocusButton label="Ask" onPress={onAsk} testID="ask" />}
-          <FocusButton label="Add photos" onPress={onInvite} testID="invite" />
-        </View>
-      </View>
-      {trips === null && <Text style={{ color: theme.muted, fontSize: theme.body }}>Loading…</Text>}
-      {trips !== null && trips.length === 0 && (
-        <Text testID="empty" style={{ color: theme.muted, fontSize: theme.body }}>
-          No trips yet. Press Add photos, scan the code with your phone, and pick a trip's worth of pictures.
-        </Text>
-      )}
-      {years.length > 1 && (
-        <View testID="year-jump" style={{ flexDirection: "row", gap: 12, flexWrap: "wrap" }}>
-          {years.map((group) => (
-            <FocusButton
-              key={group.year}
-              label={group.year}
-              testID={`jump-${group.year}`}
-              onPress={() => scroller.current?.scrollTo?.({ y: yearTop.current[group.year] ?? 0, animated: true })}
-            />
-          ))}
-        </View>
-      )}
-      <ScrollView ref={scroller}>
+    <Screen nav={nav} active="home" backdrop={hero && !arriving ? <Backdrop api={api} token={token} mediaId={hero.hero} /> : null} contentStyle={{ marginRight: 0, paddingTop: 96 }}>
+      <ScrollView ref={scroller} contentContainerStyle={{ gap: 40, paddingBottom: theme.safe.y }}>
+        {trips === null && <Meta size={theme.body}>Loading…</Meta>}
+        {trips !== null && trips.length === 0 && !arriving && (
+          <View style={{ gap: 18, maxWidth: 1000 }}>
+            <Eyebrow>Nothing here yet</Eyebrow>
+            <Title size={theme.display}>Your first memory starts on a phone</Title>
+            <Meta testID="empty" size={theme.body}>
+              Press Add photos, scan the code with your phone, and pick a trip's worth of pictures. The trip takes shape on its own.
+            </Meta>
+            <FocusButton label="Add photos" onPress={onInvite} preferred />
+          </View>
+        )}
+        {arriving ? <ArrivingHero arriving={arriving} onInvite={onInvite} /> : hero ? <TripHero api={api} token={token} trip={hero} isNew={!seen.has(hero.id)} onOpen={() => open(hero)} onPlay={onPlay} onInvite={onInvite} onLeave={onLeave ? () => leave(hero) : undefined} /> : null}
+
         {memories && memories.on_this_day.length > 0 && (
-          <View testID="on-this-day" style={{ gap: 8, marginBottom: theme.gap }}>
-            <View style={{ flexDirection: "row", gap: 16, alignItems: "center" }}>
-              <Text style={{ color: theme.fg, fontSize: 34, fontWeight: "600" }}>On this day</Text>
-              {onPlay && <FocusButton label="Play" testID="play-on-this-day" onPress={() => onPlay(playlistAsTrip(`On this day, ${memories.date}`, memories.on_this_day))} />}
+          <View testID="on-this-day" style={{ gap: 14 }}>
+            <View style={{ flexDirection: "row", gap: 18, alignItems: "center" }}>
+              <Heading>On this day</Heading>
+              <Meta>{memories.date}</Meta>
+              {onPlay && <FocusButton variant="chip" label={`Play these ${memories.on_this_day.length}`} testID="play-on-this-day" onPress={() => onPlay(playlistAsTrip(`On this day, ${memories.date}`, memories.on_this_day))} />}
             </View>
-            <ScrollView horizontal contentContainerStyle={{ gap: 16 }}>
+            <ScrollView horizontal style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 20, paddingVertical: 8 }}>
               {memories.on_this_day.map((m) => (
-                <RemoteImage key={m} api={api} token={token} mediaId={m} rendition="thumb" width={280} height={190} />
+                <PhotoCard key={m} api={api} token={token} mediaId={m} width={300} height={170} />
               ))}
             </ScrollView>
           </View>
         )}
         {memories && memories.then_and_now[0] && (
-          <View testID="then-and-now" style={{ flexDirection: "row", gap: 16, alignItems: "center", marginBottom: theme.gap, backgroundColor: theme.panel, padding: 16, borderRadius: theme.radius }}>
+          <View testID="then-and-now" style={{ flexDirection: "row", gap: 16, alignItems: "center", backgroundColor: theme.panel, padding: 16, borderRadius: theme.radius, alignSelf: "flex-start", marginRight: theme.safe.x }}>
             <RemoteImage api={api} token={token} mediaId={memories.then_and_now[0].then} rendition="thumb" width={280} height={190} />
             <RemoteImage api={api} token={token} mediaId={memories.then_and_now[0].now} rendition="thumb" width={280} height={190} />
-            <View style={{ flex: 1, gap: 6 }}>
-              <Text style={{ color: theme.fg, fontSize: 34, fontWeight: "600" }}>Then and now</Text>
-              <Text testID="then-and-now-line" style={{ color: theme.muted, fontSize: theme.small }}>{`Same place, ${memories.then_and_now[0].years_apart} year${memories.then_and_now[0].years_apart === 1 ? "" : "s"} apart`}</Text>
+            <View style={{ gap: 6, paddingHorizontal: 12 }}>
+              <Heading>Then and now</Heading>
+              <Meta testID="then-and-now-line">{`Same place, ${memories.then_and_now[0].years_apart} year${memories.then_and_now[0].years_apart === 1 ? "" : "s"} apart`}</Meta>
             </View>
           </View>
         )}
-        {years.map((group, g) => (
-          <View key={group.year} testID={`year-${group.year}`} onLayout={(e) => (yearTop.current[group.year] = e.nativeEvent.layout.y)} style={{ gap: theme.gap }}>
-            {years.length > 1 && (
-              <Text testID={`year-heading-${group.year}`} style={{ color: theme.muted, fontSize: 30, fontWeight: "600", marginTop: g === 0 ? 0 : theme.gap }}>
-                {group.year}
-              </Text>
-            )}
-        {group.trips.map((trip, i) => (
-          <View key={trip.id} testID={`trip-${trip.id}`} style={{ flexDirection: "row", gap: theme.gap, marginBottom: theme.gap, alignItems: "center" }}>
-            {trip.hero && <RemoteImage api={api} token={token} mediaId={trip.hero} rendition="thumb" width={320} height={200} />}
-            <View style={{ flex: 1, gap: 8 }}>
-              <Text style={{ color: theme.fg, fontSize: 34, fontWeight: "600" }}>{trip.name}</Text>
-              <Text style={{ color: theme.muted, fontSize: theme.small }}>
-                {`${trip.start.slice(0, 10)} to ${trip.end.slice(0, 10)} · ${trip.contributors.length} contributor${trip.contributors.length === 1 ? "" : "s"}`}
-              </Text>
-              {!seen.has(trip.id) && (
-                <Text testID={`new-${trip.id}`} style={{ color: theme.accent, fontSize: theme.small }}>New memory</Text>
-              )}
-              {trip.shared_by && (
-                <Text testID={`shared-${trip.id}`} style={{ color: theme.accent, fontSize: theme.small }}>{`Shared by ${trip.shared_by}`}</Text>
+
+        {years.map((group, g) => {
+          const rest = g === 0 && hero && !arriving ? group.trips.slice(1) : group.trips;
+          return (
+            <View key={group.year} testID={`year-${group.year}`} onLayout={(e) => (yearTop.current[group.year] = e.nativeEvent.layout.y)} style={{ gap: 14 }}>
+              <View style={{ flexDirection: "row", gap: 18, alignItems: "center" }}>
+                {years.length > 1 ? <Heading testID={`year-heading-${group.year}`}>{group.year}</Heading> : <Heading>Trips</Heading>}
+                <Meta>{`${group.trips.length} trip${group.trips.length === 1 ? "" : "s"}`}</Meta>
+                {g === 0 && years.length > 1 && (
+                  <View testID="year-jump" style={{ flexDirection: "row", gap: 10, marginLeft: 18 }}>
+                    {years.map((y) => (
+                      <FocusButton key={y.year} variant="chip" label={y.year} selected={y.year === group.year} testID={`jump-${y.year}`} onPress={() => scroller.current?.scrollTo?.({ y: yearTop.current[y.year] ?? 0, animated: true })} />
+                    ))}
+                  </View>
+                )}
+              </View>
+              {rest.length > 0 && (
+                <ScrollView horizontal style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 20, paddingVertical: 8, paddingRight: theme.safe.x }}>
+                  {rest.map((trip) => (
+                    <View key={trip.id} testID={`trip-${trip.id}`} style={{ gap: 8 }}>
+                      <PhotoCard api={api} token={token} mediaId={trip.hero} width={CARD_W} height={CARD_H} title={trip.name} meta={tripMeta(trip)} badge={trip.shared_by ? "Shared" : !seen.has(trip.id) ? "New" : undefined} onPress={() => open(trip)} />
+                      {!seen.has(trip.id) && !trip.shared_by && (
+                        <Text testID={`new-${trip.id}`} style={{ color: theme.accent, fontSize: theme.credit }}>
+                          New memory
+                        </Text>
+                      )}
+                      {trip.shared_by && (
+                        <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
+                          <Text testID={`shared-${trip.id}`} style={{ color: theme.accent, fontSize: theme.credit }}>{`Shared by ${trip.shared_by}`}</Text>
+                          {onLeave && <FocusButton variant="chip" label="Leave" testID={`leave-${trip.id}`} onPress={() => leave(trip)} />}
+                        </View>
+                      )}
+                    </View>
+                  ))}
+                </ScrollView>
               )}
             </View>
-            {trip.shared_by && onLeave && (
-              <FocusButton
-                label="Leave"
-                testID={`leave-${trip.id}`}
-                onPress={() => {
-                  void Promise.resolve(onLeave(trip)).then(() => setTrips((t) => (t ?? []).filter((x) => x.id !== trip.id)));
-                }}
-              />
-            )}
-            <FocusButton
-              label="Open"
-              preferred={g === 0 && i === 0}
-              onPress={() => {
-                setSeen(new Set([...seen, trip.id]));
-                onOpenTrip(trip);
-              }}
-            />
-          </View>
-        ))}
-          </View>
-        ))}
+          );
+        })}
       </ScrollView>
+    </Screen>
+  );
+}
+
+function tripMeta(trip: TripSummary): string {
+  return `${trip.start.slice(0, 10)} to ${trip.end.slice(0, 10)} · ${trip.contributors.length} contributor${trip.contributors.length === 1 ? "" : "s"}`;
+}
+
+/** The newest trip, full width over its own photo. */
+function TripHero({ api, token, trip, isNew, onOpen, onPlay, onInvite, onLeave }: { api: TvApi; token: string; trip: TripSummary; isNew: boolean; onOpen: () => void; onPlay?: (trip: Trip) => void; onInvite: () => void; onLeave?: () => void }) {
+  return (
+    <View testID={`trip-${trip.id}`} style={{ gap: 18, maxWidth: 1000, minHeight: 380, justifyContent: "flex-end" }}>
+      {trip.shared_by ? (
+        <Text testID={`shared-${trip.id}`} style={{ color: theme.accent, fontSize: theme.eyebrow, fontWeight: "700", letterSpacing: 2.5, textTransform: "uppercase" }}>{`Shared by ${trip.shared_by}`}</Text>
+      ) : isNew ? (
+        <Text testID={`new-${trip.id}`} style={{ color: theme.accent, fontSize: theme.eyebrow, fontWeight: "700", letterSpacing: 2.5, textTransform: "uppercase" }}>
+          New memory
+        </Text>
+      ) : (
+        <Eyebrow>Latest trip</Eyebrow>
+      )}
+      <Title size={theme.display}>{trip.name}</Title>
+      <Meta size={theme.body}>{tripMeta(trip)}</Meta>
+      <View style={{ flexDirection: "row", gap: 14, marginTop: 6 }}>
+        {onPlay && <FocusButton label="Play" testID={`play-${trip.id}`} onPress={() => void api.trip(token, trip.id).then(onPlay).catch(() => undefined)} />}
+        <FocusButton label="Open" preferred onPress={onOpen} variant={onPlay ? "ghost" : "solid"} />
+        <FocusButton label="Invite" variant="ghost" onPress={onInvite} />
+        {trip.shared_by && onLeave && <FocusButton label="Leave" variant="ghost" testID={`leave-${trip.id}`} onPress={onLeave} />}
+      </View>
+    </View>
+  );
+}
+
+/** Photos on their way in, then the trip being organised; the TV never looks idle. */
+function ArrivingHero({ arriving, onInvite }: { arriving: Arriving; onInvite: () => void }) {
+  const organising = arriving.done >= arriving.total;
+  const pct = arriving.total > 0 ? Math.min(1, arriving.done / arriving.total) : 0;
+  return (
+    <View testID={organising ? "organising" : "arriving"} style={{ gap: 18, maxWidth: 1100, minHeight: 380, justifyContent: "flex-end" }}>
+      <Eyebrow>{organising ? `All ${arriving.total} photos in · organising` : `Photos arriving${arriving.from ? ` · from ${arriving.from}'s phone` : ""}`}</Eyebrow>
+      <Title size={84}>{organising ? "A new trip is taking shape" : `${arriving.done} of ${arriving.total} photos in`}</Title>
+      <Meta size={theme.body}>{organising ? "Days, route and story are being worked out from the photos. Usually a few minutes; this screen changes when it is ready." : "The trip takes shape once the uploads settle. Nothing to do on the remote."}</Meta>
+      {!organising && (
+        <View style={{ width: 700, height: 8, borderRadius: 4, backgroundColor: "#ffffff22" }}>
+          <View style={{ width: 700 * pct, height: 8, borderRadius: 4, backgroundColor: theme.accent }} />
+        </View>
+      )}
+      <View style={{ flexDirection: "row", gap: 14, marginTop: 6 }}>
+        <FocusButton label="Invite more people" preferred onPress={onInvite} />
+      </View>
     </View>
   );
 }

@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
-import { clockHints, creditFor, storyOf, type ReactionsView, type Trip, type TvApi } from "../api/client";
+import { clockHints, creditFor, type ReactionsView, storyOf, type Trip, type TvApi } from "../api/client";
+import { Backdrop } from "../components/Backdrop";
 import { FocusButton } from "../components/FocusButton";
 import { MapImage } from "../components/MapImage";
-import { RemoteImage } from "../components/RemoteImage";
+import { PhotoCard } from "../components/PhotoCard";
+import { type Nav, Screen } from "../components/Screen";
+import { Eyebrow, Heading, Meta, Title } from "../components/Type";
 import { theme } from "../theme";
 
 /** Names of the people who took a day's photos, in first-appearance order (F-154). */
@@ -16,7 +19,10 @@ export function dayCredits(trip: Trip, media: string[]): string[] {
   return names;
 }
 
-/** F-403: day timeline, route map, narrative, highlights, Invite (F-409). */
+/**
+ * F-403: one trip. Its photo behind the title, the days as a row of chips, the chosen
+ * day's photos with credits and reactions, its route and its story beside them.
+ */
 export function TripView({
   api,
   token,
@@ -27,6 +33,7 @@ export function TripView({
   onPlay,
   canManage = true,
   reactionsVersion = 0,
+  nav,
 }: {
   api: TvApi;
   token: string;
@@ -39,6 +46,7 @@ export function TripView({
   canManage?: boolean;
   /** Bumped by the feed on every reaction so counts refresh (F-710). */
   reactionsVersion?: number;
+  nav?: Nav;
 }) {
   const [reactions, setReactions] = useState<ReactionsView | null>(null);
   useEffect(() => {
@@ -72,105 +80,120 @@ export function TripView({
     };
   }, [api, token, tripId]);
 
-  if (!trip) return <View style={{ flex: 1, backgroundColor: theme.bg }} />;
+  if (!trip) return <Screen nav={nav} active="home" />;
   const current = trip.days[day];
   const credits = current ? dayCredits(trip, current.media) : [];
   const hints = clockHints(trip);
   const story = storyOf(trip);
   const roleOf = (id: string) => roles[id] ?? trip.contributor_roles?.[id] ?? "contributor";
   const people = Object.entries(trip.contributor_names ?? {});
+  const span = `${trip.start.slice(0, 10)} to ${trip.end.slice(0, 10)}`;
   return (
-    <View style={{ flex: 1, backgroundColor: theme.bg, paddingHorizontal: theme.safe.x, paddingVertical: theme.safe.y, gap: theme.gap }}>
-      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-        <Text style={{ color: theme.fg, fontSize: theme.title, fontWeight: "700" }}>{trip.name}</Text>
-        <View style={{ flexDirection: "row", gap: 16 }}>
+    <Screen nav={nav} active="home" backdrop={<Backdrop api={api} token={token} mediaId={trip.hero} height={520} dim={0.7} />}>
+      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 24 }}>
+        <View style={{ gap: 12, flex: 1 }}>
+          <Eyebrow>{span}</Eyebrow>
+          <Title size={84}>{trip.name}</Title>
+          {trip.shared_by && <Text testID="shared-by" style={{ color: theme.accent, fontSize: theme.small }}>{`Shared by ${trip.shared_by}`}</Text>}
+        </View>
+        <View style={{ flexDirection: "row", gap: 12, marginTop: 8 }}>
           {onPlay && <FocusButton label="Play" onPress={() => onPlay(trip)} testID="play" />}
-          {onHighlights && <FocusButton label="Highlights" onPress={() => onHighlights(trip.id)} testID="highlights" />}
-          <FocusButton label="Invite" onPress={() => onInvite(trip.id)} testID="invite" />
-          <FocusButton label="Back" onPress={onBack} testID="back" />
+          {onHighlights && <FocusButton label="Highlights" variant="ghost" onPress={() => onHighlights(trip.id)} testID="highlights" />}
+          <FocusButton label="Invite" variant="ghost" onPress={() => onInvite(trip.id)} testID="invite" />
+          <FocusButton label="Back" variant="ghost" onPress={onBack} testID="back" />
         </View>
       </View>
-      {trip.shared_by && (
-        <Text testID="shared-by" style={{ color: theme.accent, fontSize: theme.small }}>{`Shared by ${trip.shared_by}`}</Text>
-      )}
-      {people.length > 0 && (
-        <View testID="contributors" style={{ gap: 6 }}>
-          {people.map(([id, name]) => (
-            <View key={id} style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
-              <Text style={{ color: theme.muted, fontSize: theme.small }}>{`${name} · ${roleOf(id).replace("_", "-")}`}</Text>
-              {canManage && roleOf(id) === "contributor" && (
-                <FocusButton
-                  label="Promote to co-editor"
-                  testID={`promote-${id}`}
-                  onPress={() => {
-                    api
-                      .setRole(token, trip.id, id, "co_editor")
-                      .then((r) => setRoles((s) => ({ ...s, [id]: r.role })))
-                      .catch(() => undefined);
-                  }}
-                />
-              )}
-            </View>
-          ))}
-        </View>
-      )}
-      <ScrollView horizontal contentContainerStyle={{ gap: 16 }}>
+      <ScrollView horizontal style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 14, paddingVertical: 6 }}>
         {trip.days.map((d, i) => (
-          <FocusButton key={d.index} label={d.title ?? `Day ${d.index}`} preferred={i === 0} onPress={() => setDay(i)} testID={`day-${d.index}`} />
+          <FocusButton key={d.index} variant="chip" selected={i === day} label={`Day ${d.index}${d.title ? ` · ${d.title}` : ""}`} preferred={i === 0} onPress={() => setDay(i)} testID={`day-${d.index}`} />
         ))}
       </ScrollView>
       {current && (
-        <View style={{ flexDirection: "row", gap: theme.gap }}>
-          <ScrollView horizontal contentContainerStyle={{ gap: 16 }} style={{ flex: 2 }}>
-            {current.media.slice(0, 12).map((m) => (
-              <View key={m} style={{ gap: 6 }}>
-                <RemoteImage api={api} token={token} mediaId={m} rendition="thumb" width={280} height={190} />
-                <Text testID={`credit-${m}`} style={{ color: theme.muted, fontSize: theme.small }}>
-                  {`${creditFor(trip, m) ?? ""}${likesLine(`media:${m}`) ? ` · ${likesLine(`media:${m}`)}` : ""}`}
-                </Text>
-                {summaryFor(`media:${m}`)?.latest_comment && (
-                  <Text testID={`comment-${m}`} style={{ color: theme.fg, fontSize: theme.small }}>
-                    {`${summaryFor(`media:${m}`)!.latest_comment!.by}: ${summaryFor(`media:${m}`)!.latest_comment!.text}`}
+        <View style={{ flex: 1, flexDirection: "row", gap: 40 }}>
+          <View style={{ width: 1000, gap: 18 }}>
+            <View style={{ flexDirection: "row", gap: 16, alignItems: "baseline" }}>
+              <Heading>{current.title ? `Day ${current.index} · ${current.title}` : `Day ${current.index}`}</Heading>
+              <Meta testID="day-summary">
+                {`${current.date} · ${current.media.length} photos${credits.length ? ` from ${credits.join(", ")}` : ""}${current.route.inferred ? " · route inferred" : ""}${current.undated?.length ? ` · ${current.undated.length} undated` : ""}`}
+              </Meta>
+            </View>
+            <ScrollView horizontal style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 18, padding: 6, paddingBottom: 12 }}>
+              {current.media.slice(0, 12).map((m) => (
+                <View key={m} style={{ gap: 6, width: 250 }}>
+                  <PhotoCard api={api} token={token} mediaId={m} width={250} height={168} />
+                  <Text testID={`credit-${m}`} style={{ color: theme.muted, fontSize: theme.credit }}>
+                    {`${creditFor(trip, m) ?? ""}${likesLine(`media:${m}`) ? ` · ${likesLine(`media:${m}`)}` : ""}`}
                   </Text>
-                )}
-              </View>
-            ))}
-          </ScrollView>
-          <View style={{ flex: 1, gap: 12 }}>
-            <MapImage api={api} token={token} tripId={trip.id} day={current.route.map_key ? current.index : undefined} width={480} height={270} />
-            <Text testID="day-summary" style={{ color: theme.muted, fontSize: theme.small }}>
-              {`${current.date} · ${current.media.length} photos${credits.length ? ` from ${credits.join(", ")}` : ""}${current.route.inferred ? " · route inferred" : ""}${current.undated?.length ? ` · ${current.undated.length} undated` : ""}`}
-            </Text>
+                  {summaryFor(`media:${m}`)?.latest_comment && (
+                    <Text testID={`comment-${m}`} numberOfLines={2} style={{ color: theme.fg, fontSize: theme.credit }}>
+                      {`${summaryFor(`media:${m}`)!.latest_comment!.by}: ${summaryFor(`media:${m}`)!.latest_comment!.text}`}
+                    </Text>
+                  )}
+                </View>
+              ))}
+            </ScrollView>
             {likesLine(`day:${current.index}`) !== "" && (
               <Text testID="day-reactions" style={{ color: theme.accent, fontSize: theme.small }}>
                 {`${likesLine(`day:${current.index}`)}${summaryFor(`day:${current.index}`)?.latest_comment ? ` · ${summaryFor(`day:${current.index}`)!.latest_comment!.by}: ${summaryFor(`day:${current.index}`)!.latest_comment!.text}` : ""}`}
               </Text>
             )}
             {hints.length > 0 && (
-              <Text testID="clock-hints" style={{ color: theme.muted, fontSize: theme.small }}>
+              <Text testID="clock-hints" style={{ color: theme.muted, fontSize: theme.credit }}>
                 {hints.join(" · ")}
               </Text>
             )}
             {story && !rewriting ? (
-              <>
-                <Text testID="narrative" style={{ color: theme.fg, fontSize: theme.small, lineHeight: 30 }}>{current.story ?? story}</Text>
-                {canManage && (
-                <FocusButton
-                  label="Rewrite the story"
-                  testID="regenerate"
-                  onPress={() => {
-                    setRewriting(true);
-                    api.regenerateNarrative(token, trip.id).catch(() => setRewriting(false));
-                  }}
-                />
-                )}
-              </>
+              <View style={{ gap: 12 }}>
+                <Text testID="narrative" style={{ color: theme.fg, fontSize: theme.heading, lineHeight: 42, maxWidth: 1000 }}>
+                  {current.story ?? story}
+                </Text>
+                <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
+                  {canManage && (
+                    <FocusButton
+                      variant="chip"
+                      label="Rewrite the story"
+                      testID="regenerate"
+                      onPress={() => {
+                        setRewriting(true);
+                        api.regenerateNarrative(token, trip.id).catch(() => setRewriting(false));
+                      }}
+                    />
+                  )}
+                  <Meta size={theme.credit}>Written by MemoryLane from the day's photos</Meta>
+                </View>
+              </View>
             ) : (
-              <Text testID="writing" style={{ color: theme.muted, fontSize: theme.small }}>The story of this trip is being written.</Text>
+              <Meta testID="writing">The story of this trip is being written.</Meta>
+            )}
+          </View>
+          <View style={{ flex: 1, gap: 16 }}>
+            <MapImage api={api} token={token} tripId={trip.id} day={current.route.map_key ? current.index : undefined} width={440} height={248} />
+            {people.length > 0 && (
+              <View testID="contributors" style={{ gap: 8, marginTop: 8 }}>
+                <Text style={{ color: theme.fg, fontSize: theme.small, fontWeight: "600" }}>On this trip</Text>
+                {people.map(([id, name]) => (
+                  <View key={id} style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
+                    <Meta>{`${name} · ${roleOf(id).replace("_", "-")}`}</Meta>
+                    {canManage && roleOf(id) === "contributor" && (
+                      <FocusButton
+                        variant="chip"
+                        label="Promote to co-editor"
+                        testID={`promote-${id}`}
+                        onPress={() => {
+                          api
+                            .setRole(token, trip.id, id, "co_editor")
+                            .then((r) => setRoles((s) => ({ ...s, [id]: r.role })))
+                            .catch(() => undefined);
+                        }}
+                      />
+                    )}
+                  </View>
+                ))}
+              </View>
             )}
           </View>
         </View>
       )}
-    </View>
+    </Screen>
   );
 }

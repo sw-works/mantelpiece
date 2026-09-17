@@ -166,6 +166,19 @@ describe("screens", () => {
     expect(api.calls).toContain("people off");
   });
 
+  it("MemoriesHome shows photos arriving, then the trip being organised", async () => {
+    const api = new FakeApi();
+    api.tripList = [trip];
+    const view = await render(<MemoriesHome api={api} token="t" tripsVersion={0} onOpenTrip={() => undefined} onInvite={() => undefined} arriving={{ done: 38, total: 120, from: "Maya" }} />);
+    await waitFor(() => expect(screen.getByTestId("arriving")).toBeTruthy());
+    expect(screen.getByText("38 of 120 photos in")).toBeTruthy();
+    // The newest trip is still listed while the hero is the arrival.
+    expect(screen.getByTestId("trip-kyoto")).toBeTruthy();
+    await view.rerender(<MemoriesHome api={api} token="t" tripsVersion={0} onOpenTrip={() => undefined} onInvite={() => undefined} arriving={{ done: 120, total: 120, from: "Maya" }} />);
+    await waitFor(() => expect(screen.getByTestId("organising")).toBeTruthy());
+    expect(screen.getByText("A new trip is taking shape")).toBeTruthy();
+  });
+
   it("MemoriesHome explains the empty state", async () => {
     await render(<MemoriesHome api={new FakeApi()} token="t" tripsVersion={0} onOpenTrip={() => undefined} onInvite={() => undefined} />);
     await waitFor(() => expect(screen.getByTestId("empty")).toBeTruthy());

@@ -11,6 +11,7 @@ export function RemoteImage({
   rendition = "tv",
   width,
   height,
+  radius = theme.radius,
 }: {
   api: TvApi;
   token: string;
@@ -18,6 +19,7 @@ export function RemoteImage({
   rendition?: "thumb" | "tv";
   width: number;
   height: number;
+  radius?: number;
 }) {
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
@@ -30,6 +32,6 @@ export function RemoteImage({
       alive = false;
     };
   }, [api, token, mediaId, rendition]);
-  if (!url) return <View style={{ width, height, backgroundColor: theme.panel, borderRadius: theme.radius }} />;
-  return <Image source={{ uri: url }} style={{ width, height, borderRadius: theme.radius }} resizeMode="cover" />;
+  if (!url) return <View style={{ width, height, backgroundColor: theme.panel, borderRadius: radius }} />;
+  return <Image source={{ uri: url }} style={{ width, height, borderRadius: radius }} resizeMode="cover" />;
 }

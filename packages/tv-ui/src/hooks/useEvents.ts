@@ -13,6 +13,14 @@ export interface FeedState {
   tripsVersion: number;
   /** The newest `play.requested` seen: the TV opens it once (F-405 by voice). */
   play: PlayRequest | null;
+  /** Photos on their way in from a phone; cleared once a trip is detected (F-102). */
+  upload?: UploadProgress | null;
+}
+
+export interface UploadProgress {
+  done: number;
+  total: number;
+  from: string | null;
 }
 
 export interface PlayRequest {
@@ -70,6 +78,13 @@ export function reduce(state: FeedState, events: FeedEvent[], next: number): Fee
   const last = events[events.length - 1]!;
   const touchesTrips = events.some((e) => ["trip.detected", "memory.ready", "media.removed", "contribution.received", "membership.joined"].includes(e.type));
   const asked = [...events].reverse().find((e) => e.type === "play.requested");
+  const progress = [...events].reverse().find((e) => e.type === "upload.progress");
+  const settled = events.some((e) => e.type === "trip.detected" || e.type === "memory.ready");
+  const upload: UploadProgress | null = settled
+    ? null
+    : progress
+      ? { done: Number(progress.done), total: Number(progress.total), from: typeof progress.display_name === "string" ? progress.display_name : null }
+      : (state.upload ?? null);
   const play: PlayRequest | null = asked
     ? { seq: asked.seq, trip: typeof asked.trip === "string" ? asked.trip : null, playlist: typeof asked.playlist === "string" ? asked.playlist : null, name: String(asked.name ?? ""), source: String(asked.source ?? ""), start: typeof asked.start === "string" ? asked.start : null }
     : state.play;
@@ -78,6 +93,7 @@ export function reduce(state: FeedState, events: FeedEvent[], next: number): Fee
     recent,
     ticker: describe(last) ?? state.ticker,
     tripsVersion: touchesTrips ? state.tripsVersion + 1 : state.tripsVersion,
+    upload,
     play,
   };
 }

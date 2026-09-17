@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
-import { playlistAsTrip, type PersonView, type Trip, type TvApi } from "../api/client";
+import { type PersonView, playlistAsTrip, type Trip, type TvApi } from "../api/client";
 import { FocusButton } from "../components/FocusButton";
-import { RemoteImage } from "../components/RemoteImage";
+import { PhotoCard } from "../components/PhotoCard";
+import { type Nav, Screen } from "../components/Screen";
+import { Heading, Meta } from "../components/Type";
 import { theme } from "../theme";
 
 /**
@@ -10,7 +12,7 @@ import { theme } from "../theme";
  * the person in focus, and Turn off, which deletes every face record. Naming happens on
  * the phone, where typing is easy.
  */
-export function People({ api, token, onPlay, onBack }: { api: TvApi; token: string; onPlay?: (trip: Trip) => void; onBack: () => void }) {
+export function People({ api, token, onPlay, onBack, nav }: { api: TvApi; token: string; onPlay?: (trip: Trip) => void; onBack: () => void; nav?: Nav }) {
   const [state, setState] = useState<{ enabled: boolean; people: PersonView[] } | null>(null);
   const [focus, setFocus] = useState<PersonView | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -26,13 +28,16 @@ export function People({ api, token, onPlay, onBack }: { api: TvApi; token: stri
   }, [api, token]);
 
   return (
-    <View style={{ flex: 1, backgroundColor: theme.bg, paddingHorizontal: theme.safe.x, paddingVertical: theme.safe.y, gap: theme.gap }}>
-      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-        <Text style={{ color: theme.fg, fontSize: theme.title, fontWeight: "700" }}>People</Text>
-        <View style={{ flexDirection: "row", gap: 16 }}>
+    <Screen
+      nav={nav}
+      active="people"
+      title="People"
+      actions={
+        <>
           {state?.enabled && (
             <FocusButton
-              label="Turn off"
+              label="Turn off face grouping"
+              variant="ghost"
               testID="turn-off"
               onPress={() => {
                 api
@@ -42,41 +47,46 @@ export function People({ api, token, onPlay, onBack }: { api: TvApi; token: stri
               }}
             />
           )}
-          <FocusButton label="Back" onPress={onBack} preferred testID="back" />
-        </View>
-      </View>
-      {error && <Text testID="error" style={{ color: "#ff7a7a", fontSize: theme.body }}>{error}</Text>}
+          <FocusButton label="Back" variant="ghost" onPress={onBack} preferred testID="back" />
+        </>
+      }
+    >
+      {error && <Text testID="error" style={{ color: theme.bad, fontSize: theme.body }}>{error}</Text>}
       {state && !state.enabled && (
-        <Text testID="off" style={{ color: theme.muted, fontSize: theme.body }}>
+        <Meta testID="off" size={theme.body}>
           Face grouping is off. Turn it on from the People page on your phone; nothing about faces is stored until you do.
-        </Text>
+        </Meta>
       )}
+      {state?.enabled && <Meta size={theme.body}>Grouped on this household's photos only. Names come from the People page on your phone.</Meta>}
       {state?.enabled && state.people.length === 0 && (
-        <Text testID="empty" style={{ color: theme.muted, fontSize: theme.body }}>Groups appear as trips are organised.</Text>
+        <Meta testID="empty" size={theme.body}>
+          Groups appear as trips are organised.
+        </Meta>
       )}
       {state?.enabled && state.people.length > 0 && (
-        <ScrollView contentContainerStyle={{ flexDirection: "row", flexWrap: "wrap", gap: 16 }}>
+        <ScrollView horizontal style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 44, padding: 8 }}>
           {state.people.map((p, i) => (
-            <View key={p.id} testID={`person-${p.id}`} style={{ gap: 6, alignItems: "center" }}>
-              {p.sample_media[0] && <RemoteImage api={api} token={token} mediaId={p.sample_media[0]} rendition="thumb" width={200} height={200} />}
-              <FocusButton label={`${p.name ?? "Unnamed"} · ${p.media_count}`} preferred={i === 0} onPress={() => setFocus(p)} testID={`focus-${p.id}`} />
+            <View key={p.id} testID={`person-${p.id}`} style={{ gap: 12, alignItems: "center" }}>
+              <PhotoCard api={api} token={token} mediaId={p.sample_media[0]} width={200} height={200} preferred={i === 0} onPress={() => setFocus(p)} testID={`focus-${p.id}`} />
+              <Text style={{ color: p.name ? theme.fg : theme.muted, fontSize: 24, fontWeight: "600" }}>{`${p.name ?? "Unnamed"} · ${p.media_count}`}</Text>
             </View>
           ))}
         </ScrollView>
       )}
       {focus && (
-        <View testID="best-of" style={{ gap: 8 }}>
-          <View style={{ flexDirection: "row", gap: 16, alignItems: "center" }}>
-            <Text style={{ color: theme.fg, fontSize: 34, fontWeight: "600" }}>{`Best of ${focus.name ?? "this person"}`}</Text>
+        <View testID="best-of" style={{ gap: 16 }}>
+          <View style={{ flexDirection: "row", gap: 18, alignItems: "center" }}>
+            <Heading>{`Best of ${focus.name ?? "this person"}`}</Heading>
             {onPlay && <FocusButton label="Play" testID="play-person" onPress={() => onPlay(playlistAsTrip(focus.name ?? "Best of", focus.sample_media))} />}
+            <Meta>{`${focus.sample_media.length} keepers`}</Meta>
           </View>
-          <ScrollView horizontal contentContainerStyle={{ gap: 16 }}>
+          <ScrollView horizontal style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 20, padding: 8 }}>
             {focus.sample_media.map((m) => (
-              <RemoteImage key={m} api={api} token={token} mediaId={m} rendition="thumb" width={280} height={190} />
+              <PhotoCard key={m} api={api} token={token} mediaId={m} width={300} height={200} />
             ))}
           </ScrollView>
         </View>
       )}
-    </View>
+    </Screen>
   );
 }

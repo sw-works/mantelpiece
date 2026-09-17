@@ -77,6 +77,19 @@ describe("events feed", () => {
     expect(reduce(s2, [], 2)).toBe(s2);
   });
 
+  it("tracks photos arriving for the home hero until the trip is detected", () => {
+    const s0 = { since: 0, recent: [], ticker: null, tripsVersion: 0, play: null };
+    const s1 = reduce(s0, [{ seq: 1, at: "", type: "upload.progress", done: 38, total: 120, display_name: "Maya" }], 1);
+    expect(s1.upload).toEqual({ done: 38, total: 120, from: "Maya" });
+    // An unrelated event keeps the last progress.
+    const s2 = reduce(s1, [{ seq: 2, at: "", type: "reaction.received", actor_name: "Tom", kind: "like", target: "day:1" }], 2);
+    expect(s2.upload).toEqual({ done: 38, total: 120, from: "Maya" });
+    const s3 = reduce(s2, [{ seq: 3, at: "", type: "upload.progress", done: 120, total: 120 }], 3);
+    expect(s3.upload).toEqual({ done: 120, total: 120, from: null });
+    const s4 = reduce(s3, [{ seq: 4, at: "", type: "trip.detected", trip: "t", new_media: 120 }], 4);
+    expect(s4.upload).toBeNull();
+  });
+
   it("keeps the newest play request and its ticker line", () => {
     const s0 = { since: 0, recent: [], ticker: null, tripsVersion: 0, play: null };
     const s1 = reduce(

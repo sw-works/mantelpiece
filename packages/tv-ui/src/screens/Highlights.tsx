@@ -1,22 +1,14 @@
 import { useEffect, useState } from "react";
-import { ScrollView, Text, View } from "react-native";
+import { ScrollView, View } from "react-native";
 import { creditFor, type Trip, type TvApi } from "../api/client";
 import { FocusButton } from "../components/FocusButton";
-import { RemoteImage } from "../components/RemoteImage";
+import { PhotoCard } from "../components/PhotoCard";
+import { type Nav, Screen } from "../components/Screen";
+import { Meta } from "../components/Type";
 import { theme } from "../theme";
 
 /** F-209: the trip's highlights as a grid, each credited to whoever took it (F-154). */
-export function Highlights({
-  api,
-  token,
-  tripId,
-  onBack,
-}: {
-  api: TvApi;
-  token: string;
-  tripId: string;
-  onBack: () => void;
-}) {
+export function Highlights({ api, token, tripId, onBack, onPlay, nav }: { api: TvApi; token: string; tripId: string; onBack: () => void; onPlay?: (trip: Trip) => void; nav?: Nav }) {
   const [trip, setTrip] = useState<Trip | null>(null);
   const [keepers, setKeepers] = useState<string[]>([]);
   useEffect(() => {
@@ -30,37 +22,50 @@ export function Highlights({
     };
   }, [api, token, tripId]);
 
-  if (!trip) return <View style={{ flex: 1, backgroundColor: theme.bg }} />;
+  if (!trip) return <Screen nav={nav} active="home" />;
   return (
-    <View style={{ flex: 1, backgroundColor: theme.bg, paddingHorizontal: theme.safe.x, paddingVertical: theme.safe.y, gap: theme.gap }}>
-      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-        <Text style={{ color: theme.fg, fontSize: theme.title, fontWeight: "700" }}>{`${trip.name} · highlights`}</Text>
-        <FocusButton label="Back" onPress={onBack} preferred testID="back" />
-      </View>
+    <Screen
+      nav={nav}
+      active="home"
+      title={`${trip.name} · highlights`}
+      actions={
+        <>
+          {onPlay && <FocusButton label="Play" onPress={() => onPlay(trip)} testID="play" />}
+          <FocusButton label="Back" variant="ghost" onPress={onBack} preferred testID="back" />
+        </>
+      }
+    >
       {trip.highlights.length === 0 ? (
-        <Text testID="empty" style={{ color: theme.muted, fontSize: theme.body }}>
+        <Meta testID="empty" size={theme.body}>
           Highlights appear once the trip is organised.
-        </Text>
+        </Meta>
       ) : (
-        <ScrollView contentContainerStyle={{ flexDirection: "row", flexWrap: "wrap", gap: 16 }}>
-          {trip.highlights.map((m) => (
-            <View key={m} testID={`highlight-${m}`} style={{ gap: 6 }}>
-              <RemoteImage api={api} token={token} mediaId={m} rendition="thumb" width={400} height={225} />
-              <Text style={{ color: theme.muted, fontSize: theme.small }}>{creditFor(trip, m) ?? ""}</Text>
-              <FocusButton
-                label={keepers.includes(m) ? "Keeper" : "Make keeper"}
-                testID={`keeper-${m}`}
-                onPress={() => {
-                  api
-                    .setKeeper(token, m)
-                    .then(() => setKeepers((k) => [...k, m]))
-                    .catch(() => undefined);
-                }}
-              />
-            </View>
-          ))}
-        </ScrollView>
+        <>
+          <Meta>{`${trip.highlights.length} highlights picked by score · press Select to make a keeper. Keepers are yours; other households keep their own.`}</Meta>
+          <ScrollView contentContainerStyle={{ flexDirection: "row", flexWrap: "wrap", gap: 24, padding: 6 }}>
+            {trip.highlights.map((m) => (
+              <View key={m} testID={`highlight-${m}`} style={{ gap: 8 }}>
+                <PhotoCard
+                  api={api}
+                  token={token}
+                  mediaId={m}
+                  width={350}
+                  height={197}
+                  badge={keepers.includes(m) ? "Keeper" : undefined}
+                  testID={`keeper-${m}`}
+                  onPress={() => {
+                    api
+                      .setKeeper(token, m)
+                      .then(() => setKeepers((k) => [...k, m]))
+                      .catch(() => undefined);
+                  }}
+                />
+                <Meta size={theme.credit}>{creditFor(trip, m) ?? ""}</Meta>
+              </View>
+            ))}
+          </ScrollView>
+        </>
       )}
-    </View>
+    </Screen>
   );
 }

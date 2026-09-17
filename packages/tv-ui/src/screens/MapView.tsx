@@ -2,10 +2,12 @@ import { useEffect, useState } from "react";
 import { Image, ScrollView, Text, View } from "react-native";
 import { type MapView as MapViewData, type TvApi } from "../api/client";
 import { FocusButton } from "../components/FocusButton";
+import { type Nav, Screen } from "../components/Screen";
+import { Meta } from "../components/Type";
 import { theme } from "../theme";
 
 /** F-707: every trip as a pin on one map, with the list beside it to open a trip. */
-export function MapView({ api, token, onOpenTrip, onBack }: { api: TvApi; token: string; onOpenTrip: (tripId: string) => void; onBack: () => void }) {
+export function MapView({ api, token, onOpenTrip, onBack, nav }: { api: TvApi; token: string; onOpenTrip: (tripId: string) => void; onBack: () => void; nav?: Nav }) {
   const [map, setMap] = useState<MapViewData | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
@@ -19,26 +21,29 @@ export function MapView({ api, token, onOpenTrip, onBack }: { api: TvApi; token:
     };
   }, [api, token]);
   return (
-    <View style={{ flex: 1, backgroundColor: theme.bg, paddingHorizontal: theme.safe.x, paddingVertical: theme.safe.y, gap: theme.gap }}>
-      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-        <Text style={{ color: theme.fg, fontSize: theme.title, fontWeight: "700" }}>Where you have been</Text>
-        <FocusButton label="Back" onPress={onBack} testID="back" preferred={!map || map.pins.length === 0} />
-      </View>
-      {error && <Text testID="error" style={{ color: "#ff7a7a", fontSize: theme.body }}>{error}</Text>}
-      {map && map.pins.length === 0 && <Text testID="empty" style={{ color: theme.muted, fontSize: theme.body }}>The map fills in as trips with photos on the go arrive.</Text>}
+    <Screen nav={nav} active="map" title="Where you have been" actions={<FocusButton label="Back" variant="ghost" onPress={onBack} testID="back" preferred={!map || map.pins.length === 0} />}>
+      {error && <Text testID="error" style={{ color: theme.bad, fontSize: theme.body }}>{error}</Text>}
+      {map && map.pins.length === 0 && (
+        <Meta testID="empty" size={theme.body}>
+          The map fills in as trips with photos on the go arrive.
+        </Meta>
+      )}
       {map?.url && (
-        <View style={{ flexDirection: "row", gap: theme.gap }}>
-          <Image testID="map-image" source={{ uri: map.url }} style={{ width: 1120, height: 630, borderRadius: theme.radius }} resizeMode="cover" />
-          <ScrollView contentContainerStyle={{ gap: 12 }}>
+        <View style={{ flex: 1, flexDirection: "row", gap: 36 }}>
+          <Image testID="map-image" source={{ uri: map.url }} style={{ width: 1080, height: 870, borderRadius: 22 }} resizeMode="cover" />
+          <ScrollView contentContainerStyle={{ gap: 10 }}>
+            <Meta>{`${map.pins.length} trip${map.pins.length === 1 ? "" : "s"}`}</Meta>
             {map.pins.map((p, i) => (
               <View key={p.trip} testID={`pin-${p.trip}`} style={{ gap: 4 }}>
-                <FocusButton label={p.name} preferred={i === 0} onPress={() => onOpenTrip(p.trip)} />
-                <Text style={{ color: theme.muted, fontSize: theme.small }}>{p.start}</Text>
+                <FocusButton label={p.name} variant="ghost" preferred={i === 0} onPress={() => onOpenTrip(p.trip)} />
+                <Meta size={theme.credit} style={{ paddingLeft: 30 }}>
+                  {p.start}
+                </Meta>
               </View>
             ))}
           </ScrollView>
         </View>
       )}
-    </View>
+    </Screen>
   );
 }

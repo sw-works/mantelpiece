@@ -114,6 +114,16 @@ what would have helped. Dates are when we hit it.
   Web Share Target so the page sits in the Android share sheet, and a remembered trip so
   a return visit skips the QR. iOS Safari has no share target, so iPhones keep the QR.
 
+- **2026-09-16, the window is 960x540 points.** Rebuilt every screen from a 1920x1080
+  design and it came up at twice the size on the Virtual Device: React Native on Vega
+  reports the window in points, 960x540 on a 1080p set, like Android TV at 2x. Nothing in
+  the getting-started docs says so, and the old screens had simply been authored small.
+  Fix was one component: a root `Stage` laid out at 1920x1080 with `transform: scale` and
+  `transformOrigin: "top left"` from `useWindowDimensions`, so the design numbers stay the
+  design numbers and a 4K set scales the other way. Text stays crisp under the transform.
+  Also learned: a horizontal `ScrollView` inside a column grows to fill it unless it gets
+  `flexGrow: 0`, which left a 400px hole under the day chips until it did.
+
 ## What would help most
 
 1. One compatibility page per Vega SDK version: React Native pin, system-deployed ports,

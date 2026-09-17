@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { View } from "react-native";
 import { playlistAsTrip, type Trip, TvApi } from "./api/client";
+import { type Nav } from "./components/Screen";
+import { Stage } from "./components/Stage";
 import { Ticker } from "./components/Ticker";
 import { useEvents } from "./hooks/useEvents";
 import { useRemoteKeys } from "./hooks/useRemoteKeys";
@@ -64,7 +66,8 @@ export function App({ apiBase, api: injectedApi, sessionStore, tvName, audio = n
       if (r.name === "trip") return { name: "home" };
       if (r.name === "highlights") return { name: "trip", id: r.id };
       if (r.name === "slideshow") return r.trip.id.startsWith("playlist:") ? { name: "ask" } : { name: "trip", id: r.trip.id };
-      if (r.name === "ask" || r.name === "review" || r.name === "join" || r.name === "map" || r.name === "people" || r.name === "ambient") return { name: "home" };
+      if (r.name === "ask" || r.name === "review" || r.name === "join" || r.name === "map" || r.name === "people" || r.name === "ambient")
+        return { name: "home" };
       if (r.name === "invite") return r.tripId ? { name: "trip", id: r.tripId } : { name: "home" };
       return r;
     });
@@ -117,19 +120,37 @@ export function App({ apiBase, api: injectedApi, sessionStore, tvName, audio = n
   const reactionsVersion = feed.recent.filter((e) => e.type === "reaction.received").length;
   const lastAnswer = [...feed.recent].reverse().find((e) => e.type === "answer.card");
   const answer = lastAnswer ? { question: String(lastAnswer.question), answer: String(lastAnswer.answer), media: lastAnswer.media as string | null } : null;
+  // The rail every screen shares: the household's places, with the review count.
+  const nav: Nav = useMemo(
+    () => ({
+      tvName,
+      items: [
+        { key: "home", label: "Memories", onPress: () => setRoute({ name: "home" }), testID: "home" },
+        { key: "map", label: "Map", onPress: () => setRoute({ name: "map" }), testID: "map" },
+        { key: "people", label: "People", onPress: () => setRoute({ name: "people" }), testID: "people" },
+        { key: "ask", label: "Ask", onPress: () => setRoute({ name: "ask" }), testID: "ask" },
+        { key: "join", label: "Join a trip", onPress: () => setRoute({ name: "join" }), testID: "join" },
+        { key: "invite", label: "Add photos", onPress: () => setRoute({ name: "invite", tripId: null }), testID: "invite" },
+        { key: "review", label: "Review", onPress: () => setRoute({ name: "review" }), testID: "review", badge: pendingReviews },
+      ],
+    }),
+    [tvName, pendingReviews],
+  );
 
   if (session === undefined) return <View style={{ flex: 1, backgroundColor: "#0b0b0f" }} />;
   if (!session) {
     return (
-      <Onboarding
-        api={api}
-        deviceId={deviceId}
-        tvName={tvName}
-        onSignedIn={(s) => {
-          void store.save({ ...s, deviceId });
-          setSession(s);
-        }}
-      />
+      <Stage>
+        <Onboarding
+          api={api}
+          deviceId={deviceId}
+          tvName={tvName}
+          onSignedIn={(s) => {
+            void store.save({ ...s, deviceId });
+            setSession(s);
+          }}
+        />
+      </Stage>
     );
   }
 
@@ -151,6 +172,8 @@ export function App({ apiBase, api: injectedApi, sessionStore, tvName, audio = n
           onAsk={() => setRoute({ name: "ask" })}
           onReview={() => setRoute({ name: "review" })}
           pendingReviews={pendingReviews}
+          arriving={feed.upload ?? null}
+          tvName={tvName}
         />
       );
       break;
@@ -166,41 +189,71 @@ export function App({ apiBase, api: injectedApi, sessionStore, tvName, audio = n
           onPlay={(trip) => setRoute({ name: "slideshow", trip })}
           canManage={!route.shared}
           reactionsVersion={reactionsVersion}
+          nav={nav}
         />
       );
       break;
     case "people":
-      screen = <People api={api} token={session.token} onPlay={(trip) => setRoute({ name: "slideshow", trip })} onBack={goBack} />;
+      screen = <People api={api} token={session.token} onPlay={(trip) => setRoute({ name: "slideshow", trip })} onBack={goBack} nav={nav} />;
       break;
     case "map":
-      screen = <MapView api={api} token={session.token} onOpenTrip={(id) => setRoute({ name: "trip", id })} onBack={goBack} />;
+      screen = <MapView api={api} token={session.token} onOpenTrip={(id) => setRoute({ name: "trip", id })} onBack={goBack} nav={nav} />;
       break;
     case "join":
-      screen = <JoinTrip api={api} token={session.token} onJoined={(id) => setRoute({ name: "trip", id, shared: true })} onBack={goBack} />;
+      screen = <JoinTrip api={api} token={session.token} onJoined={(id) => setRoute({ name: "trip", id, shared: true })} onBack={goBack} nav={nav} />;
       break;
     case "slideshow":
-      screen = <Slideshow api={api} token={session.token} trip={route.trip} startAt={route.start} onBack={goBack} onPresence={onPresence} answer={answer} audio={audio} narration={narration} />;
+      screen = (
+        <Slideshow
+          api={api}
+          token={session.token}
+          trip={route.trip}
+          startAt={route.start}
+          onBack={goBack}
+          onPresence={onPresence}
+          answer={answer}
+          audio={audio}
+          narration={narration}
+        />
+      );
       break;
     case "ambient":
       screen = <Ambient api={api} token={session.token} onBack={goBack} onPresence={onPresence} />;
       break;
     case "ask":
-      screen = <Ask api={api} token={session.token} onPlay={(trip) => setRoute({ name: "slideshow", trip })} onBack={goBack} />;
+      screen = <Ask api={api} token={session.token} onPlay={(trip) => setRoute({ name: "slideshow", trip })} onBack={goBack} nav={nav} />;
       break;
     case "review":
-      screen = <ReviewChanges api={api} token={session.token} onDone={goBack} />;
+      screen = <ReviewChanges api={api} token={session.token} onDone={goBack} nav={nav} />;
       break;
     case "highlights":
-      screen = <Highlights api={api} token={session.token} tripId={route.id} onBack={() => setRoute({ name: "trip", id: route.id })} />;
+      screen = (
+        <Highlights
+          api={api}
+          token={session.token}
+          tripId={route.id}
+          onBack={() => setRoute({ name: "trip", id: route.id })}
+          onPlay={(trip) => setRoute({ name: "slideshow", trip })}
+          nav={nav}
+        />
+      );
       break;
     case "invite":
-      screen = <Invite api={api} token={session.token} tripId={route.tripId} ticker={feed.ticker} onBack={() => setRoute(route.tripId ? { name: "trip", id: route.tripId } : { name: "home" })} />;
+      screen = (
+        <Invite
+          api={api}
+          token={session.token}
+          tripId={route.tripId}
+          ticker={feed.ticker}
+          onBack={() => setRoute(route.tripId ? { name: "trip", id: route.tripId } : { name: "home" })}
+        />
+      );
       break;
   }
   return (
-    <View style={{ flex: 1 }}>
+    <Stage>
       {screen}
-      {route.name !== "invite" && route.name !== "slideshow" && route.name !== "ambient" && <Ticker line={feed.ticker} />}
-    </View>
+      {route.name === "home" && <Ticker line={feed.ticker} />}
+    </Stage>
   );
 }
