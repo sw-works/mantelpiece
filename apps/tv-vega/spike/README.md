@@ -49,3 +49,18 @@ and the app bundle never touch this directory.
 
 `manifest.toml` already carries the W3C media services and modules the spike needs; the
 app itself does not use them yet.
+
+## Design preview
+
+`Preview.tsx` cycles every redesigned screen with scripted data and public sample photos,
+one screen every nine seconds, so a screenshot loop can capture each on the Virtual Device.
+Same loop as the spike: point `index.js` at it by hand,
+
+```js
+const { Preview } = require("./spike/Preview");
+AppRegistry.registerComponent(name, () => () => createElement(Preview));
+```
+
+`pnpm build:vega:debug`, `vega run-app …`, then `scripts/vvd-screenshot.sh` every nine
+seconds. Revert `index.js` afterwards. The debug build's yellow warning banner covers the
+top strip; a release build has none.
