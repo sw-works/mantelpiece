@@ -3,7 +3,7 @@
 
 import { Api, ApiError, type SharedAlbum } from "../api.js";
 import { loadConfig } from "../config.js";
-import { el, mount } from "../ui.js";
+import { el, mount, topbar } from "../ui.js";
 
 /** "Shared by Hanyu's living room · 12 photos · until 16 Sep 2026". */
 export function shareLine(album: SharedAlbum, now: Date = new Date()): string {
@@ -30,15 +30,15 @@ export async function main(root: HTMLElement, location: Location): Promise<void>
   const api = new Api(config.apiBase);
   const id = new URL(location.href).searchParams.get("s");
   if (!id) {
-    mount(root, el("h1", {}, "MemoryLane"), el("p", {}, "Open the link you were sent to see the album."));
+    mount(root, topbar(), el("div", { class: "stack" }, el("h1", {}, "MemoryLane"), el("p", { class: "lead" }, "Open the link you were sent to see the album.")));
     return;
   }
-  mount(root, el("h1", {}, "Opening the album…"));
+  mount(root, topbar(), el("h1", {}, "Opening the album…"));
   let album: SharedAlbum;
   try {
     album = await api.sharedAlbum(id);
   } catch (e) {
-    mount(root, el("h1", {}, "Nothing to show"), el("p", {}, closedMessage(e)));
+    mount(root, topbar(), el("div", { class: "stack" }, el("h1", {}, "Nothing to show"), el("p", { class: "lead" }, closedMessage(e))));
     return;
   }
   const grid = el("div", { class: "grid" });
@@ -46,5 +46,5 @@ export async function main(root: HTMLElement, location: Location): Promise<void>
     const caption = [item.landmark, item.taken_at?.slice(0, 10)].filter(Boolean).join(" · ");
     grid.append(el("figure", {}, el("img", { src: item.url, alt: item.landmark ?? "" , loading: "lazy" }), el("figcaption", {}, caption)));
   }
-  mount(root, el("h1", {}, album.name), el("p", {}, shareLine(album)), album.items.length ? grid : el("p", {}, "Every photo in this album has been taken down."));
+  mount(root, topbar(), el("div", { class: "stack" }, el("h1", {}, album.name), el("p", { class: "lead" }, shareLine(album))), album.items.length ? grid : el("p", {}, "Every photo in this album has been taken down."));
 }

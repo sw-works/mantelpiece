@@ -7,32 +7,45 @@ import { OWNER_TOKEN_KEY } from "../auth.js";
 import { loadConfig } from "../config.js";
 import { tripLines } from "./trip.js";
 import { castConfirmation, groupByYear, type NowShowing, tripSummaryLine, untilConfirmed } from "../trips.js";
-import { el, mount } from "../ui.js";
+import { button, el, icon, link, mount, photo, topbar } from "../ui.js";
+
+const BACK = "/?owner=1";
+
+function header(...rest: (Node | string)[]): (Node | string)[] {
+  return [topbar({ back: BACK }), el("div", { class: "stack tight" }, el("h1", {}, "My trips"), ...rest)];
+}
 
 export async function main(root: HTMLElement, _location: Location, storage: Storage): Promise<void> {
   const config = loadConfig();
   const api = new Api(config.apiBase);
   const token = storage.getItem(OWNER_TOKEN_KEY);
   if (!token) {
-    mount(root, el("h1", {}, "My trips"), el("p", {}, "Sign in your TV first: scan the code on the TV with this phone."));
+    mount(root, ...header(el("p", { class: "lead" }, "Sign in your TV first: scan the code on the TV with this phone.")));
     return;
   }
-  mount(root, el("h1", {}, "My trips"), el("p", {}, "Loading…"));
+  mount(root, ...header(el("p", { class: "lead" }, "Loading…")));
   const trips = await api.trips(token);
   if (trips.length === 0) {
-    mount(root, el("h1", {}, "My trips"), el("p", {}, "No trips yet. Press Add photos on the TV and scan the code."));
+    mount(root, ...header(el("p", { class: "lead" }, "No trips yet. Press Add photos on the TV and scan the code.")));
     return;
   }
   const groups = groupByYear(trips);
   const sections: HTMLElement[] = [];
   for (const group of groups) {
-    const list = el("ul", { class: "uploads" });
+    const list = el("ul", { class: "trips" });
     for (const trip of group.trips) list.append(tripRow(api, token, trip));
     sections.push(el("section", { class: "year" }, ...(groups.length > 1 ? [el("h2", {}, group.year)] : []), list));
   }
-  const jump = groups.length > 1 ? el("p", { class: "jump" }, ...groups.map((g) => el("a", { href: `#year-${g.year}` }, g.year))) : null;
   for (const [i, section] of sections.entries()) section.id = `year-${groups[i]!.year}`;
-  mount(root, el("h1", {}, "My trips"), el("p", {}, `${trips.length} trip${trips.length === 1 ? "" : "s"}.`), ...(jump ? [jump] : []), ...sections);
+  // The year row: the newest year with its count, then the others as jump links.
+  const first = groups[0]!;
+  const years = el(
+    "p",
+    { class: "years" },
+    el("span", { class: "current" }, `${first.year} · ${first.trips.length} trip${first.trips.length === 1 ? "" : "s"}`),
+    ...groups.slice(1).map((g) => link(g.year, { href: `#year-${g.year}` })),
+  );
+  mount(root, ...header(el("p", { class: "lead" }, "Tap Play on TV to send a trip to the living room; tap a photo to start there.")), years, ...sections);
 }
 
 /**
@@ -58,35 +71,54 @@ export function caster(api: Api, token: string, tripId: string, status: HTMLElem
 }
 
 function tripRow(api: Api, token: string, trip: { id: string; name: string; start: string; end: string; highlights: string[] }): HTMLElement {
-  const open = el("button", { class: "link" }, "Open");
-  const play = el("button", { class: "link" }, "Play on TV");
-  const status = el("span", { class: "muted cast" });
+  const open = button("Open", { secondary: true, inline: true });
+  const play = button("Play on TV", { icon: "tv", inline: true });
+  const status = el("p", { class: "cast" });
   const cast = caster(api, token, trip.id, status);
+  // The line turns green once a TV reports the trip on screen.
+  const castAndMark = async (start?: string, label?: string) => {
+    status.classList.remove("ok");
+    await cast(start, label);
+    status.classList.toggle("ok", (status.textContent ?? "").startsWith("Now showing"));
+  };
   play.onclick = async () => {
     play.disabled = true;
     try {
-      await cast(undefined, trip.name);
+      await castAndMark(undefined, trip.name);
     } finally {
       play.disabled = false;
     }
   };
-  const row = el("li", { class: "item trip" }, el("span", { class: "name" }, trip.name), el("span", { class: "state" }, tripSummaryLine(trip)), el("span", { class: "actions" }, play, " ", open), status);
+  const hero = trip.highlights[0];
+  const row = el(
+    "li",
+    { class: "tripcard" },
+    el(
+      "div",
+      { class: "head" },
+      photo(hero ? api.mediaUrl(token, hero, "thumb").then((r) => r.url) : Promise.reject(new Error("no hero")), "hero"),
+      el("div", { class: "titles" }, el("span", { class: "title" }, trip.name), el("p", { class: "small" }, tripSummaryLine(trip))),
+      icon("chev", 20),
+    ),
+    el("div", { class: "actions" }, play, open),
+    status,
+  );
   let detail: HTMLElement | null = null;
   open.onclick = async () => {
     if (detail) {
       detail.remove();
       detail = null;
-      open.textContent = "Open";
+      open.replaceChildren("Open");
       return;
     }
     open.disabled = true;
     try {
       const view = await api.trip(token, trip.id);
-      detail = renderDetail(api, token, view, cast);
+      detail = renderDetail(api, token, view, castAndMark);
       row.append(detail);
-      open.textContent = "Close";
+      open.replaceChildren("Close");
     } catch (e) {
-      row.append(el("span", { class: "error" }, e instanceof Error ? e.message : String(e)));
+      row.append(el("p", { class: "error small" }, e instanceof Error ? e.message : String(e)));
     } finally {
       open.disabled = false;
     }
@@ -98,23 +130,19 @@ function renderDetail(api: Api, token: string, trip: TripView, cast: (start?: st
   const days = el("ol", { class: "days" });
   const lines = tripLines(trip);
   trip.days.forEach((d, i) => {
-    const thumbs = el("div", { class: "thumbs" });
+    const thumbs = el("div", { class: "grid4" });
     for (const m of d.media.slice(0, 4)) {
-      const img = el("img", { alt: "", loading: "lazy" });
-      api
-        .mediaUrl(token, m, "thumb")
-        .then((r) => (img.src = r.url))
-        .catch(() => img.remove());
-      // Tap a photo: the TV opens the show at that photo.
-      const toTv = el("button", { class: "link cast-photo", title: "Play on TV from this photo" }, "▶ TV");
+      // Tap Play under a photo: the TV opens the show at that photo.
+      const toTv = link("Play", { icon: "tv", small: true });
+      toTv.setAttribute("title", "Play on TV from this photo");
       toTv.onclick = () => void cast(m, "this photo");
-      thumbs.append(el("figure", {}, img, toTv));
+      thumbs.append(el("figure", {}, photo(api.mediaUrl(token, m, "thumb").then((r) => r.url), "tile"), toTv));
     }
     const dayLabel = d.title ?? `Day ${d.index}`;
-    const playDay = el("button", { class: "link" }, "Play this day on TV");
+    const playDay = link("Play this day on TV", { icon: "tv" });
     playDay.disabled = d.media.length === 0;
     playDay.onclick = () => void cast(d.media[0], dayLabel);
-    days.append(el("li", {}, el("p", {}, lines[i] ?? `Day ${d.index}`), thumbs, playDay));
+    days.append(el("li", {}, el("p", { class: "meta fg" }, lines[i] ?? `Day ${d.index}`), thumbs, el("div", { class: "row" }, playDay)));
   });
   return el("div", { class: "detail" }, ...(trip.narrative ? [el("p", { class: "story" }, trip.narrative.text)] : []), days);
 }

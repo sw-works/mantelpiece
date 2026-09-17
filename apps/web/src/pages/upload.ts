@@ -5,8 +5,8 @@
 import { Api, ApiError } from "../api.js";
 import { OWNER_TOKEN_KEY, beginSignIn, completeSignIn, savedTokens, takeOwnerHandoff } from "../auth.js";
 import { loadConfig } from "../config.js";
-import { el, formatBytes, mount } from "../ui.js";
-import { labelFor, retryItem, runQueue, type QueueItem } from "../upload/queue.js";
+import { button, context, el, eyebrow, field, formatBytes, icon, link, mount, photo, topbar } from "../ui.js";
+import { retryItem, runQueue, type QueueItem } from "../upload/queue.js";
 import { openSharedCache, sharedCount, takeSharedFiles } from "../upload/shared.js";
 import { IndexedDbResumeStore } from "../upload/store.js";
 
@@ -27,6 +27,11 @@ interface Session {
   token: string;
   displayName: string;
   code: string | null;
+}
+
+/** A page with nothing to do but say something: top bar, title, one line. */
+function notice(root: HTMLElement, title: string, text: string): void {
+  mount(root, topbar(), el("div", { class: "stack" }, el("h1", {}, title), el("p", { class: "lead" }, text)));
 }
 
 export async function main(root: HTMLElement, location: Location, storage: Storage): Promise<void> {
@@ -62,11 +67,7 @@ export async function main(root: HTMLElement, location: Location, storage: Stora
       return;
     }
     storage.removeItem(SESSION);
-    mount(
-      root,
-      el("h1", {}, "Scan the TV first"),
-      el("p", {}, `${shared.length} photo${shared.length === 1 ? "" : "s"} arrived, but this phone is not in a trip yet. Scan the Invite code on the TV, then share again.`),
-    );
+    notice(root, "Scan the TV first", `${shared.length} photo${shared.length === 1 ? "" : "s"} arrived, but this phone is not in a trip yet. Scan the Invite code on the TV, then share again.`);
     return;
   }
 
@@ -86,7 +87,7 @@ export async function main(root: HTMLElement, location: Location, storage: Stora
 
   if (!session) {
     if (!code) {
-      mount(root, el("h1", {}, "MemoryLane"), el("p", {}, "Scan the Invite code on the TV to add your photos."));
+      notice(root, "MemoryLane", "Scan the Invite code on the TV to add your photos.");
       return;
     }
     renderJoin(root, code, async (name) => {
@@ -125,7 +126,7 @@ async function sessionAlive(api: Api, token: string): Promise<boolean> {
 function renderJoin(root: HTMLElement, code: string, asGuest: (name: string) => Promise<void>, withAmazon: () => Promise<void>) {
   const name = el("input", { type: "text", placeholder: "Your name", autocomplete: "given-name", maxlength: "40" });
   const error = el("p", { class: "error" });
-  const guest = el("button", { class: "button" }, "Continue");
+  const guest = button("Continue");
   guest.onclick = async () => {
     if (!name.value.trim()) {
       error.textContent = "Tell everyone who you are.";
@@ -139,83 +140,230 @@ function renderJoin(root: HTMLElement, code: string, asGuest: (name: string) => 
       guest.disabled = false;
     }
   };
-  const amazon = el("button", { class: "button secondary" }, "Sign in with Amazon instead");
+  const amazon = button("Sign in with Amazon instead", { secondary: true, icon: "amazon" });
   amazon.onclick = () => void withAmazon();
   mount(
     root,
-    el("h1", {}, "Add your photos"),
-    el("p", {}, `Trip code ${code}. Your photos join everyone else's on the TV, credited to you.`),
-    name,
+    topbar(),
+    el(
+      "div",
+      { class: "stack" },
+      eyebrow(`Trip code ${code}`),
+      el("h1", {}, "Add your photos"),
+      el("p", { class: "lead" }, "Your photos join everyone else's on the TV, credited to you. Nothing to install."),
+    ),
+    field("Your name, as the TV will show it", name),
     guest,
     amazon,
     error,
+    el("p", { class: "small" }, "Guests can add and remove their own photos. Sign in with Amazon to be named on the trip for good."),
   );
 }
 
+/** What the queue adds up to, for the title, the overall bar and the summary line. */
+function tally(items: readonly QueueItem[], removed: ReadonlySet<string>) {
+  let done = 0;
+  let duplicate = 0;
+  let failed = 0;
+  let fraction = 0;
+  let bytesLeft = 0;
+  for (const it of items) {
+    const phase = it.progress.phase;
+    if (phase === "done") done++;
+    else if (phase === "duplicate") duplicate++;
+    else if (phase === "failed") failed++;
+    const f = phase === "uploading" ? it.progress.fraction : phase === "hashing" ? 0 : 1;
+    fraction += f;
+    bytesLeft += Math.round(it.file.size * (1 - f));
+  }
+  const total = items.length;
+  const removedCount = items.filter((it) => it.mediaId && removed.has(it.mediaId)).length;
+  return { total, done, duplicate, failed, sent: done + duplicate, fraction: total ? fraction / total : 0, bytesLeft, removed: removedCount };
+}
+
+function stateOf(it: QueueItem): { cls: string; text: string } {
+  switch (it.progress.phase) {
+    case "hashing":
+      return it.progress.fraction === 0 ? { cls: "waiting", text: "Waiting" } : { cls: "hashing", text: "Checking" };
+    case "uploading":
+      return { cls: "uploading", text: "" };
+    case "done":
+      return { cls: "done", text: "On the TV" };
+    case "duplicate":
+      return { cls: "duplicate", text: "Already on the TV" };
+    case "failed":
+      return { cls: "failed", text: `Failed · ${it.error ?? "unknown error"}` };
+  }
+}
+
 function renderUploader(root: HTMLElement, api: Api, session: Session, storage: Storage, pending: File[] = []) {
-  const input = el("input", { type: "file", multiple: "", accept: "image/*,video/*" });
+  const input = el("input", { type: "file", multiple: "", accept: "image/*,video/*", class: "file" });
   const list = el("ul", { class: "uploads" });
-  const status = el("p", { class: "status" }, `Uploading as ${session.displayName}.`);
   const store = new IndexedDbResumeStore();
+  const chip = () => context(session.code ? `Trip ${session.code} · as ${session.displayName}` : `Your household · as ${session.displayName}`);
+  const owner = Boolean(storage.getItem(OWNER_TOKEN_KEY));
+
+  // Object URLs for the row thumbnails, one per picked file; videos get a neutral panel.
+  const previews = new Map<File, string>();
+  const preview = (file: File): HTMLElement => {
+    if (!file.type.startsWith("image/")) return el("div", { class: "thumb" }, icon("video", 22));
+    let u = previews.get(file);
+    if (!u) {
+      u = URL.createObjectURL(file);
+      previews.set(file, u);
+    }
+    return photo(u);
+  };
+
+  const picker = el(
+    "label",
+    { class: "picker" },
+    el("span", { class: "circle" }, icon("images", 30)),
+    el("span", { class: "big" }, "Choose from your camera roll"),
+    el("p", { class: "small" }, "Photos and videos, up to 2 GB each"),
+    input,
+  );
+
+  // Where the photos go, and a way out when this phone should join a different trip.
+  const leave = link("Switch trip");
+  leave.onclick = () => {
+    storage.removeItem(SESSION);
+    notice(root, "MemoryLane", "Scan the Invite code on the TV to join another trip.");
+  };
+  const where = el(
+    "div",
+    { class: "row" },
+    el("p", { class: "meta grow" }, session.code ? `Adding to trip ${session.code}.` : "Adding to your household. Trips are found from the photos."),
+    leave,
+  );
+  const sep = () => el("span", { class: "sep" }, "·");
+  const footer = owner
+    ? [
+        el(
+          "div",
+          { class: "footer" },
+          eyebrow("Your TV"),
+          el(
+            "div",
+            { class: "row" },
+            link("My trips", { icon: "memories", href: "/trips.html" }),
+            sep(),
+            link("People", { icon: "people", href: "/people.html" }),
+            sep(),
+            link("Ask", { icon: "ask", href: "/ask.html" }),
+          ),
+        ),
+      ]
+    : [];
+
+  const showIdle = () =>
+    mount(
+      root,
+      topbar({ right: chip() }),
+      el("div", { class: "stack" }, el("h1", {}, "Pick photos"), el("p", { class: "lead" }, "Choose a trip's worth. Big batches are fine; uploads resume if you lose signal.")),
+      picker,
+      el("div", { class: "note" }, icon("share", 20), el("p", {}, "Or share straight from your camera roll: on Android, add this page to your home screen and MemoryLane appears in the share sheet.")),
+      where,
+      ...footer,
+    );
+
+  const title = el("h1");
+  const overall = el("div", { class: "bar" }, el("i"));
+  const summary = el("p", { class: "meta" });
+  const showUploading = () =>
+    mount(
+      root,
+      topbar({ right: chip() }),
+      el("div", { class: "stack" }, title, el("p", { class: "lead" }, "Keep this page open, or come back later: it picks up where it stopped. The TV is already showing them arrive.")),
+      overall,
+      summary,
+      list,
+      input,
+    );
+
+  const showDone = (t: ReturnType<typeof tally>) => {
+    const more = button("Add more photos", { icon: "images" });
+    more.onclick = () => input.click();
+    const seeTrip = session.code ? [el("a", { class: "button secondary", href: `/trip.html?t=${encodeURIComponent(session.code)}` }, icon("chev", 20), el("span", {}, "See the trip as it forms"))] : [];
+    const heading = t.failed > 0 ? `${t.sent} of ${t.total} on the TV` : t.sent === 1 ? "Your photo is on the TV" : `All ${t.sent} on the TV`;
+    const parts = [`${t.total} chosen`, `${t.duplicate} already on the TV`, `${t.removed} removed by you`];
+    if (t.failed > 0) parts.push(`${t.failed} failed`);
+    mount(
+      root,
+      topbar({ right: chip() }),
+      el(
+        "div",
+        { class: "finished" },
+        el("div", { class: "check-circle" }, icon("check", 34)),
+        el("h1", {}, heading),
+        el("p", { class: "lead" }, "The trip takes shape over the next few minutes: days, a route and a story."),
+      ),
+      el("p", { class: "small" }, parts.join(" · ")),
+      more,
+      ...seeTrip,
+      list,
+      el("p", { class: "small" }, "Your photos stay yours. Remove any of them from the list above, any time."),
+      input,
+    );
+  };
 
   const upload = async (files: File[]) => {
     if (files.length === 0) return;
     input.disabled = true;
-    status.textContent = `Uploading ${files.length} file${files.length === 1 ? "" : "s"}…`;
     let all: readonly QueueItem[] = [];
+    const removed = new Set<string>();
+    showUploading();
     const render = (items: readonly QueueItem[]) => {
       if (items.length >= all.length) all = items;
+      const t = tally(all, removed);
+      title.textContent = `${t.sent} of ${t.total} sent`;
+      (overall.firstElementChild as HTMLElement).style.width = `${Math.round(t.fraction * 100)}%`;
+      summary.textContent = t.bytesLeft > 0 ? `${formatBytes(t.bytesLeft)} to go` : "Finishing up";
       list.replaceChildren(
-        ...all.map((it, index) => {
-          const row = el("li", { class: `item ${it.progress.phase}` }, el("span", { class: "name" }, it.file.name), el("span", { class: "size" }, formatBytes(it.file.size)), el("span", { class: "state" }, labelFor(it)));
-          if (it.mediaId) {
-            const remove = el("button", { class: "link" }, "Remove");
-            remove.onclick = async () => {
-              await api.deleteMedia(session.token, it.mediaId!);
-              row.remove();
-            };
-            row.append(remove);
-          }
-          if (it.progress.phase === "failed") {
-            const retry = el("button", { class: "link" }, "Retry");
-            retry.onclick = async () => {
-              retry.disabled = true;
-              await retryItem(it, { api, bearer: session.token, store, onChange: () => render(all) }, { total: all.length, done: index + 1 });
-              render(all);
-            };
-            row.append(retry);
-          }
-          return row;
-        }),
+        ...all
+          .filter((it) => !(it.mediaId && removed.has(it.mediaId)))
+          .map((it, index) => {
+            const state = stateOf(it);
+            const progress =
+              it.progress.phase === "uploading"
+                ? el("div", { class: "bar" }, el("i", { style: `width: ${Math.round(it.progress.fraction * 100)}%` }))
+                : el("span", { class: "state" }, state.text);
+            const row = el(
+              "li",
+              { class: `item ${state.cls}` },
+              preview(it.file),
+              el("div", { class: "meta" }, el("div", { class: "top" }, el("span", { class: "name" }, it.file.name), el("span", { class: "size" }, formatBytes(it.file.size))), progress),
+            );
+            if (it.mediaId) {
+              const remove = link("Remove");
+              remove.onclick = async () => {
+                await api.deleteMedia(session.token, it.mediaId!);
+                removed.add(it.mediaId!);
+                row.remove();
+              };
+              row.append(remove);
+            }
+            if (it.progress.phase === "failed") {
+              const retry = link("Retry", { icon: "retry" });
+              retry.onclick = async () => {
+                retry.disabled = true;
+                await retryItem(it, { api, bearer: session.token, store, onChange: () => render(all) }, { total: all.length, done: index + 1 });
+                render(all);
+              };
+              row.append(retry);
+            }
+            return row;
+          }),
       );
     };
     const items = await runQueue(files, { api, bearer: session.token, store, onChange: render });
     render(items);
-    const ok = items.filter((i) => i.mediaId).length;
-    status.textContent = `${ok} of ${items.length} uploaded. The TV is building the memory.`;
+    showDone(tally(items, removed));
     input.disabled = false;
     input.value = "";
   };
   input.onchange = () => void upload(Array.from(input.files ?? []));
 
-  // Where the photos go, and a way out when this phone should join a different trip.
-  const where = el("span", {}, session.code ? `Adding to trip ${session.code}.` : "Adding to your household.");
-  const leave = el("button", { class: "link" }, "Switch trip");
-  leave.onclick = () => {
-    storage.removeItem(SESSION);
-    mount(root, el("h1", {}, "MemoryLane"), el("p", {}, "Scan the Invite code on the TV to join another trip."));
-  };
-
-  const mine = storage.getItem(OWNER_TOKEN_KEY) ? [el("p", {}, el("a", { href: "/trips.html" }, "My trips"), " · ", el("a", { href: "/people.html" }, "People"), " · ", el("a", { href: "/ask.html" }, "Ask"))] : [];
-  mount(
-    root,
-    el("h1", {}, pending.length > 0 ? "Sending your photos" : "Pick photos"),
-    status,
-    el("p", { class: "where" }, where, " ", leave),
-    ...mine,
-    el("label", { class: "picker" }, "Choose from your camera roll", input),
-    el("p", { class: "hint" }, "On Android, add this page to your home screen and MemoryLane shows up in the share sheet."),
-    list,
-  );
+  showIdle();
   if (pending.length > 0) void upload(pending);
 }
