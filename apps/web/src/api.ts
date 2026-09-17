@@ -101,7 +101,8 @@ export class Api {
     if (auth?.bearer) headers["authorization"] = `Bearer ${auth.bearer}`;
     if (auth?.jwt) headers["authorization"] = `Bearer ${auth.jwt}`;
     if (this.deviceId) headers["x-device-id"] = this.deviceId;
-    const res = await this.fetchFn(`${this.base}${path}`, {
+    // Called unbound: Chrome rejects `fetch` invoked with an `Api` as `this`.
+    const res = await this.fetchFn.call(undefined, `${this.base}${path}`, {
       method,
       headers,
       body: body === undefined ? undefined : JSON.stringify(body),
