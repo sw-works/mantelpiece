@@ -122,6 +122,12 @@ async fn main() -> Result<(), Error> {
     run(service_fn(move |event: Request| {
         let app = app.clone();
         async move {
+            // A CORS preflight reaches here through the catch-all route. API Gateway adds
+            // the allow headers, but the browser also needs a 2xx or it fails the real
+            // request ("Load failed" in Safari).
+            if event.method() == http::Method::OPTIONS {
+                return Ok::<_, Error>(Response::builder().status(204).body(Body::Empty)?);
+            }
             let resp = app.handle(to_req(event)).await;
             let body = if resp.body.is_null() {
                 Body::Empty

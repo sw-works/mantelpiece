@@ -14,4 +14,10 @@ echo "API $VITE_API_BASE"
 echo "link $(out LinkBase)"
 echo "upload $VITE_UPLOAD_BASE"
 pnpm --filter @memorylane/web build
-cd infra && pnpm cdk deploy --require-approval never "$@"
+(cd infra && pnpm cdk deploy --require-approval never "$@")
+# The stack's BucketDeployment invalidates the upload site only. Both sites read the same
+# bucket, so the link site (the page a TV's QR opens) needs its own invalidation.
+LINK_DIST="$(out LinkDistributionId)"
+if [ -n "$LINK_DIST" ] && [ "$LINK_DIST" != "None" ]; then
+  aws cloudfront create-invalidation --distribution-id "$LINK_DIST" --paths '/*' --query 'Invalidation.Id' --output text
+fi

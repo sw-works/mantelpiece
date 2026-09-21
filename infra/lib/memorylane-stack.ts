@@ -291,6 +291,9 @@ export class MemoryLaneStack extends Stack {
           "rekognition:SearchFacesByImage",
           "bedrock:InvokeModel",
           "geo-maps:GetStaticMap",
+          // Place names for days and trips (PLACES_PROVIDER "aws"); without it every
+          // lookup is denied and trips stay "Trip, March 24 to 25".
+          "geo-places:SearchNearby",
         ],
         resources: ["*"],
       }),
@@ -462,7 +465,7 @@ export class MemoryLaneStack extends Stack {
     this.api = new apigw.HttpApi(this, "Api", {
       corsPreflight: {
         allowOrigins: [uploadBase, linkBase],
-        allowMethods: [apigw.CorsHttpMethod.GET, apigw.CorsHttpMethod.POST, apigw.CorsHttpMethod.DELETE],
+        allowMethods: [apigw.CorsHttpMethod.GET, apigw.CorsHttpMethod.POST, apigw.CorsHttpMethod.PUT, apigw.CorsHttpMethod.PATCH, apigw.CorsHttpMethod.DELETE],
         allowHeaders: ["authorization", "content-type", "x-device-id"],
         maxAge: Duration.hours(1),
       },
@@ -601,6 +604,9 @@ export class MemoryLaneStack extends Stack {
 
     new CfnOutput(this, "ApiUrl", { value: this.api.apiEndpoint });
     new CfnOutput(this, "LinkBase", { value: linkBase });
+    // BucketDeployment invalidates one distribution (the upload site); deploy-web.sh
+    // invalidates this one, or phones keep getting yesterday's pairing page.
+    new CfnOutput(this, "LinkDistributionId", { value: linkSite.distributionId });
     new CfnOutput(this, "UploadBase", { value: uploadBase });
     new CfnOutput(this, "CognitoDomain", { value: domain.baseUrl() });
     new CfnOutput(this, "WebBucket", { value: webBucket.bucketName });
