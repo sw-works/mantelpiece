@@ -22,3 +22,6 @@ ingest-local-out/
 
 # Live-latency spike vendor files: Amazon-licensed polyfills and the patched hls.js build
 apps/tv-vega/spike/vendor/
+
+# Downloaded test albums (scripts/fetch-test-album.py)
+testbed/
