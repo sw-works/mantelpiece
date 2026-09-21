@@ -27,6 +27,10 @@ interface Session {
   token: string;
   displayName: string;
   code: string | null;
+  /** The TV's household name, for a paired phone. */
+  place?: string;
+  /** False for a household code: it names no trip yet, so there is no trip page to open. */
+  hasTrip?: boolean;
 }
 
 /** A page with nothing to do but say something: top bar, title, one line. */
@@ -50,6 +54,9 @@ export async function main(root: HTMLElement, location: Location, storage: Stora
   const handoff = takeOwnerHandoff(url.hash);
   if (handoff) {
     storage.setItem(OWNER_TOKEN_KEY, handoff);
+    // This phone was just let in by a TV. A guest session saved from an earlier code
+    // belongs to some other household and must not take these photos.
+    storage.removeItem(SESSION);
     url.hash = "";
     globalThis.history?.replaceState(null, "", url.toString());
   }
@@ -73,14 +80,18 @@ export async function main(root: HTMLElement, location: Location, storage: Stora
 
   if (!session && (handoff || url.searchParams.get("owner") === "1")) {
     const token = storage.getItem(OWNER_TOKEN_KEY);
-    if (token) session = { token, displayName: "You", code: null };
+    if (token) {
+      // A paired phone adds photos under the name it gave the TV.
+      const me = await api.me(token).catch(() => null);
+      session = { token, displayName: me?.display_name ?? "You", code: null, ...(me?.household_name ? { place: me.household_name } : {}) };
+    }
   }
 
   if (!session && code) {
     const tokens = savedTokens(storage);
     if (tokens && url.searchParams.get("amazon") === "1") {
       const joined = await api.joinWithAmazon(code, tokens.idToken);
-      session = { token: joined.token, displayName: joined.display_name, code };
+      session = { token: joined.token, displayName: joined.display_name, code, hasTrip: joined.trip !== null };
       storage.setItem(SESSION, JSON.stringify(session));
     }
   }
@@ -92,7 +103,7 @@ export async function main(root: HTMLElement, location: Location, storage: Stora
     }
     renderJoin(root, code, async (name) => {
       const joined = await api.joinAsGuest(code, name);
-      session = { token: joined.token, displayName: joined.display_name, code };
+      session = { token: joined.token, displayName: joined.display_name, code, hasTrip: joined.trip !== null };
       storage.setItem(SESSION, JSON.stringify(session));
       renderUploader(root, api, session, storage);
     }, async () => {
@@ -200,7 +211,7 @@ function renderUploader(root: HTMLElement, api: Api, session: Session, storage: 
   const input = el("input", { type: "file", multiple: "", accept: "image/*,video/*", class: "file" });
   const list = el("ul", { class: "uploads" });
   const store = new IndexedDbResumeStore();
-  const chip = () => context(session.code ? `Trip ${session.code} · as ${session.displayName}` : `Your household · as ${session.displayName}`);
+  const chip = () => context(session.code ? `Trip ${session.code} · as ${session.displayName}` : `${session.place ?? "Your household"} · as ${session.displayName}`);
   const owner = Boolean(storage.getItem(OWNER_TOKEN_KEY));
 
   // Object URLs for the row thumbnails, one per picked file; videos get a neutral panel.
@@ -284,7 +295,9 @@ function renderUploader(root: HTMLElement, api: Api, session: Session, storage: 
   const showDone = (t: ReturnType<typeof tally>) => {
     const more = button("Add more photos", { icon: "images" });
     more.onclick = () => input.click();
-    const seeTrip = session.code ? [el("a", { class: "button secondary", href: `/trip.html?t=${encodeURIComponent(session.code)}` }, icon("chev", 20), el("span", {}, "See the trip as it forms"))] : [];
+    // A household code has no trip until the photos are organised; older saved sessions
+    // (no flag) keep the link.
+    const seeTrip = session.code && session.hasTrip !== false ? [el("a", { class: "button secondary", href: `/trip.html?t=${encodeURIComponent(session.code)}` }, icon("chev", 20), el("span", {}, "See the trip as it forms"))] : [];
     const heading = t.failed > 0 ? `${t.sent} of ${t.total} on the TV` : t.sent === 1 ? "Your photo is on the TV" : `All ${t.sent} on the TV`;
     const parts = [`${t.total} chosen`, `${t.duplicate} already on the TV`, `${t.removed} removed by you`];
     if (t.failed > 0) parts.push(`${t.failed} failed`);

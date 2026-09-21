@@ -82,6 +82,11 @@ export class ApiError extends Error {
   }
 }
 
+export type PairingStatus =
+  | { state: "pending" }
+  | { state: "denied" }
+  | { state: "approved"; token: string; household: string; tv_name: string | null; name: string | null };
+
 export class Api {
   constructor(
     readonly base: string,
@@ -115,6 +120,21 @@ export class Api {
 
   approveDeviceCode(code: string, jwt: string) {
     return this.call<{ approved: boolean; household: string; token: string }>("POST", "/device/approve", { code }, { jwt });
+  }
+
+  /** Which TV a pairing code belongs to, before the phone asks to join it. */
+  describePairing(code: string) {
+    return this.call<{ tv_name: string }>("GET", `/pair/code/${encodeURIComponent(code)}`);
+  }
+
+  /** Ask the TV to let this phone in, under the name its owner typed. */
+  requestPairing(code: string, name: string) {
+    return this.call<{ request: string; name: string; tv_name: string; token: string }>("POST", "/pair/requests", { code, name });
+  }
+
+  /** How the request stands. The API holds the call while it is pending. */
+  pairingStatus(waitingToken: string) {
+    return this.call<PairingStatus>("GET", "/pair/status", undefined, { bearer: waitingToken });
   }
 
   joinAsGuest(code: string, displayName: string) {
@@ -180,7 +200,7 @@ export class Api {
   }
 
   me(bearer: string) {
-    return this.call<{ role: string; display_name?: string; trip?: string | null }>("GET", "/me", undefined, { bearer });
+    return this.call<{ role: string; display_name?: string | null; household_name?: string | null; trip?: string | null }>("GET", "/me", undefined, { bearer });
   }
 
   initUpload(bearer: string, file: { filename: string; bytes: number; sha256: string; content_type: string; batch_id: string }) {

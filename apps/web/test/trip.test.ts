@@ -19,7 +19,7 @@ describe("read-only trip page", () => {
         { index: 2, date: "2026-04-04", media: ["m3"], title: null, route: { inferred: true } },
       ],
     });
-    expect(lines).toEqual(["Day 1: Kinkaku-ji · 2026-04-03 · 2 photos by Hanyu, Maya", "Day 2 · 2026-04-04 · 1 photo · route inferred"]);
+    expect(lines).toEqual(["Day 1: Kinkaku-ji · April 3, 2026 · 2 photos by Hanyu, Maya", "Day 2 · April 4, 2026 · 1 photo · route inferred"]);
   });
 
   it("opens the trip by code without a session and binds guests to the device", async () => {

@@ -8,6 +8,15 @@ import { latestComment, reactionLine, targetKey, VIEWER_NAME_KEY, viewerName } f
 import { el, eyebrow, field, icon, link, mount, photo, topbar } from "../ui.js";
 
 /** Lines for the day list: title, date, count and who took the photos. */
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+/** "March 25, 2025" from `2025-03-25`; anything else comes back as is. */
+function longDate(value: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(value));
+  const month = m ? MONTHS[Number(m[2]) - 1] : undefined;
+  return m && month ? `${month} ${Number(m[3])}, ${m[1]}` : String(value);
+}
+
 export function tripLines(trip: TripView): string[] {
   const names = (media: string[]) => {
     const out: string[] = [];
@@ -20,7 +29,7 @@ export function tripLines(trip: TripView): string[] {
   };
   return trip.days.map((d) => {
     const who = names(d.media);
-    return `${d.title ?? `Day ${d.index}`} · ${d.date} · ${d.media.length} photo${d.media.length === 1 ? "" : "s"}${who.length ? ` by ${who.join(", ")}` : ""}${d.route.inferred ? " · route inferred" : ""}`;
+    return `${d.title ?? `Day ${d.index}`} · ${longDate(d.date)} · ${d.media.length} photo${d.media.length === 1 ? "" : "s"}${who.length ? ` by ${who.join(", ")}` : ""}${d.route.inferred ? " · route inferred" : ""}`;
   });
 }
 
