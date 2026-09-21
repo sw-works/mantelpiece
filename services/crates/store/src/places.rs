@@ -26,6 +26,10 @@ pub struct Place {
     /// Provider's size estimate in metres, when given.
     #[serde(default)]
     pub dim_m: Option<u32>,
+    /// Country the place lies in, when the provider says: a trip across many towns is
+    /// named after it.
+    #[serde(default)]
+    pub country: Option<String>,
 }
 
 #[async_trait]
@@ -54,6 +58,7 @@ impl MemoryPlaces {
                     source: "memory".into(),
                     kind: None,
                     dim_m: None,
+                    country: None,
                 })
                 .collect(),
             calls: Mutex::default(),
@@ -89,6 +94,62 @@ impl Places for NoPlaces {
     async fn nearby(&self, _at: GeoPoint, _radius_m: u32, _limit: usize) -> Result<Vec<Place>> {
         Ok(vec![])
     }
+}
+
+/// Whether an Amazon Location category names somewhere people travel to see.
+pub fn is_sight(category: &str) -> bool {
+    const SIGHTS: &[&str] = &[
+        "attraction",
+        "landmark",
+        "monument",
+        "histor",
+        "museum",
+        "gallery",
+        "castle",
+        "palace",
+        "ruin",
+        "church",
+        "cathedral",
+        "temple",
+        "mosque",
+        "shrine",
+        "religious",
+        "park",
+        "garden",
+        "beach",
+        "lake",
+        "river",
+        "waterfall",
+        "body_of_water",
+        "body of water",
+        "mountain",
+        "hill",
+        "volcano",
+        "glacier",
+        "island",
+        "forest",
+        "natur",
+        "cave",
+        "canyon",
+        "geyser",
+        "hot_spring",
+        "hot spring",
+        "lighthouse",
+        "bridge",
+        "harbor",
+        "harbour",
+        "viewpoint",
+        "scenic",
+        "zoo",
+        "aquarium",
+        "stadium",
+        "theat",
+        "winery",
+    ];
+    let c = category.to_lowercase();
+    SIGHTS.iter().any(|s| c.contains(s))
+        && !c.contains("parking")
+        && !c.contains("amusement_arcade")
 }
 
 fn backend<E: std::fmt::Debug>(e: E) -> StorageError {
@@ -137,6 +198,7 @@ impl WikipediaPlaces {
                             source: "wikipedia".into(),
                             kind: e["type"].as_str().map(str::to_owned),
                             dim_m: e["dim"].as_u64().and_then(|d| u32::try_from(d).ok()),
+                            country: None,
                         })
                     })
                     .collect()
@@ -225,6 +287,8 @@ impl Places for AwsPlaces {
             .query_position(at.lon)
             .query_position(at.lat)
             .query_radius(i64::from(radius_m))
+            // "Iceland", not "Ísland": names the story and the TV can use as they are.
+            .language("en")
             .max_results(i32::try_from(limit).unwrap_or(10))
             .send()
             .await
@@ -234,6 +298,11 @@ impl Places for AwsPlaces {
         // of interest stay as minor places, and streets and addresses are dropped.
         let mut places: Vec<Place> = Vec::new();
         for r in out.result_items() {
+            let country = r
+                .address()
+                .and_then(|a| a.country())
+                .and_then(|c| c.name())
+                .map(str::to_owned);
             if let Some(town) = r.address().and_then(|a| a.locality()) {
                 if !town.is_empty() && !places.iter().any(|p| p.name == town) {
                     places.push(Place {
@@ -243,10 +312,17 @@ impl Places for AwsPlaces {
                         source: "aws".into(),
                         kind: Some("city".into()),
                         dim_m: Some(10_000),
+                        country: country.clone(),
                     });
                 }
             }
-            if r.place_type().as_str() != "PointOfInterest" {
+            // A taxi rank or a guesthouse near the route is not somewhere the trip went, and a
+            // story told from such names invents meals and stays. Sights only.
+            let sight = r
+                .categories()
+                .iter()
+                .any(|c| is_sight(c.name()) || is_sight(c.id()));
+            if r.place_type().as_str() != "PointOfInterest" || !sight {
                 continue;
             }
             let pos = r.position();
@@ -259,12 +335,9 @@ impl Places for AwsPlaces {
                 at: place_at,
                 distance_m: at.distance_m(place_at),
                 source: "aws".into(),
-                kind: Some(
-                    r.categories()
-                        .first()
-                        .map_or_else(|| "poi".to_owned(), |c| c.name().to_lowercase()),
-                ),
+                kind: Some("landmark".into()),
                 dim_m: None,
+                country: country.clone(),
             });
         }
         places.sort_by(|a, b| a.distance_m.total_cmp(&b.distance_m));
@@ -290,6 +363,32 @@ mod tests {
         let names: Vec<&str> = hits.iter().map(|h| h.name.as_str()).collect();
         assert_eq!(names, vec!["Urquhart Castle", "Loch Ness"]);
         assert!(hits[0].distance_m < hits[1].distance_m);
+    }
+
+    #[test]
+    fn only_sights_survive_from_amazon_location_categories() {
+        for yes in [
+            "Tourist Attraction",
+            "Waterfall",
+            "church",
+            "Historical Monument",
+            "Body of Water",
+            "national_park",
+        ] {
+            assert!(is_sight(yes), "{yes}");
+        }
+        for no in [
+            "Taxi Stand",
+            "Hotel",
+            "Guest House",
+            "Casual Dining",
+            "Parking Lot",
+            "Park & Ride Parking",
+            "Bus Stop",
+            "Social Service",
+        ] {
+            assert!(!is_sight(no), "{no}");
+        }
     }
 
     #[test]

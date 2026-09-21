@@ -433,6 +433,7 @@ async fn attach_landmarks(
                     kind: place.kind,
                     dim_m: place.dim_m,
                     media: vec![],
+                    country: place.country,
                 });
             }
         }
@@ -454,12 +455,41 @@ async fn attach_landmarks(
     }
     let generic = trip.narrative.is_none() && trip.name.starts_with("Trip,");
     if generic {
-        let all = trip.landmarks();
-        if let Some(top) = Landmark::best_name(&all) {
+        if let Some(place) = trip_place(trip) {
             let (first, last) = (trip.days[0].date, trip.days[trip.days.len() - 1].date);
-            trip.name = naming::trip_name(Some(&top.name), first, last);
+            trip.name = naming::trip_name(Some(&place), first, last);
         }
     }
+}
+
+/// What a trip is named after. Days spent around one town take the town's name; days
+/// spread over several towns of one country take the country's ("Iceland", not the town
+/// the last day happened to end in).
+fn trip_place(trip: &Trip) -> Option<String> {
+    let day_places: Vec<&Landmark> = trip
+        .days
+        .iter()
+        .filter_map(|d| Landmark::best_name(&d.landmarks))
+        .collect();
+    let mut towns: Vec<&str> = day_places.iter().map(|l| l.name.as_str()).collect();
+    towns.sort_unstable();
+    towns.dedup();
+    if towns.len() > 1 {
+        let mut countries: Vec<&str> = day_places
+            .iter()
+            .filter_map(|l| l.country.as_deref())
+            .collect();
+        countries.sort_unstable();
+        let most = countries
+            .chunk_by(|a, b| a == b)
+            .max_by_key(|run| run.len())
+            .filter(|run| run.len() * 2 > day_places.len());
+        if let Some(run) = most {
+            return Some(run[0].to_owned());
+        }
+    }
+    let all = trip.landmarks();
+    Landmark::best_name(&all).map(|l| l.name.clone())
 }
 
 struct BuildTrip<'a> {
@@ -622,4 +652,71 @@ async fn emit(ingest: &Ingest, household: &HouseholdId, kind: EventKind) -> Resu
             .await?;
     ingest.bus.publish(&event).await?;
     Ok(())
+}
+
+#[cfg(test)]
+mod trip_place_tests {
+    use super::*;
+    use memorylane_core::ids::{HouseholdId, TripId};
+    use memorylane_core::trip::{Route, TripDay};
+    use time::macros::{date, datetime};
+
+    fn town(name: &str, country: &str) -> Landmark {
+        Landmark {
+            name: name.into(),
+            at: GeoPoint::new(64.0, -21.0),
+            distance_m: 0.0,
+            source: "aws".into(),
+            kind: Some("city".into()),
+            dim_m: Some(10_000),
+            media: vec![],
+            country: Some(country.into()),
+        }
+    }
+
+    fn trip_of(towns: &[(&str, &str)]) -> Trip {
+        Trip {
+            id: TripId::new("t"),
+            household: HouseholdId::new("h"),
+            name: "Trip, June 27 to 28, 2015".into(),
+            start: datetime!(2015-06-27 00:00:00 UTC),
+            end: datetime!(2015-06-28 00:00:00 UTC),
+            days: towns
+                .iter()
+                .enumerate()
+                .map(|(i, (name, country))| TripDay {
+                    index: u32::try_from(i + 1).unwrap(),
+                    date: date!(2015 - 06 - 27),
+                    media: vec![],
+                    route: Route::default(),
+                    title: None,
+                    story: None,
+                    undated: vec![],
+                    landmarks: vec![town(name, country)],
+                })
+                .collect(),
+            route: Route::default(),
+            highlights: vec![],
+            contributors: vec![],
+            clock_offsets: vec![],
+            narrative: None,
+            hero: None,
+            members: vec![],
+        }
+    }
+
+    #[test]
+    fn a_trip_across_towns_is_named_after_their_country_and_one_town_keeps_its_name() {
+        let iceland = trip_of(&[
+            ("Borgarbyggð", "Iceland"),
+            ("Norðurþing", "Iceland"),
+            ("Reykjanesbær", "Iceland"),
+        ]);
+        assert_eq!(trip_place(&iceland).as_deref(), Some("Iceland"));
+        let oxford = trip_of(&[("Oxford", "United Kingdom"), ("Oxford", "United Kingdom")]);
+        assert_eq!(trip_place(&oxford).as_deref(), Some("Oxford"));
+        // Towns in different countries with no majority: fall back to the best single place.
+        let mixed = trip_of(&[("Basel", "Switzerland"), ("Freiburg", "Germany")]);
+        assert!(["Basel", "Freiburg"].contains(&trip_place(&mixed).as_deref().unwrap()));
+    }
 }

@@ -62,7 +62,9 @@ impl Allowed {
         let mut w: BTreeSet<String> = self
             .names
             .iter()
-            .flat_map(|n| n.split_whitespace().map(str::to_owned))
+            // "Stephan G. Stephansson": words are compared without their punctuation.
+            .flat_map(|n| n.split_whitespace().map(bare).map(str::to_owned))
+            .filter(|w| !w.is_empty())
             .collect();
         w.extend(
             self.months
@@ -101,12 +103,42 @@ pub fn check(text: &str, allowed: &Allowed) -> Vec<String> {
     let words = allowed.words();
     for phrase in capitalised_phrases(text) {
         let l = phrase.to_lowercase();
-        if allowed.names.contains(&l) || l.split_whitespace().all(|w| words.contains(w)) {
+        if allowed.names.contains(&l)
+            || l.split_whitespace()
+                .all(|w| words.contains(w) || derived(w, &words))
+        {
             continue;
         }
         problems.push(format!("unlisted name '{phrase}'"));
     }
     problems
+}
+
+/// "icelandic" from "iceland", "scottish" from "scotland": a form of an allowed name, not a
+/// new one. The shared opening must be at least four letters and most of the shorter word.
+fn derived(word: &str, known: &BTreeSet<String>) -> bool {
+    known.iter().any(|k| {
+        let shared = word
+            .chars()
+            .zip(k.chars())
+            .take_while(|(a, b)| a == b)
+            .count();
+        let shorter = word.chars().count().min(k.chars().count());
+        shared >= 4 && shared * 10 >= shorter * 6
+    })
+}
+
+/// A word without the punctuation around it; apostrophes and hyphens inside stay.
+fn bare(word: &str) -> &str {
+    word.trim_matches(|c: char| !c.is_alphanumeric())
+}
+
+/// Whether the next word opens a sentence: this one closes with `.`, `!`, `?` or `:`,
+/// possibly inside quotes or brackets. An initial ("G.") closes nothing.
+fn ends_sentence(raw: &str) -> bool {
+    let closed = raw.trim_end_matches(['"', '\'', ')', ']', '\u{201d}', '\u{2019}']);
+    let initial = bare(closed).chars().count() == 1 && closed.ends_with('.');
+    closed.ends_with(['.', '!', '?', ':']) && !initial
 }
 
 /// Runs of capitalised words that do not start a sentence.
@@ -115,20 +147,20 @@ fn capitalised_phrases(text: &str) -> Vec<String> {
     let mut current: Vec<&str> = Vec::new();
     let mut sentence_start = true;
     for raw in text.split_whitespace() {
-        let word = raw.trim_matches(|c: char| !c.is_alphanumeric() && c != '\'' && c != '-');
+        let word = bare(raw);
         let capitalised = word.chars().next().is_some_and(char::is_uppercase);
         if capitalised && !sentence_start {
             current.push(word);
-        } else {
-            if !current.is_empty() {
-                out.push(current.join(" "));
-                current.clear();
-            }
-            if capitalised && sentence_start && raw.ends_with(['.', '!', '?']) {
-                // A one-word sentence; nothing to check.
-            }
+        } else if !current.is_empty() {
+            out.push(current.join(" "));
+            current.clear();
         }
-        sentence_start = raw.ends_with(['.', '!', '?']);
+        // A phrase never runs across the end of a sentence.
+        if ends_sentence(raw) && !current.is_empty() {
+            out.push(current.join(" "));
+            current.clear();
+        }
+        sentence_start = ends_sentence(raw);
     }
     if !current.is_empty() {
         out.push(current.join(" "));
@@ -167,5 +199,37 @@ mod tests {
         );
         assert!(problems.iter().any(|p| p.contains("Osaka")), "{problems:?}");
         assert!(check("Kyoto in April 2026 was gentle.", &kyoto()).is_empty());
+    }
+
+    #[test]
+    fn a_form_of_an_allowed_name_is_that_name() {
+        let mut allowed = Allowed::default();
+        allowed.name("Iceland");
+        allowed.date(2015, 6);
+        assert!(check("They loved the Icelandic light.", &allowed).is_empty());
+        assert_eq!(
+            check("They loved the Irish light.", &allowed),
+            vec!["unlisted name 'Irish'"]
+        );
+    }
+
+    #[test]
+    fn paragraph_openers_quotes_and_initials_are_handled() {
+        let mut allowed = Allowed::default();
+        allowed
+            .name("Stephan G. Stephansson Monument")
+            .name("Iceland")
+            .name("Hanyu");
+        allowed.date(2015, 6);
+        allowed.date(2015, 7);
+        let text = "On June 27th they reached Iceland.\n\nOn June 28th Hanyu stood by the Stephan G. Stephansson Monument. \"What a view!\" On July 1st they drove on.";
+        assert_eq!(check(text, &allowed), Vec::<String>::new());
+        assert_eq!(
+            check(
+                "On June 27th they reached Iceland. Then Paris called.",
+                &allowed
+            ),
+            vec!["unlisted name 'Paris'"]
+        );
     }
 }

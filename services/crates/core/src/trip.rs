@@ -37,6 +37,9 @@ pub struct Landmark {
     /// Photos taken within reach of the place.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub media: Vec<MediaId>,
+    /// Country the place lies in, when the provider says so.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub country: Option<String>,
 }
 
 impl Landmark {
