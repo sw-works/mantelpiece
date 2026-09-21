@@ -229,22 +229,44 @@ impl Places for AwsPlaces {
             .send()
             .await
             .map_err(backend)?;
-        let mut places: Vec<Place> = out
-            .result_items()
-            .iter()
-            .filter_map(|r| {
-                let pos = r.position();
-                let place_at = GeoPoint::new(*pos.get(1)?, *pos.first()?);
-                Some(Place {
-                    name: r.title().to_owned(),
-                    at: place_at,
-                    distance_m: at.distance_m(place_at),
-                    source: "aws".into(),
-                    kind: r.categories().first().map(|c| c.name().to_owned()),
-                    dim_m: None,
-                })
-            })
-            .collect();
+        // Amazon Location answers with shops, bus stops and street addresses. None of those
+        // names a day; the town they share does. So the town goes in once as a city, points
+        // of interest stay as minor places, and streets and addresses are dropped.
+        let mut places: Vec<Place> = Vec::new();
+        for r in out.result_items() {
+            if let Some(town) = r.address().and_then(|a| a.locality()) {
+                if !town.is_empty() && !places.iter().any(|p| p.name == town) {
+                    places.push(Place {
+                        name: town.to_owned(),
+                        at,
+                        distance_m: 0.0,
+                        source: "aws".into(),
+                        kind: Some("city".into()),
+                        dim_m: Some(10_000),
+                    });
+                }
+            }
+            if r.place_type().as_str() != "PointOfInterest" {
+                continue;
+            }
+            let pos = r.position();
+            let (Some(lon), Some(lat)) = (pos.first(), pos.get(1)) else {
+                continue;
+            };
+            let place_at = GeoPoint::new(*lat, *lon);
+            places.push(Place {
+                name: r.title().to_owned(),
+                at: place_at,
+                distance_m: at.distance_m(place_at),
+                source: "aws".into(),
+                kind: Some(
+                    r.categories()
+                        .first()
+                        .map_or_else(|| "poi".to_owned(), |c| c.name().to_lowercase()),
+                ),
+                dim_m: None,
+            });
+        }
         places.sort_by(|a, b| a.distance_m.total_cmp(&b.distance_m));
         Ok(places)
     }

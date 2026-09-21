@@ -161,6 +161,9 @@ pub struct Route {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct TripDay {
     pub index: u32,
+    /// `2025-03-25` on the wire. Rows written before 2026-09-20 hold `[year, ordinal]`,
+    /// which still reads.
+    #[serde(with = "iso_date")]
     pub date: Date,
     pub media: Vec<MediaId>,
     pub route: Route,
@@ -326,5 +329,78 @@ mod tests {
         .unwrap();
         assert_eq!(old.check, NarrativeCheck::Passed);
         assert_eq!(old.shown(), Some("A day in Kyoto."));
+    }
+}
+
+/// A calendar date as `YYYY-MM-DD`; also reads the `[year, ordinal]` pair the `time` crate
+/// writes by default, which is what older rows hold.
+mod iso_date {
+    use serde::de::{self, SeqAccess, Visitor};
+    use serde::{Deserializer, Serializer};
+    use time::{Date, Month};
+
+    // serde's `with` hands the field over by reference.
+    #[allow(clippy::trivially_copy_pass_by_ref)]
+    pub fn serialize<S: Serializer>(date: &Date, s: S) -> Result<S::Ok, S::Error> {
+        s.serialize_str(&format!(
+            "{:04}-{:02}-{:02}",
+            date.year(),
+            u8::from(date.month()),
+            date.day()
+        ))
+    }
+
+    struct DateVisitor;
+
+    impl<'de> Visitor<'de> for DateVisitor {
+        type Value = Date;
+
+        fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+            f.write_str("a YYYY-MM-DD date or a [year, ordinal] pair")
+        }
+
+        fn visit_str<E: de::Error>(self, v: &str) -> Result<Date, E> {
+            let mut parts = v.splitn(3, '-');
+            let mut next = || parts.next().and_then(|p| p.parse::<i32>().ok());
+            let (Some(y), Some(m), Some(d)) = (next(), next(), next()) else {
+                return Err(E::custom(format!("not a date: {v}")));
+            };
+            let month = u8::try_from(m)
+                .ok()
+                .and_then(|m| Month::try_from(m).ok())
+                .ok_or_else(|| E::custom(format!("not a date: {v}")))?;
+            let day = u8::try_from(d).map_err(|_| E::custom(format!("not a date: {v}")))?;
+            Date::from_calendar_date(y, month, day).map_err(E::custom)
+        }
+
+        fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Date, A::Error> {
+            let year: i32 = seq
+                .next_element()?
+                .ok_or_else(|| de::Error::custom("missing year"))?;
+            let ordinal: u16 = seq
+                .next_element()?
+                .ok_or_else(|| de::Error::custom("missing ordinal"))?;
+            Date::from_ordinal_date(year, ordinal).map_err(de::Error::custom)
+        }
+    }
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<Date, D::Error> {
+        d.deserialize_any(DateVisitor)
+    }
+}
+
+#[cfg(test)]
+mod iso_date_tests {
+    use super::TripDay;
+
+    #[test]
+    fn a_day_writes_an_iso_date_and_still_reads_the_old_pair() {
+        let old = serde_json::json!({ "index": 2, "date": [2025, 84], "media": [], "title": null,
+            "route": { "points": [], "inferred": false, "map_key": null } });
+        let day: TripDay = serde_json::from_value(old).unwrap();
+        let wire = serde_json::to_value(&day).unwrap();
+        assert_eq!(wire["date"], "2025-03-25");
+        let again: TripDay = serde_json::from_value(wire).unwrap();
+        assert_eq!(again.date, day.date);
     }
 }
