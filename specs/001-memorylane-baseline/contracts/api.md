@@ -9,6 +9,14 @@ sessions) or Cognito JWTs (`/join/amazon`). Errors are `{ "error": "<message>" }
 
 | Method | Path | Caller | Notes |
 |--------|------|--------|-------|
+| POST | /tv/setup | none | NEW first launch: `{device_id, name}` creates the household under the name chosen on the TV; answers `{household, household_name, token}` (TV session) |
+| PATCH | /household | TV only | NEW `{name}`; the household name is set on the TV and nowhere else |
+| POST | /pair/code | TV only | NEW `{device_id}`; issues `{code, link, expires_at}`, link `/?p=<code>`, ten minutes, many phones per code |
+| GET | /pair/code/{code} | none | NEW `{tv_name}` for "Connect to Living room" |
+| POST | /pair/requests | none | NEW `{code, name}`; queues the phone, emits `phone.requested`, answers `{request, name, tv_name, token}` where the token only reads the status; 429 past 12 waiting |
+| GET | /pair/status | waiting token | NEW held like the feed; `{state}` pending, denied, or approved with `{token, household, tv_name, name}` |
+| GET | /pair/requests | TV only | NEW `{pending, phones}`, each `{id, name, at}`, oldest first |
+| POST | /pair/requests/{id}/approve, /deny | TV only | NEW Allow, Not now, or Forget for a phone let in before; a forgotten phone's session answers 401 from then on |
 | POST | /device/code | none | issues `{code, link, expires_at, poll_seconds}` |
 | POST | /device/approve | phone (Cognito JWT) | `{code}`; first approval wins |
 | GET | /device/poll?code=&device= | TV | `{state}` pending, expired, or approved with `{household, token}` |

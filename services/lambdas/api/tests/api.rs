@@ -3452,3 +3452,201 @@ mod roles {
         assert_eq!(owner.body["tool"], "apply_cleanup");
     }
 }
+
+#[tokio::test]
+async fn a_phone_pairs_with_the_tv_by_name_and_waits_for_approval() {
+    let h = harness();
+    // First launch: the TV names its household, no account anywhere.
+    let setup = h
+        .call(
+            Method::Post,
+            "/tv/setup",
+            Some(json!({ "device_id": "tv-1", "name": "  Living  room " })),
+            None,
+            None,
+        )
+        .await;
+    assert_eq!(setup.status, 201, "{:?}", setup.body);
+    assert_eq!(setup.body["household_name"], "Living room");
+    let tv = setup.body["token"].as_str().unwrap().to_owned();
+
+    let issued = h
+        .call(
+            Method::Post,
+            "/pair/code",
+            Some(json!({ "device_id": "tv-1" })),
+            Some(&tv),
+            None,
+        )
+        .await;
+    assert_eq!(issued.status, 201, "{:?}", issued.body);
+    let code = issued.body["code"].as_str().unwrap().to_owned();
+    assert!(issued.body["link"]
+        .as_str()
+        .unwrap()
+        .ends_with(&format!("/?p={code}")));
+
+    // The phone sees which TV it is about to join, then asks with a name.
+    let seen = h
+        .call(Method::Get, &format!("/pair/code/{code}"), None, None, None)
+        .await;
+    assert_eq!(seen.body["tv_name"], "Living room");
+    let nameless = h
+        .call(
+            Method::Post,
+            "/pair/requests",
+            Some(json!({ "code": code, "name": "  " })),
+            None,
+            None,
+        )
+        .await;
+    assert_eq!(nameless.status, 400);
+    let asked = h
+        .call(
+            Method::Post,
+            "/pair/requests",
+            Some(json!({ "code": code, "name": "Maya" })),
+            None,
+            None,
+        )
+        .await;
+    assert_eq!(asked.status, 201, "{:?}", asked.body);
+    let waiting = asked.body["token"].as_str().unwrap().to_owned();
+    let request = asked.body["request"].as_str().unwrap().to_owned();
+
+    // Waiting: no access to anything, and the status says pending.
+    assert_eq!(
+        h.call(Method::Get, "/trips", None, Some(&waiting), None)
+            .await
+            .status,
+        401
+    );
+    let pending = h
+        .call(Method::Get, "/pair/status", None, Some(&waiting), None)
+        .await;
+    assert_eq!(pending.body["state"], "pending");
+
+    // The TV hears about it and sees the queue.
+    let feed = h
+        .call(Method::Get, "/events?since=0", None, Some(&tv), None)
+        .await;
+    assert!(
+        feed.body.to_string().contains("phone.requested"),
+        "{:?}",
+        feed.body
+    );
+    let queue = h
+        .call(Method::Get, "/pair/requests", None, Some(&tv), None)
+        .await;
+    assert_eq!(queue.body["pending"][0]["name"], "Maya");
+    assert_eq!(queue.body["phones"].as_array().unwrap().len(), 0);
+
+    // Only the TV approves.
+    let path = format!("/pair/requests/{request}/approve");
+    assert_eq!(
+        h.call(Method::Post, &path, None, Some(&waiting), None)
+            .await
+            .status,
+        403
+    );
+    assert_eq!(
+        h.call(Method::Post, &path, None, Some(&tv), None)
+            .await
+            .status,
+        200
+    );
+
+    let approved = h
+        .call(Method::Get, "/pair/status", None, Some(&waiting), None)
+        .await;
+    assert_eq!(approved.body["state"], "approved");
+    assert_eq!(approved.body["tv_name"], "Living room");
+    let phone = approved.body["token"].as_str().unwrap().to_owned();
+
+    // The phone now acts for the household under its own name.
+    let me = h.call(Method::Get, "/me", None, Some(&phone), None).await;
+    assert_eq!(me.body["display_name"], "Maya");
+    assert_eq!(me.body["household_name"], "Living room");
+    assert_eq!(
+        h.call(Method::Get, "/trips", None, Some(&phone), None)
+            .await
+            .status,
+        200
+    );
+    let init = h
+        .call(
+            Method::Post,
+            "/uploads/init",
+            Some(json!({ "filename": "a.jpg", "bytes": 10, "sha256": "ab".repeat(32), "content_type": "image/jpeg" })),
+            Some(&phone),
+            None,
+        )
+        .await;
+    assert!(init.status < 300, "{:?}", init.body);
+
+    // Phones never rename the household, approve other phones, or delete everything.
+    assert_eq!(
+        h.call(
+            Method::Patch,
+            "/household",
+            Some(json!({ "name": "Mine" })),
+            Some(&phone),
+            None
+        )
+        .await
+        .status,
+        403
+    );
+    assert_eq!(
+        h.call(Method::Delete, "/me", None, Some(&phone), None)
+            .await
+            .status,
+        403
+    );
+    let renamed = h
+        .call(
+            Method::Patch,
+            "/household",
+            Some(json!({ "name": "Den" })),
+            Some(&tv),
+            None,
+        )
+        .await;
+    assert_eq!(renamed.body["household_name"], "Den");
+
+    // Forgotten on the TV: the phone's session stops working at once.
+    let queue = h
+        .call(Method::Get, "/pair/requests", None, Some(&tv), None)
+        .await;
+    assert_eq!(queue.body["phones"][0]["name"], "Maya");
+    let deny = format!("/pair/requests/{request}/deny");
+    assert_eq!(
+        h.call(Method::Post, &deny, None, Some(&tv), None)
+            .await
+            .status,
+        200
+    );
+    assert_eq!(
+        h.call(Method::Get, "/trips", None, Some(&phone), None)
+            .await
+            .status,
+        401
+    );
+    let after = h
+        .call(Method::Get, "/pair/status", None, Some(&waiting), None)
+        .await;
+    assert_eq!(after.body["state"], "denied");
+
+    // An expired code lets nobody ask.
+    h.advance(Duration::minutes(11));
+    let late = h
+        .call(
+            Method::Post,
+            "/pair/requests",
+            Some(json!({ "code": code, "name": "Ben" })),
+            None,
+            None,
+        )
+        .await;
+    assert_eq!(late.status, 404);
+}

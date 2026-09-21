@@ -7,9 +7,21 @@ use crate::tokens::Session;
 
 pub async fn me(app: &App, req: &Req) -> Result<Resp, ApiError> {
     match app.caller(req)? {
-        Caller::Owner { household, subject } => {
+        caller @ Caller::Owner { .. } => {
+            let display_name = match caller.paired_phone() {
+                Some(id) => app
+                    .storage
+                    .get_contributor(caller.household(), &id)
+                    .await?
+                    .map(|c| c.display_name),
+                None => None,
+            };
+            let Caller::Owner { household, subject } = caller else {
+                unreachable!()
+            };
             let record = app.storage.get_household(&household).await?;
             Resp::ok(json!({
+                "display_name": display_name,
                 "role": "owner",
                 "household": household,
                 "subject": subject,
@@ -38,9 +50,9 @@ pub async fn me(app: &App, req: &Req) -> Result<Resp, ApiError> {
                 "code": code,
             }))
         }
-        Caller::Contributor(Session::Tv { .. } | Session::Phone { .. }) => {
-            Err(ApiError::internal("unreachable session shape"))
-        }
+        Caller::Contributor(
+            Session::Tv { .. } | Session::Phone { .. } | Session::Pairing { .. },
+        ) => Err(ApiError::internal("unreachable session shape")),
     }
 }
 
@@ -48,6 +60,9 @@ pub async fn me(app: &App, req: &Req) -> Result<Resp, ApiError> {
 /// then originals, renditions, embeddings, faces, people and every record go. The
 /// household row stays with `deleting_since` as the tombstone.
 pub async fn delete_account(app: &App, req: &Req) -> Result<Resp, ApiError> {
+    if app.caller(req)?.paired_phone().is_some() {
+        return Err(ApiError::forbidden("only the TV can delete everything"));
+    }
     let household = app.owner(req)?;
     let now = app.now();
     let mut record = app

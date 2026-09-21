@@ -7,6 +7,7 @@ are in `services/crates/core/src/events.rs`; NEW kinds are added by this feature
 
 | type | payload | shown as |
 |------|---------|----------|
+| phone.requested | contributor, display_name | NEW "Maya wants to connect a phone"; the TV opens its approval queue unless a show is playing |
 | upload.progress | contributor, done, total | "Uploading 3 of 42" |
 | contribution.received | trip?, contributor, display_name, count | "Maya added 42 photos from day 3" |
 | trip.detected | trip, new_media | "New memory: 412 photos organised" |

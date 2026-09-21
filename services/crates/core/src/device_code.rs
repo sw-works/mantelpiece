@@ -41,6 +41,10 @@ pub struct DeviceCode {
     /// What the TV calls itself; becomes the household name on first sign-in.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tv_name: Option<String>,
+    /// Set on a pairing code: the TV already has a household and phones that open the
+    /// code ask to join it. Absent on a sign-in code.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub household: Option<HouseholdId>,
     #[serde(flatten)]
     pub state: DeviceCodeState,
 }
@@ -75,8 +79,16 @@ impl DeviceCode {
             created_at: now,
             expires_at: now + DEFAULT_TTL,
             tv_name: None,
+            household: None,
             state: DeviceCodeState::Pending,
         }
+    }
+
+    /// A pairing code for a TV that already has its household.
+    #[must_use]
+    pub fn for_household(mut self, household: HouseholdId) -> Self {
+        self.household = Some(household);
+        self
     }
 
     #[must_use]

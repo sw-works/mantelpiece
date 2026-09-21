@@ -94,7 +94,20 @@ memory apps.
 
 ## 3. Why Each Piece
 
-- **Sign-in on TV by device code, default**: TV shows an 8-character code and QR. Phone opens
+- **First launch by pairing, no account (2026-09-17)**: the TV names its household (default:
+  the TV's own name from `@amazon-devices/kepler-identifiers`, editable on the TV and only
+  there) and `POST /tv/setup` creates it. The TV then shows a pairing code and QR
+  (`POST /pair/code`, link `/?p=`). A phone that scans it gives a name
+  (`POST /pair/requests`) and waits (`GET /pair/status`, held like the feed); the name sits
+  in the TV's approval queue (`GET /pair/requests`, `phone.requested` on the feed) until
+  Allow or Not now on the remote (`POST /pair/requests/{id}/approve|deny`). Approved, the
+  phone holds a household session whose subject is its contributor id, so its photos are
+  credited to the name it gave; Forget on the TV ends that session at once. Modelled on
+  Bluetooth pairing: the scan is the out-of-band secret, Allow is the confirmation, the
+  stored session is the bond. Only the TV approves phones, renames the household or deletes
+  everything. Amazon sign-in below stays for the Alexa add-ons and is not part of onboarding;
+  claiming a TV-made household with an Amazon account is not built yet.
+- **Sign-in on TV by device code (Amazon account), optional**: TV shows an 8-character code and QR. Phone opens
   the link, signs in with Login with Amazon through Cognito, approves the code. TV polls and
   receives tokens. Cognito does not implement the OAuth device grant (RFC 8628) natively, so
   this is a small custom flow: Lambda issues and verifies codes in a DynamoDB table with TTL.
@@ -209,7 +222,7 @@ account or guest, can add and remove their own photos, view, react), **member ho
 
 | ID | Requirement |
 |----|-------------|
-| F-401 | First launch: sign in by device code shown on TV, approved from the phone with the user's Amazon account; no typing on the remote |
+| F-401 | First launch: name the household on the TV (default the TV's name), then pair phones by QR: the phone gives a name, the TV approves it from a queue. No account. Amazon sign-in by device code remains for the Alexa add-ons |
 | F-409 | Trip view has an "Invite" action that shows the trip-scoped QR full screen, with live contributor count and recent arrivals |
 | F-402 | Memories home: trips as rows, hero image from top-scored photo, "new memory" badge |
 | F-403 | Trip view: horizontal day timeline, route map, narrative, play slideshow |

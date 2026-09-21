@@ -84,6 +84,17 @@ pub enum Caller {
 }
 
 impl Caller {
+    /// The paired phone behind an owner call: its session's subject is the contributor id,
+    /// where the TV's and a signed-in Amazon account's subject is the household id.
+    pub fn paired_phone(&self) -> Option<ContributorId> {
+        match self {
+            Self::Owner { household, subject } if subject != household.as_str() => {
+                Some(ContributorId::new(subject.as_str()))
+            }
+            _ => None,
+        }
+    }
+
     pub fn household(&self) -> &HouseholdId {
         match self {
             Self::Owner { household, .. } => household,
@@ -184,8 +195,32 @@ impl App {
         resp
     }
 
+    /// A paired phone's session is a signed token, so forgetting the phone on the TV is
+    /// enforced here: its contributor must still stand approved.
+    async fn refuse_forgotten_phone(&self, req: &Req) -> Result<(), ApiError> {
+        let Ok(Some(Session::Phone { household, subject })) = self.session(req) else {
+            return Ok(());
+        };
+        if subject == household.as_str() {
+            return Ok(());
+        }
+        let paired = self
+            .storage
+            .get_contributor(&household, &ContributorId::new(subject))
+            .await?
+            .is_some_and(|c| c.is_active());
+        if paired {
+            Ok(())
+        } else {
+            Err(ApiError::unauthorized(
+                "this phone is no longer paired with the TV",
+            ))
+        }
+    }
+
     #[allow(clippy::too_many_lines)]
     async fn route(&self, req: &Req) -> Result<Resp, ApiError> {
+        self.refuse_forgotten_phone(req).await?;
         let segs = req.segments();
         let method = req
             .method
@@ -194,6 +229,19 @@ impl App {
             (Method::Post, ["device", "code"]) => handlers::device::issue(self, req).await,
             (Method::Post, ["device", "approve"]) => handlers::device::approve(self, req).await,
             (Method::Get, ["device", "poll"]) => handlers::device::poll(self, req).await,
+            (Method::Post, ["tv", "setup"]) => handlers::pair::setup(self, req).await,
+            (Method::Patch, ["household"]) => handlers::pair::rename(self, req).await,
+            (Method::Post, ["pair", "code"]) => handlers::pair::code(self, req).await,
+            (Method::Get, ["pair", "code", code]) => handlers::pair::describe(self, code).await,
+            (Method::Post, ["pair", "requests"]) => handlers::pair::request(self, req).await,
+            (Method::Get, ["pair", "requests"]) => handlers::pair::list(self, req).await,
+            (Method::Get, ["pair", "status"]) => handlers::pair::status(self, req).await,
+            (Method::Post, ["pair", "requests", id, "approve"]) => {
+                handlers::pair::decide(self, req, id, true).await
+            }
+            (Method::Post, ["pair", "requests", id, "deny"]) => {
+                handlers::pair::decide(self, req, id, false).await
+            }
             (Method::Post, ["session", "amazon"]) => {
                 handlers::device::session_from_amazon(self, req).await
             }
@@ -363,6 +411,9 @@ impl App {
                     Caller::Owner { household, subject }
                 }
                 upload @ Session::Upload { .. } => Caller::Contributor(upload),
+                Session::Pairing { .. } => {
+                    return Err(ApiError::unauthorized("waiting for approval on the TV"))
+                }
             });
         }
         if let Some(jwt) = &req.jwt {
@@ -460,6 +511,9 @@ impl App {
             Caller::Contributor(
                 Session::Tv { household, subject } | Session::Phone { household, subject },
             ) => Ok(TripAccess::Owner { household, subject }),
+            Caller::Contributor(Session::Pairing { .. }) => {
+                Err(ApiError::unauthorized("waiting for approval on the TV"))
+            }
         }
     }
 

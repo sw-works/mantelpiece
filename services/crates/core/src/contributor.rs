@@ -14,6 +14,19 @@ pub enum ContributorKind {
     Amazon { sub: String },
     /// A named guest bound to a trip code and a browser session.
     Guest,
+    /// A phone paired with the household's TV: it scanned the pairing code, gave a name,
+    /// and waits for the TV to approve. Approved, it acts for the household.
+    Phone { status: PairStatus },
+}
+
+/// Where a paired phone stands with the TV.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PairStatus {
+    Pending,
+    Approved,
+    /// Turned away on the TV, or forgotten later.
+    Denied,
 }
 
 /// What a contributor may do beyond uploading (F-164, F-165).
@@ -73,20 +86,56 @@ impl Contributor {
         }
     }
 
-    pub fn is_active(&self) -> bool {
-        self.removed_at.is_none()
+    /// A phone asking to pair with the TV; inactive until the TV approves it.
+    pub fn phone(
+        household: HouseholdId,
+        display_name: impl Into<String>,
+        now: OffsetDateTime,
+    ) -> Self {
+        Self {
+            id: ContributorId::random(),
+            household,
+            display_name: display_name.into(),
+            kind: ContributorKind::Phone {
+                status: PairStatus::Pending,
+            },
+            joined_at: now,
+            removed_at: None,
+            grace_until: None,
+            role: Role::Contributor,
+        }
     }
 
-    /// Owners act as co-editors everywhere without holding the role.
+    /// The pairing status, for a paired phone.
+    pub fn pair_status(&self) -> Option<PairStatus> {
+        match self.kind {
+            ContributorKind::Phone { status } => Some(status),
+            _ => None,
+        }
+    }
+
+    pub fn is_active(&self) -> bool {
+        self.removed_at.is_none()
+            && !matches!(
+                self.pair_status(),
+                Some(PairStatus::Pending | PairStatus::Denied)
+            )
+    }
+
+    /// Owners and approved phones act as co-editors everywhere without holding the role.
     pub fn can_edit(&self) -> bool {
-        matches!(self.kind, ContributorKind::Owner) || self.role == Role::CoEditor
+        matches!(self.kind, ContributorKind::Owner)
+            || self.pair_status() == Some(PairStatus::Approved)
+            || self.role == Role::CoEditor
     }
 
     /// Change the role. A guest never becomes a co-editor (F-165); the owner never needs
     /// one.
     pub fn set_role(&mut self, role: Role) -> Result<(), RoleError> {
         match (&self.kind, role) {
-            (ContributorKind::Owner, _) => Err(RoleError::OwnerRole),
+            (ContributorKind::Owner | ContributorKind::Phone { .. }, _) => {
+                Err(RoleError::OwnerRole)
+            }
             (ContributorKind::Guest, Role::CoEditor) => Err(RoleError::GuestCoEditor),
             _ => {
                 self.role = role;
@@ -112,6 +161,26 @@ mod tests {
             grace_until: None,
             role: Role::Contributor,
         }
+    }
+
+    #[test]
+    fn a_paired_phone_is_inactive_until_the_tv_approves() {
+        let mut phone = Contributor::phone(
+            HouseholdId::new("h"),
+            "Maya",
+            datetime!(2026-09-08 10:00:00 UTC),
+        );
+        assert!(!phone.is_active());
+        assert!(!phone.can_edit());
+        phone.kind = ContributorKind::Phone {
+            status: PairStatus::Approved,
+        };
+        assert!(phone.is_active());
+        assert!(phone.can_edit());
+        phone.kind = ContributorKind::Phone {
+            status: PairStatus::Denied,
+        };
+        assert!(!phone.is_active());
     }
 
     #[test]

@@ -52,7 +52,8 @@ make deploy-web  # second pass: build apps/web against the outputs and publish i
 ```
 
 Deploy needs AWS credentials (`aws configure`), a bootstrapped account (`cd infra && pnpm cdk
-bootstrap`), and cargo-lambda with zig. Login with Amazon is optional
+bootstrap`), and cargo-lambda with zig. First launch needs no account: the TV names its
+household and phones pair by QR with approval on the TV. Login with Amazon is optional
 (`CDK_ARGS="-c amazon-client-id=… -c amazon-client-secret=…"`); without it sign-in uses
 Cognito accounts you create in the console. Without `-c link-base` and `-c upload-base` the
 phone pages are served from the stack's own CloudFront URLs, printed as `LinkBase` and

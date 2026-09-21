@@ -46,6 +46,12 @@ pub enum EventKind {
         display_name: String,
         count: u32,
     },
+    /// A phone scanned the pairing code and waits for the TV to let it in.
+    #[serde(rename = "phone.requested")]
+    PhoneRequested {
+        contributor: ContributorId,
+        display_name: String,
+    },
     #[serde(rename = "upload.progress")]
     UploadProgress {
         contributor: ContributorId,
@@ -133,6 +139,7 @@ impl Event {
             EventKind::PlayRequested { .. } => "play.requested",
             EventKind::DedupProposal { .. } => "dedup.proposal",
             EventKind::ContributionReceived { .. } => "contribution.received",
+            EventKind::PhoneRequested { .. } => "phone.requested",
             EventKind::UploadProgress { .. } => "upload.progress",
             EventKind::MediaRemoved { .. } => "media.removed",
             EventKind::CleanupProposal { .. } => "cleanup.proposal",
@@ -172,6 +179,7 @@ impl Event {
             | EventKind::CleanupCandidates { trip, .. }
             | EventKind::PlayRequested { trip, .. } => trip.as_ref(),
             EventKind::PlaylistCreated { .. }
+            | EventKind::PhoneRequested { .. }
             | EventKind::UploadProgress { .. }
             | EventKind::MediaRemoved { .. }
             | EventKind::AnswerCard { .. }

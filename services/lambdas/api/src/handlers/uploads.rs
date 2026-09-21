@@ -35,11 +35,14 @@ struct Initiated {
 /// The contributor id an upload is credited to.
 fn contributor_of(caller: &Caller) -> Result<ContributorId, ApiError> {
     match caller {
-        Caller::Owner { household, .. } => Ok(ContributorId::new(household.as_str())),
+        // Photos from a paired phone are credited to the name it gave, not to the TV.
+        Caller::Owner { household, .. } => Ok(caller
+            .paired_phone()
+            .unwrap_or_else(|| ContributorId::new(household.as_str()))),
         Caller::Contributor(Session::Upload { contributor, .. }) => Ok(contributor.clone()),
-        Caller::Contributor(Session::Tv { .. } | Session::Phone { .. }) => {
-            Err(ApiError::forbidden("TV sessions cannot upload"))
-        }
+        Caller::Contributor(
+            Session::Tv { .. } | Session::Phone { .. } | Session::Pairing { .. },
+        ) => Err(ApiError::forbidden("TV sessions cannot upload")),
     }
 }
 

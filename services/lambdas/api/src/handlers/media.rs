@@ -67,10 +67,13 @@ pub async fn url(app: &App, req: &Req, id: &str) -> Result<Resp, ApiError> {
 
 fn contributor_id(caller: &Caller) -> &str {
     match caller {
-        Caller::Owner { household, .. }
-        | Caller::Contributor(Session::Tv { household, .. } | Session::Phone { household, .. }) => {
-            household.as_str()
-        }
+        // A paired phone's subject is its contributor id; the TV's is the household id.
+        Caller::Owner { subject, .. } => subject.as_str(),
+        Caller::Contributor(
+            Session::Tv { household, .. }
+            | Session::Phone { household, .. }
+            | Session::Pairing { household, .. },
+        ) => household.as_str(),
         Caller::Contributor(Session::Upload { contributor, .. }) => contributor.as_str(),
     }
 }

@@ -19,6 +19,7 @@ type HmacSha256 = Hmac<Sha256>;
 pub const TV_TTL: Duration = Duration::days(90);
 pub const UPLOAD_TTL: Duration = Duration::days(30);
 pub const PHONE_TTL: Duration = Duration::days(30);
+pub const PAIRING_TTL: Duration = Duration::hours(1);
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
@@ -33,6 +34,13 @@ pub enum Session {
     Phone {
         household: HouseholdId,
         subject: String,
+    },
+    /// A phone that scanned the TV's pairing code and waits for approval. Good only for
+    /// asking how the request stands; approval trades it for a `Phone` session whose
+    /// subject is the contributor id.
+    Pairing {
+        household: HouseholdId,
+        contributor: ContributorId,
     },
     /// A contributor's phone. May upload into, and read, the trip named here.
     Upload {
@@ -51,6 +59,7 @@ impl Session {
         match self {
             Self::Tv { household, .. }
             | Self::Phone { household, .. }
+            | Self::Pairing { household, .. }
             | Self::Upload { household, .. } => household,
         }
     }

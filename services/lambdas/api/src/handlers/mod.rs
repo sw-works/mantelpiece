@@ -9,6 +9,7 @@ pub mod media;
 pub mod memberships;
 pub mod memories;
 pub mod narration;
+pub mod pair;
 pub mod people;
 pub mod playlists;
 pub mod presence;
