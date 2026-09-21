@@ -144,4 +144,26 @@ export class FakeApi extends TvApi {
     const p = this.proposalList.find((x) => x.id === id)!;
     return { ...p, state: "cancelled" as const };
   }
+  pairing: import("../src/api/client").PairQueue = { pending: [], phones: [] };
+  override async setupTv(deviceId: string, name: string) {
+    this.calls.push(`setup ${deviceId} ${name}`);
+    return { household: "tv-house", household_name: name, token: "tv-token" };
+  }
+  override async pairCode() {
+    this.calls.push("pair code");
+    return { code: "PA1R2C0D", link: "https://link.test/?p=PA1R2C0D", expires_at: new Date(Date.now() + this.expiresInMs).toISOString() };
+  }
+  override async pairQueue() {
+    this.calls.push("pair queue");
+    return this.pairing;
+  }
+  override async decidePhone(_token: string, id: string, allow: boolean) {
+    this.calls.push(`${allow ? "allow" : "deny"} ${id}`);
+    const phone = [...this.pairing.pending, ...this.pairing.phones].find((p) => p.id === id)!;
+    this.pairing = {
+      pending: this.pairing.pending.filter((p) => p.id !== id),
+      phones: allow ? [...this.pairing.phones, phone] : this.pairing.phones.filter((p) => p.id !== id),
+    };
+    return { id, name: phone.name, approved: allow };
+  }
 }

@@ -14,11 +14,12 @@ import { Invite } from "./screens/Invite";
 import { JoinTrip } from "./screens/JoinTrip";
 import { MapView } from "./screens/MapView";
 import { MemoriesHome } from "./screens/MemoriesHome";
-import { Onboarding } from "./screens/Onboarding";
 import { People } from "./screens/People";
+import { Phones } from "./screens/Phones";
 import { ReviewChanges } from "./screens/ReviewChanges";
 import { Slideshow } from "./screens/Slideshow";
 import { TripView } from "./screens/TripView";
+import { Welcome } from "./screens/Welcome";
 import { MemorySessionStore, newDeviceId, type SessionStore } from "./session";
 
 export type Route =
@@ -32,13 +33,14 @@ export type Route =
   | { name: "slideshow"; trip: Trip; start?: string }
   | { name: "ask" }
   | { name: "review" }
+  | { name: "phones"; first?: boolean }
   | { name: "invite"; tripId: string | null };
 
 export interface AppProps {
   apiBase?: string;
   api?: TvApi;
   sessionStore?: SessionStore;
-  /** Name of this TV as the phone and other households see it. */
+  /** What this TV calls itself; the household name offered on first launch. */
   tvName?: string;
   /** Platform audio for narration; absent means captions only (F-709). */
   audio?: AudioPlayer | null;
@@ -55,7 +57,7 @@ export function App({ apiBase, api: injectedApi, sessionStore, tvName, audio = n
   const api = useMemo(() => injectedApi ?? new TvApi(apiBase ?? DEFAULT_API), [injectedApi, apiBase]);
   const store = useMemo(() => sessionStore ?? new MemorySessionStore(), [sessionStore]);
   const [deviceId] = useState(() => newDeviceId());
-  const [session, setSession] = useState<{ token: string; household: string } | null | undefined>(undefined);
+  const [session, setSession] = useState<{ token: string; household: string; name?: string } | null | undefined>(undefined);
   const [route, setRoute] = useState<Route>({ name: "home" });
   const feed = useEvents(api, session?.token ?? null);
 
@@ -66,7 +68,7 @@ export function App({ apiBase, api: injectedApi, sessionStore, tvName, audio = n
       if (r.name === "trip") return { name: "home" };
       if (r.name === "highlights") return { name: "trip", id: r.id };
       if (r.name === "slideshow") return r.trip.id.startsWith("playlist:") ? { name: "ask" } : { name: "trip", id: r.trip.id };
-      if (r.name === "ask" || r.name === "review" || r.name === "join" || r.name === "map" || r.name === "people" || r.name === "ambient")
+      if (r.name === "ask" || r.name === "review" || r.name === "phones" || r.name === "join" || r.name === "map" || r.name === "people" || r.name === "ambient")
         return { name: "home" };
       if (r.name === "invite") return r.tripId ? { name: "trip", id: r.tripId } : { name: "home" };
       return r;
@@ -76,7 +78,7 @@ export function App({ apiBase, api: injectedApi, sessionStore, tvName, audio = n
   useRemoteKeys({ onBack: route.name === "home" || route.name === "slideshow" || route.name === "ambient" ? undefined : goBack });
 
   useEffect(() => {
-    store.load().then((s) => setSession(s ? { token: s.token, household: s.household } : null));
+    store.load().then((s) => setSession(s ? { token: s.token, household: s.household, ...(s.name ? { name: s.name } : {}) } : null));
   }, [store]);
 
   // F-406: stillness on Memories home becomes the ambient slideshow.
@@ -116,6 +118,26 @@ export function App({ apiBase, api: injectedApi, sessionStore, tvName, audio = n
     },
     [api, token, deviceId, route],
   );
+  // A phone asked to connect: bring up the approval queue, unless a show is playing. The
+  // queue is fetched first because the feed replays old requests after a cold start.
+  const phonesVersion = feed.phonesVersion ?? 0;
+  const [waitingPhones, setWaitingPhones] = useState(0);
+  useEffect(() => {
+    if (!token) return;
+    let alive = true;
+    api
+      .pairQueue(token)
+      .then((q) => {
+        if (!alive) return;
+        setWaitingPhones(q.pending.length);
+        if (q.pending.length > 0 && phonesVersion > 0) setRoute((r) => (r.name === "slideshow" || r.name === "ambient" || r.name === "phones" ? r : { name: "phones" }));
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [api, token, phonesVersion, route.name === "phones"]);
+  const householdName = session?.name ?? tvName;
   const pendingReviews = feed.recent.filter((e) => e.type === "dedup.proposal" || e.type === "cleanup.proposal").length;
   const reactionsVersion = feed.recent.filter((e) => e.type === "reaction.received").length;
   const lastAnswer = [...feed.recent].reverse().find((e) => e.type === "answer.card");
@@ -123,31 +145,33 @@ export function App({ apiBase, api: injectedApi, sessionStore, tvName, audio = n
   // The rail every screen shares: the household's places, with the review count.
   const nav: Nav = useMemo(
     () => ({
-      tvName,
+      tvName: householdName,
       items: [
         { key: "home", label: "Memories", onPress: () => setRoute({ name: "home" }), testID: "home" },
         { key: "map", label: "Map", onPress: () => setRoute({ name: "map" }), testID: "map" },
         { key: "people", label: "People", onPress: () => setRoute({ name: "people" }), testID: "people" },
         { key: "ask", label: "Ask", onPress: () => setRoute({ name: "ask" }), testID: "ask" },
         { key: "join", label: "Join a trip", onPress: () => setRoute({ name: "join" }), testID: "join" },
-        { key: "invite", label: "Add photos", onPress: () => setRoute({ name: "invite", tripId: null }), testID: "invite" },
+        // Adding photos starts with a paired phone; the badge counts phones waiting for Allow.
+        { key: "invite", label: "Add photos", onPress: () => setRoute({ name: "phones" }), testID: "invite", badge: waitingPhones },
         { key: "review", label: "Review", onPress: () => setRoute({ name: "review" }), testID: "review", badge: pendingReviews },
       ],
     }),
-    [tvName, pendingReviews],
+    [householdName, pendingReviews, waitingPhones],
   );
 
   if (session === undefined) return <View style={{ flex: 1, backgroundColor: "#0b0b0f" }} />;
   if (!session) {
     return (
       <Stage>
-        <Onboarding
+        <Welcome
           api={api}
           deviceId={deviceId}
-          tvName={tvName}
-          onSignedIn={(s) => {
+          defaultName={tvName ?? "Fire TV"}
+          onReady={(s) => {
             void store.save({ ...s, deviceId });
             setSession(s);
+            setRoute({ name: "phones", first: true });
           }}
         />
       </Stage>
@@ -168,12 +192,26 @@ export function App({ apiBase, api: injectedApi, sessionStore, tvName, audio = n
           onPeople={() => setRoute({ name: "people" })}
           onPlay={(trip) => setRoute({ name: "slideshow", trip })}
           onLeave={(t) => api.leaveTrip(session.token, t.id).catch(() => undefined)}
-          onInvite={() => setRoute({ name: "invite", tripId: null })}
+          onInvite={() => setRoute({ name: "phones" })}
           onAsk={() => setRoute({ name: "ask" })}
           onReview={() => setRoute({ name: "review" })}
           pendingReviews={pendingReviews}
+          waitingPhones={waitingPhones}
           arriving={feed.upload ?? null}
-          tvName={tvName}
+          tvName={householdName}
+        />
+      );
+      break;
+    case "phones":
+      screen = (
+        <Phones
+          api={api}
+          token={session.token}
+          deviceId={deviceId}
+          householdName={householdName ?? "This TV"}
+          version={phonesVersion}
+          first={route.first}
+          onDone={() => setRoute({ name: "home" })}
         />
       );
       break;

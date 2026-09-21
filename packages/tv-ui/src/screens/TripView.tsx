@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
-import { clockHints, creditFor, type ReactionsView, storyOf, type Trip, type TvApi } from "../api/client";
+import { clockHints, creditFor, dayLabel, longDate, type ReactionsView, storyOf, type Trip, type TvApi } from "../api/client";
 import { Backdrop } from "../components/Backdrop";
 import { FocusButton } from "../components/FocusButton";
 import { MapImage } from "../components/MapImage";
@@ -105,16 +105,16 @@ export function TripView({
       </View>
       <ScrollView horizontal style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 14, paddingVertical: 6 }}>
         {trip.days.map((d, i) => (
-          <FocusButton key={d.index} variant="chip" selected={i === day} label={`Day ${d.index}${d.title ? ` · ${d.title}` : ""}`} preferred={i === 0} onPress={() => setDay(i)} testID={`day-${d.index}`} />
+          <FocusButton key={d.index} variant="chip" selected={i === day} label={dayLabel(d)} preferred={i === 0} onPress={() => setDay(i)} testID={`day-${d.index}`} />
         ))}
       </ScrollView>
       {current && (
         <View style={{ flex: 1, flexDirection: "row", gap: 40 }}>
           <View style={{ width: 1000, gap: 18 }}>
             <View style={{ flexDirection: "row", gap: 16, alignItems: "baseline" }}>
-              <Heading>{current.title ? `Day ${current.index} · ${current.title}` : `Day ${current.index}`}</Heading>
+              <Heading>{dayLabel(current)}</Heading>
               <Meta testID="day-summary">
-                {`${current.date} · ${current.media.length} photos${credits.length ? ` from ${credits.join(", ")}` : ""}${current.route.inferred ? " · route inferred" : ""}${current.undated?.length ? ` · ${current.undated.length} undated` : ""}`}
+                {`${longDate(current.date)} · ${current.media.length} photo${current.media.length === 1 ? "" : "s"}${credits.length ? ` from ${credits.join(", ")}` : ""}${current.route.inferred ? " · route inferred" : ""}${current.undated?.length ? ` · ${current.undated.length} undated` : ""}`}
               </Meta>
             </View>
             <ScrollView horizontal style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 18, padding: 6, paddingBottom: 12 }}>

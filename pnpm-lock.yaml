@@ -10,6 +10,9 @@ importers:
 
   apps/tv-vega:
     dependencies:
+      '@amazon-devices/kepler-identifiers':
+        specifier: 0.2.4-rn-83.1
+        version: 0.2.4-rn-83.1(@babel/preset-env@7.29.7(@babel/core@7.29.7))
       '@amazon-devices/kepler-media-controls':
         specifier: 1.0.25
         version: 1.0.25(@amazon-devices/kepler-media-types@1.0.0)(@amazon-devices/keplerscript-turbomodule-api@1.2.5(@babel/preset-env@7.29.7(@babel/core@7.29.7)))(@amazon-devices/react-native-kepler@4.0.1(@babel/core@7.29.7)(@react-native-community/cli@20.2.0(typescript@5.9.3))(@react-native/metro-config@0.83.0(@babel/core@7.29.7))(@types/node@26.5.0)(@types/react@19.2.18)(react-native@0.83.0(@babel/core@7.29.7)(@react-native-community/cli@20.2.0(typescript@5.9.3))(@react-native/metro-config@0.83.0(@babel/core@7.29.7))(@types/react@19.2.18)(react@19.2.8))(react@19.2.8))(react-native@0.83.0(@babel/core@7.29.7)(@react-native-community/cli@20.2.0(typescript@5.9.3))(@react-native/metro-config@0.83.0(@babel/core@7.29.7))(@types/react@19.2.18)(react@19.2.8))(react@19.2.8)
@@ -203,6 +206,9 @@ packages:
 
   '@amazon-devices/kepler-compatibility-metro-config@0.0.7':
     resolution: {integrity: sha512-SKdbd/Hv+mWgjhxj56y4U4Zmnq1krPOJMob5rL9kb0vxPhwCcweES0moC0NFjpauNxF5dy5FEjOouJ0JIkI1YA==}
+
+  '@amazon-devices/kepler-identifiers@0.2.4-rn-83.1':
+    resolution: {integrity: sha512-EMJDiAiDHVrQNDoebeeNU8A8/QDvZc7Ttmul0pnRz+vNu6J88HI/A4untnX9z2qcRHuaRzos6DBBfeVOXr9j3w==}
 
   '@amazon-devices/kepler-media-controls@1.0.25':
     resolution: {integrity: sha512-/QAFE8Tf+89Bo3x/RIfl1WaS8/UZ2sYectbhIMstJ8wGqxl0kCdqozI6ATG5kDJy+3VqJlRA/taLEeNtXePBgw==}
@@ -4886,6 +4892,13 @@ snapshots:
       - supports-color
 
   '@amazon-devices/kepler-compatibility-metro-config@0.0.7': {}
+
+  '@amazon-devices/kepler-identifiers@0.2.4-rn-83.1(@babel/preset-env@7.29.7(@babel/core@7.29.7))':
+    dependencies:
+      '@amazon-devices/keplerscript-turbomodule-api': 1.2.5(@babel/preset-env@7.29.7(@babel/core@7.29.7))
+    transitivePeerDependencies:
+      - '@babel/preset-env'
+      - supports-color
 
   '@amazon-devices/kepler-media-controls@1.0.25(@amazon-devices/kepler-media-types@1.0.0)(@amazon-devices/keplerscript-turbomodule-api@1.2.5(@babel/preset-env@7.29.7(@babel/core@7.29.7)))(@amazon-devices/react-native-kepler@4.0.1(@babel/core@7.29.7)(@react-native-community/cli@20.2.0(typescript@5.9.3))(@react-native/metro-config@0.83.0(@babel/core@7.29.7))(@types/node@26.5.0)(@types/react@19.2.18)(react-native@0.83.0(@babel/core@7.29.7)(@react-native-community/cli@20.2.0(typescript@5.9.3))(@react-native/metro-config@0.83.0(@babel/core@7.29.7))(@types/react@19.2.18)(react@19.2.8))(react@19.2.8))(react-native@0.83.0(@babel/core@7.29.7)(@react-native-community/cli@20.2.0(typescript@5.9.3))(@react-native/metro-config@0.83.0(@babel/core@7.29.7))(@types/react@19.2.18)(react@19.2.8))(react@19.2.8)':
     dependencies:

@@ -8,9 +8,11 @@ import { MapView } from "../src/screens/MapView";
 import { People } from "../src/screens/People";
 import { MemoriesHome } from "../src/screens/MemoriesHome";
 import { Onboarding } from "../src/screens/Onboarding";
+import { Phones } from "../src/screens/Phones";
 import { ReviewChanges } from "../src/screens/ReviewChanges";
 import { Slideshow } from "../src/screens/Slideshow";
 import { TripView } from "../src/screens/TripView";
+import { Welcome } from "../src/screens/Welcome";
 import { FakeApi } from "./fakeApi";
 
 const trip = {
@@ -24,6 +26,51 @@ const trip = {
 };
 
 describe("screens", () => {
+  it("Welcome offers the TV's name and sets the household up on Continue", async () => {
+    const api = new FakeApi();
+    const onReady = jest.fn();
+    await render(<Welcome api={api} deviceId="tv-1" defaultName="Living room TV" onReady={onReady} />);
+    expect(screen.getByTestId("household-name").props.children).toBe("Living room TV");
+    await fireEvent.press(screen.getByTestId("continue"));
+    await waitFor(() => expect(onReady).toHaveBeenCalledWith({ token: "tv-token", household: "tv-house", name: "Living room TV" }));
+    expect(api.calls).toContain("setup tv-1 Living room TV");
+  });
+
+  it("Welcome lets the name be changed on the TV before setting up", async () => {
+    const api = new FakeApi();
+    const onReady = jest.fn();
+    await render(<Welcome api={api} deviceId="tv-1" defaultName="Fire TV" onReady={onReady} />);
+    await fireEvent.press(screen.getByTestId("change-name"));
+    await fireEvent.changeText(screen.getByTestId("name-input"), "The Xiaos");
+    await fireEvent(screen.getByTestId("name-input"), "submitEditing");
+    await waitFor(() => expect(screen.getByTestId("household-name").props.children).toBe("The Xiaos"));
+    await fireEvent.press(screen.getByTestId("continue"));
+    await waitFor(() => expect(onReady).toHaveBeenCalledWith({ token: "tv-token", household: "tv-house", name: "The Xiaos" }));
+  });
+
+  it("Phones shows the pairing code, queues a phone by name, and lets it in on Allow", async () => {
+    const api = new FakeApi();
+    const view = await render(<Phones api={api} token="t" deviceId="tv-1" householdName="Living room" version={0} first onDone={() => undefined} />);
+    await waitFor(() => expect(screen.getByTestId("pair-code").props.children).toBe("PA1R 2C0D"));
+    expect(screen.getByText("Connect a phone to add photos.")).toBeTruthy();
+    expect(screen.getByText("Skip for now")).toBeTruthy();
+
+    // The feed says a phone asked: the queue refetches and the name waits with Allow.
+    api.pairing = { pending: [{ id: "p1", name: "Maya", at: "2026-09-17T10:00:00Z" }], phones: [] };
+    await view.rerender(<Phones api={api} token="t" deviceId="tv-1" householdName="Living room" version={1} first onDone={() => undefined} />);
+    await waitFor(() => expect(screen.getByText("A phone wants to connect.")).toBeTruthy());
+    expect(screen.getByText("Maya")).toBeTruthy();
+    await fireEvent.press(screen.getByTestId("allow-p1"));
+    await waitFor(() => expect(screen.getByTestId("phone-p1")).toBeTruthy());
+    expect(api.calls).toContain("allow p1");
+    expect(screen.getByText("Go to Memories")).toBeTruthy();
+
+    // Forget takes the phone back out.
+    await fireEvent.press(screen.getByTestId("forget-p1"));
+    await waitFor(() => expect(screen.queryByTestId("phone-p1")).toBeNull());
+    expect(api.calls).toContain("deny p1");
+  });
+
   it("Onboarding shows the code and QR, then hands over the session", async () => {
     const api = new FakeApi();
     api.polls = [{ state: "approved", household: "h", token: "t" }];
@@ -57,8 +104,8 @@ describe("screens", () => {
     await render(<MemoriesHome api={api} token="t" tripsVersion={0} onOpenTrip={onOpen} onInvite={() => undefined} />);
     await waitFor(() => expect(screen.getByTestId("trip-kyoto")).toBeTruthy());
     expect(screen.getByTestId("new-kyoto")).toBeTruthy();
-    expect(screen.getByText("2026-04-03 to 2026-04-09 · 2 contributors")).toBeTruthy();
-    await fireEvent.press(screen.getByText("Open"));
+    expect(screen.getByText("April 3, 2026 to April 9, 2026 · 2 contributors")).toBeTruthy();
+    await fireEvent.press(screen.getByText("Open trip"));
     expect(onOpen).toHaveBeenCalledWith(trip);
     await waitFor(() => expect(screen.queryByTestId("new-kyoto")).toBeNull());
   });
@@ -208,12 +255,12 @@ describe("screens", () => {
     await waitFor(() => expect(screen.getByTestId("day-reactions").props.children).toBe("❤ 2 · 1 comment · Grandma Ruth: That ramen!"));
     expect(screen.getByTestId("credit-m2").props.children).toBe("Maya · ❤ 1");
     expect(screen.getByTestId("narrative").props.children).toBe("The golden day.");
-    expect(screen.getByTestId("day-summary").props.children).toBe("2026-04-03 · 2 photos from Hanyu, Maya");
+    expect(screen.getByTestId("day-summary").props.children).toBe("April 3, 2026 · 2 photos from Hanyu, Maya");
     expect(screen.getByTestId("clock-hints").props.children).toBe("Maya's clock corrected by 3 min");
     await waitFor(() => expect(screen.getByTestId("map")).toBeTruthy());
     expect(api.calls).toContain("map kyoto day 1");
     await fireEvent.press(screen.getByTestId("day-2"));
-    expect(screen.getByTestId("day-summary").props.children).toBe("2026-04-04 · 1 photos from Maya · route inferred · 1 undated");
+    expect(screen.getByTestId("day-summary").props.children).toBe("April 4, 2026 · 1 photo from Maya · route inferred · 1 undated");
     expect(screen.getByTestId("narrative").props.children).toBe("We walked the golden pavilion.");
     await fireEvent.press(screen.getByTestId("invite"));
     expect(onInvite).toHaveBeenCalledWith("kyoto");

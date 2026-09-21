@@ -15,6 +15,8 @@ export interface FeedState {
   play: PlayRequest | null;
   /** Photos on their way in from a phone; cleared once a trip is detected (F-102). */
   upload?: UploadProgress | null;
+  /** Bumped when a phone asks to pair; the approval queue refetches on it. */
+  phonesVersion?: number;
 }
 
 export interface UploadProgress {
@@ -39,6 +41,8 @@ export function describe(event: FeedEvent): string | null {
   switch (event.type) {
     case "contribution.received":
       return `${String(event.display_name)} added ${String(event.count)} photos`;
+    // phone.requested has no ticker line: the approval queue opens instead, and a replayed
+    // request would otherwise sit on the home screen long after it was answered.
     case "upload.progress":
       return Number(event.done) >= Number(event.total) ? `Uploaded ${String(event.total)}, organising…` : `Uploading ${String(event.done)} of ${String(event.total)}`;
     case "trip.detected":
@@ -95,6 +99,7 @@ export function reduce(state: FeedState, events: FeedEvent[], next: number): Fee
     tripsVersion: touchesTrips ? state.tripsVersion + 1 : state.tripsVersion,
     upload,
     play,
+    phonesVersion: (state.phonesVersion ?? 0) + (events.some((e) => e.type === "phone.requested") ? 1 : 0),
   };
 }
 

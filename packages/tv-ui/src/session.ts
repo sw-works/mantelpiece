@@ -2,18 +2,26 @@
 // the system-deployed AsyncStorage, research R2); tests and unknown platforms fall back to
 // memory and re-pair after a cold start.
 
+/** What the TV keeps between launches. `name` is the household name chosen on first launch. */
+export interface StoredSession {
+  token: string;
+  household: string;
+  deviceId: string;
+  name?: string;
+}
+
 export interface SessionStore {
-  load(): Promise<{ token: string; household: string; deviceId: string } | null>;
-  save(session: { token: string; household: string; deviceId: string }): Promise<void>;
+  load(): Promise<StoredSession | null>;
+  save(session: StoredSession): Promise<void>;
   clear(): Promise<void>;
 }
 
 export class MemorySessionStore implements SessionStore {
-  private value: { token: string; household: string; deviceId: string } | null = null;
+  private value: StoredSession | null = null;
   async load() {
     return this.value;
   }
-  async save(session: { token: string; household: string; deviceId: string }) {
+  async save(session: StoredSession) {
     this.value = session;
   }
   async clear() {
@@ -40,16 +48,16 @@ export class KeyValueSessionStore implements SessionStore {
     const raw = await this.kv.getItem(this.key);
     if (!raw) return null;
     try {
-      const v = JSON.parse(raw) as Partial<Record<"token" | "household" | "deviceId", unknown>>;
+      const v = JSON.parse(raw) as Partial<Record<"token" | "household" | "deviceId" | "name", unknown>>;
       if (typeof v.token === "string" && typeof v.household === "string" && typeof v.deviceId === "string") {
-        return { token: v.token, household: v.household, deviceId: v.deviceId };
+        return { token: v.token, household: v.household, deviceId: v.deviceId, ...(typeof v.name === "string" ? { name: v.name } : {}) };
       }
     } catch {
       // fall through: unreadable record means signed out
     }
     return null;
   }
-  async save(session: { token: string; household: string; deviceId: string }) {
+  async save(session: StoredSession) {
     await this.kv.setItem(this.key, JSON.stringify(session));
   }
   async clear() {

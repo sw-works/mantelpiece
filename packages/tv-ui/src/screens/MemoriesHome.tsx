@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
-import { type MemoriesHomeView, playlistAsTrip, type Trip, type TripSummary, type TvApi } from "../api/client";
-import { Backdrop } from "../components/Backdrop";
+import { type MemoriesHomeView, playlistAsTrip, type Trip, type TripSummary, type TvApi, longDate } from "../api/client";
 import { FocusButton } from "../components/FocusButton";
 import { PhotoCard } from "../components/PhotoCard";
 import { type RailItem } from "../components/Rail";
@@ -36,6 +35,7 @@ export function MemoriesHome({
   onAsk,
   onReview,
   pendingReviews = 0,
+  waitingPhones = 0,
   onJoin,
   onLeave,
   onMap,
@@ -52,6 +52,8 @@ export function MemoriesHome({
   onAsk?: () => void;
   onReview?: () => void;
   pendingReviews?: number;
+  /** Phones waiting for Allow; shown as the badge on Add photos, which opens pairing. */
+  waitingPhones?: number;
   onJoin?: () => void;
   onLeave?: (trip: TripSummary) => Promise<void> | void;
   onMap?: () => void;
@@ -103,13 +105,13 @@ export function MemoriesHome({
     ...(onPeople ? [{ key: "people", label: "People", onPress: onPeople, testID: "people" }] : []),
     ...(onAsk ? [{ key: "ask", label: "Ask", onPress: onAsk, testID: "ask" }] : []),
     ...(onJoin ? [{ key: "join", label: "Join a trip", onPress: onJoin, testID: "join" }] : []),
-    { key: "invite", label: "Add photos", onPress: onInvite, testID: "invite" },
+    { key: "invite", label: "Add photos", onPress: onInvite, testID: "invite", badge: waitingPhones },
     ...(onReview ? [{ key: "review", label: "Review", onPress: onReview, testID: "review", badge: pendingReviews }] : []),
   ];
   const nav: Nav = { items, tvName };
 
   return (
-    <Screen nav={nav} active="home" backdrop={hero && !arriving ? <Backdrop api={api} token={token} mediaId={hero.hero} /> : null} contentStyle={{ marginRight: 0, paddingTop: 96 }}>
+    <Screen nav={nav} active="home" contentStyle={{ marginRight: 0, paddingTop: 96 }}>
       <ScrollView ref={scroller} contentContainerStyle={{ gap: 40, paddingBottom: theme.safe.y }}>
         {trips === null && <Meta size={theme.body}>Loading…</Meta>}
         {trips !== null && trips.length === 0 && !arriving && (
@@ -122,7 +124,7 @@ export function MemoriesHome({
             <FocusButton label="Add photos" onPress={onInvite} preferred />
           </View>
         )}
-        {arriving ? <ArrivingHero arriving={arriving} onInvite={onInvite} /> : hero ? <TripHero api={api} token={token} trip={hero} isNew={!seen.has(hero.id)} onOpen={() => open(hero)} onPlay={onPlay} onInvite={onInvite} onLeave={onLeave ? () => leave(hero) : undefined} /> : null}
+        {arriving ? <ArrivingHero arriving={arriving} onInvite={onInvite} /> : hero ? <TripHero api={api} token={token} trip={hero} isNew={!seen.has(hero.id)} onOpen={() => open(hero)} onPlay={onPlay} onLeave={onLeave ? () => leave(hero) : undefined} /> : null}
 
         {memories && memories.on_this_day.length > 0 && (
           <View testID="on-this-day" style={{ gap: 14 }}>
@@ -150,12 +152,17 @@ export function MemoriesHome({
         )}
 
         {years.map((group, g) => {
-          const rest = g === 0 && hero && !arriving ? group.trips.slice(1) : group.trips;
+          // The newest trip is the hero above, so the row under it holds the others and
+          // says so: a count that includes the hero reads as a missing card.
+          const heroHere = g === 0 && Boolean(hero) && !arriving;
+          const rest = heroHere ? group.trips.slice(1) : group.trips;
+          if (heroHere && rest.length === 0 && years.length === 1) return null;
+          const count = heroHere ? `${rest.length} more trip${rest.length === 1 ? "" : "s"}` : `${group.trips.length} trip${group.trips.length === 1 ? "" : "s"}`;
           return (
             <View key={group.year} testID={`year-${group.year}`} onLayout={(e) => (yearTop.current[group.year] = e.nativeEvent.layout.y)} style={{ gap: 14 }}>
               <View style={{ flexDirection: "row", gap: 18, alignItems: "center" }}>
-                {years.length > 1 ? <Heading testID={`year-heading-${group.year}`}>{group.year}</Heading> : <Heading>Trips</Heading>}
-                <Meta>{`${group.trips.length} trip${group.trips.length === 1 ? "" : "s"}`}</Meta>
+                {years.length > 1 ? <Heading testID={`year-heading-${group.year}`}>{group.year}</Heading> : <Heading>{heroHere ? "Earlier trips" : "Trips"}</Heading>}
+                {(rest.length > 0 || !heroHere) && <Meta>{count}</Meta>}
                 {g === 0 && years.length > 1 && (
                   <View testID="year-jump" style={{ flexDirection: "row", gap: 10, marginLeft: 18 }}>
                     {years.map((y) => (
@@ -193,29 +200,42 @@ export function MemoriesHome({
 }
 
 function tripMeta(trip: TripSummary): string {
-  return `${trip.start.slice(0, 10)} to ${trip.end.slice(0, 10)} · ${trip.contributors.length} contributor${trip.contributors.length === 1 ? "" : "s"}`;
+  const [from, to] = [longDate(trip.start), longDate(trip.end)];
+  return `${from === to ? from : `${from} to ${to}`} · ${trip.contributors.length} contributor${trip.contributors.length === 1 ? "" : "s"}`;
 }
 
-/** The newest trip, full width over its own photo. */
-function TripHero({ api, token, trip, isNew, onOpen, onPlay, onInvite, onLeave }: { api: TvApi; token: string; trip: TripSummary; isNew: boolean; onOpen: () => void; onPlay?: (trip: Trip) => void; onInvite: () => void; onLeave?: () => void }) {
+const HERO_W = 1480;
+const HERO_H = 470;
+
+/**
+ * The newest trip as one bounded card: its photo, its name and its own two buttons inside
+ * the frame, so nothing on it reads as a control for the whole screen. Adding photos lives
+ * in the rail.
+ */
+function TripHero({ api, token, trip, isNew, onOpen, onPlay, onLeave }: { api: TvApi; token: string; trip: TripSummary; isNew: boolean; onOpen: () => void; onPlay?: (trip: Trip) => void; onLeave?: () => void }) {
+  const label = trip.shared_by ? `Shared by ${trip.shared_by}` : isNew ? "New memory" : "Latest trip";
   return (
-    <View testID={`trip-${trip.id}`} style={{ gap: 18, maxWidth: 1000, minHeight: 380, justifyContent: "flex-end" }}>
-      {trip.shared_by ? (
-        <Text testID={`shared-${trip.id}`} style={{ color: theme.accent, fontSize: theme.eyebrow, fontWeight: "700", letterSpacing: 2.5, textTransform: "uppercase" }}>{`Shared by ${trip.shared_by}`}</Text>
-      ) : isNew ? (
-        <Text testID={`new-${trip.id}`} style={{ color: theme.accent, fontSize: theme.eyebrow, fontWeight: "700", letterSpacing: 2.5, textTransform: "uppercase" }}>
-          New memory
-        </Text>
-      ) : (
-        <Eyebrow>Latest trip</Eyebrow>
-      )}
-      <Title size={theme.display}>{trip.name}</Title>
-      <Meta size={theme.body}>{tripMeta(trip)}</Meta>
-      <View style={{ flexDirection: "row", gap: 14, marginTop: 6 }}>
-        {onPlay && <FocusButton label="Play" testID={`play-${trip.id}`} onPress={() => void api.trip(token, trip.id).then(onPlay).catch(() => undefined)} />}
-        <FocusButton label="Open" preferred onPress={onOpen} variant={onPlay ? "ghost" : "solid"} />
-        <FocusButton label="Invite" variant="ghost" onPress={onInvite} />
-        {trip.shared_by && onLeave && <FocusButton label="Leave" variant="ghost" testID={`leave-${trip.id}`} onPress={onLeave} />}
+    <View style={{ gap: 14 }}>
+      <Heading>Latest trip</Heading>
+      <View testID={`trip-${trip.id}`} style={{ width: HERO_W, height: HERO_H, borderRadius: 36, overflow: "hidden", backgroundColor: theme.panel, borderWidth: 2, borderColor: theme.panel2 }}>
+        {trip.hero && (
+          <View style={{ position: "absolute", top: 0, left: 0 }}>
+            <RemoteImage api={api} token={token} mediaId={trip.hero} width={HERO_W} height={HERO_H} radius={0} />
+          </View>
+        )}
+        <View style={{ position: "absolute", top: 0, left: 0, width: HERO_W, height: HERO_H, backgroundColor: "#0b0b0f99" }} />
+        <View style={{ flex: 1, justifyContent: "flex-end", padding: 44, gap: 14 }}>
+          <Text testID={trip.shared_by ? `shared-${trip.id}` : isNew ? `new-${trip.id}` : undefined} style={{ color: theme.accent, fontSize: theme.eyebrow, fontWeight: "700", letterSpacing: 2.5, textTransform: "uppercase" }}>
+            {label}
+          </Text>
+          <Title size={80}>{trip.name}</Title>
+          <Meta size={theme.body} color={theme.fg}>{tripMeta(trip)}</Meta>
+          <View style={{ flexDirection: "row", gap: 14, marginTop: 8 }}>
+            <FocusButton label="Open trip" testID={`open-${trip.id}`} preferred onPress={onOpen} />
+            {onPlay && <FocusButton label="Play slideshow" variant="ghost" testID={`play-${trip.id}`} onPress={() => void api.trip(token, trip.id).then(onPlay).catch(() => undefined)} />}
+            {trip.shared_by && onLeave && <FocusButton label="Leave trip" variant="ghost" testID={`leave-${trip.id}`} onPress={onLeave} />}
+          </View>
+        </View>
       </View>
     </View>
   );

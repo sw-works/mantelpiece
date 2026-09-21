@@ -72,6 +72,11 @@ id = "com.amazon.network.privilege.net-info"
 [[needs.module]]
 id = "/com.amazon.kepler.async_storage__async_storage_2@IAsyncStorage__AsyncStorage_1"
 
+# The TV's own name, offered as the household name on first launch
+# (@amazon-devices/kepler-identifiers; model name without the friendly-name privilege).
+[[needs.module]]
+id = "/com.amazon.kepler.kepler_identifiers_0@IKeplerIdentifiers_0"
+
 # System-deployed W3C media port (@amazon-devices/react-native-w3cmedia 2.3.4-rn-83).
 [[needs.module]]
 id = "/com.amazon.kepler.w3cmedia_2@IW3cmedia_3"

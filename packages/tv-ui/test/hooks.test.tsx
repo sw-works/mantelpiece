@@ -1,6 +1,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react-native";
 import { BackHandler } from "react-native";
 import { useDeviceSignIn } from "../src/hooks/useDeviceSignIn";
+import { dayLabel, longDate } from "../src/api/client";
 import { describe as describeEvent, reduce, useEvents } from "../src/hooks/useEvents";
 import { useRemoteKeys } from "../src/hooks/useRemoteKeys";
 import { FakeApi } from "./fakeApi";
@@ -75,6 +76,24 @@ describe("events feed", () => {
     const s2 = reduce(s1, [{ seq: 2, at: "", type: "trip.detected", trip: "t", new_media: 9 }], 2);
     expect(s2.tripsVersion).toBe(1);
     expect(reduce(s2, [], 2)).toBe(s2);
+  });
+
+  it("labels days and dates for the trip view", () => {
+    expect(dayLabel({ index: 1, title: "Day 1" })).toBe("Day 1");
+    expect(dayLabel({ index: 2, title: "Day 2: Kinkaku-ji" })).toBe("Day 2 · Kinkaku-ji");
+    expect(dayLabel({ index: 3, title: null })).toBe("Day 3");
+    expect(dayLabel({ index: 4, title: "Arashiyama" })).toBe("Day 4 · Arashiyama");
+    expect(longDate("2025-03-25")).toBe("March 25, 2025");
+    expect(longDate("2025,84")).toBe("2025,84");
+  });
+
+  it("bumps the phones version when a phone asks to connect", () => {
+    const start = { since: 0, recent: [], ticker: null, tripsVersion: 0, play: null };
+    const asked = reduce(start, [{ seq: 1, at: "2026-09-17T10:00:00Z", type: "phone.requested", contributor: "p1", display_name: "Maya" }], 1);
+    expect(asked.phonesVersion).toBe(1);
+    expect(asked.ticker).toBeNull();
+    const other = reduce(asked, [{ seq: 2, at: "2026-09-17T10:01:00Z", type: "memory.ready", trip: "kyoto" }], 2);
+    expect(other.phonesVersion).toBe(1);
   });
 
   it("tracks photos arriving for the home hero until the trip is detected", () => {

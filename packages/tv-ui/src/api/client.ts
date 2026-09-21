@@ -7,6 +7,18 @@ export interface DeviceCodeIssued {
   poll_seconds: number;
 }
 
+/** A phone in the TV's approval queue, or one already let in. */
+export interface PairedPhone {
+  id: string;
+  name: string;
+  at: string;
+}
+
+export interface PairQueue {
+  pending: PairedPhone[];
+  phones: PairedPhone[];
+}
+
 export type DevicePoll =
   | { state: "pending" }
   | { state: "expired" }
@@ -62,6 +74,24 @@ export function creditFor(trip: Trip, mediaId: string): string | null {
   const contributor = trip.media_credits?.[mediaId];
   if (!contributor) return null;
   return trip.contributor_names?.[contributor] ?? contributor;
+}
+
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+/** "March 25, 2025" from `2025-03-25` or an RFC 3339 instant; anything else comes back as is. */
+export function longDate(value: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(value));
+  const month = m ? MONTHS[Number(m[2]) - 1] : undefined;
+  return m && month ? `${month} ${Number(m[3])}, ${m[1]}` : String(value);
+}
+
+/** "Day 2" or "Day 2 · Kinkaku-ji". The API titles a day "Day 2" or "Day 2: Kinkaku-ji". */
+export function dayLabel(day: { index: number; title: string | null }): string {
+  const base = `Day ${day.index}`;
+  const title = (day.title ?? "").trim();
+  if (!title || title === base) return base;
+  const rest = title.startsWith(base) ? title.slice(base.length).replace(/^[\s:·-]+/, "") : title;
+  return rest ? `${base} · ${rest}` : base;
 }
 
 /** The story to show, or null while it is being written or was withheld (F-301). */
@@ -213,7 +243,7 @@ export class TvApi {
     private readonly fetchFn: typeof fetch = fetch,
   ) {}
 
-  private async call<T>(method: "GET" | "POST" | "PUT" | "DELETE", path: string, body?: unknown, bearer?: string): Promise<T> {
+  private async call<T>(method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE", path: string, body?: unknown, bearer?: string): Promise<T> {
     const headers: Record<string, string> = {};
     if (body !== undefined) headers["content-type"] = "application/json";
     if (bearer) headers["authorization"] = `Bearer ${bearer}`;
@@ -226,6 +256,30 @@ export class TvApi {
     const json = (await res.json().catch(() => ({}))) as { error?: string };
     if (!res.ok) throw new ApiError(res.status, json.error ?? `HTTP ${res.status}`);
     return json as T;
+  }
+
+  /** First launch: create the household under the name chosen on the TV. */
+  setupTv(deviceId: string, name: string) {
+    return this.call<{ household: string; household_name: string; token: string }>("POST", "/tv/setup", { device_id: deviceId, name });
+  }
+
+  /** The household name is set on the TV and nowhere else. */
+  renameHousehold(token: string, name: string) {
+    return this.call<{ household_name: string }>("PATCH", "/household", { name }, token);
+  }
+
+  /** The code and link a phone scans to ask its way in. */
+  pairCode(token: string, deviceId: string) {
+    return this.call<{ code: string; link: string; expires_at: string }>("POST", "/pair/code", { device_id: deviceId }, token);
+  }
+
+  pairQueue(token: string) {
+    return this.call<PairQueue>("GET", "/pair/requests", undefined, token);
+  }
+
+  /** Let a waiting phone in, turn it away, or forget one let in before. */
+  decidePhone(token: string, id: string, allow: boolean) {
+    return this.call<{ id: string; name: string; approved: boolean }>("POST", `/pair/requests/${id}/${allow ? "approve" : "deny"}`, undefined, token);
   }
 
   issueDeviceCode(deviceId: string, tvName?: string) {
