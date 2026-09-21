@@ -87,7 +87,7 @@ export function TripView({
   const story = storyOf(trip);
   const roleOf = (id: string) => roles[id] ?? trip.contributor_roles?.[id] ?? "contributor";
   const people = Object.entries(trip.contributor_names ?? {});
-  const span = `${trip.start.slice(0, 10)} to ${trip.end.slice(0, 10)}`;
+  const span = `${longDate(trip.start)} to ${longDate(trip.end)}`;
   return (
     <Screen nav={nav} active="home" backdrop={<Backdrop api={api} token={token} mediaId={trip.hero} height={520} dim={0.7} />}>
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 24 }}>
