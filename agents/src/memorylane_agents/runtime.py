@@ -67,7 +67,9 @@ def gateway_tools() -> Tools:
 
     return GatewayTools(
         url=os.environ["GATEWAY_URL"],
-        token_provider=os.environ.get("GATEWAY_TOKEN_PROVIDER", "cognito"),
+        token_url=os.environ["GATEWAY_TOKEN_URL"],
+        client_id=os.environ["GATEWAY_CLIENT_ID"],
+        client_secret=os.environ["GATEWAY_CLIENT_SECRET"],
     )
 
 
@@ -76,7 +78,7 @@ def main() -> None:  # pragma: no cover - needs the AgentCore SDK and AWS
 
     app = BedrockAgentCoreApp()
     tools = gateway_tools()
-    model = bedrock_model(os.environ.get("MODEL_ID", "us.anthropic.claude-sonnet-4-20250514-v1:0"))
+    model = bedrock_model(os.environ.get("MODEL_ID", "us.amazon.nova-pro-v1:0"))
 
     @app.entrypoint
     def entrypoint(payload: dict[str, Any]) -> dict[str, Any]:

@@ -1,4 +1,4 @@
-.PHONY: test lint fmt test-rust lint-rust test-node lint-node test-py lint-py build-lambdas deploy deploy-web up down tv-vvd-start tv-vvd-install tv-vvd-logs tv-vvd-shot tv-vvd-stop tv-walkthrough
+.PHONY: test lint fmt test-rust lint-rust test-node lint-node test-py lint-py build-lambdas build-agent deploy deploy-web up down tv-vvd-start tv-vvd-install tv-vvd-logs tv-vvd-shot tv-vvd-stop tv-walkthrough
 
 test: test-rust test-node test-py
 lint: lint-rust lint-node lint-py
@@ -30,7 +30,12 @@ fmt:
 build-lambdas:
 	cd services && cargo lambda build --release --arm64 --bin api --bin ingest --bin poster
 
-deploy: build-lambdas
+# The Concierge agent for AgentCore Runtime: its code plus arm64 wheels in
+# agents/build/runtime, which the CDK stack zips. Needs uv.
+build-agent:
+	scripts/build-agent.sh
+
+deploy: build-lambdas build-agent
 	cd infra && pnpm cdk deploy --require-approval never $(CDK_ARGS)
 
 # Second pass: build the phone pages against the deployed stack's outputs and publish them.

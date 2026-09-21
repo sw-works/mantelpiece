@@ -113,6 +113,12 @@ memory apps.
   this is a small custom flow: Lambda issues and verifies codes in a DynamoDB table with TTL.
   Pure HTTPS from the TV app, no native bridge. Native LWA on-device sign-in is an upgrade
   only if the week 1 Vega spike passes (timeline in `hackathon.md`).
+- **Concierge on AgentCore Runtime, tools through the Gateway (2026-09-21)**: the Strands
+  agent in `agents/` deploys as code (no container; `scripts/build-agent.sh` gathers arm64
+  wheels) to a Runtime. EventBridge has no Runtime target, so a small function forwards
+  `trip.detected` to `InvokeAgentRuntime`. The agent calls its tools over MCP at the Gateway
+  as its own Cognito client (client credentials), and the Gateway's REQUEST interceptor seals
+  the verified caller into each tool call; see `contracts/tools.md`, "Who is calling".
 - **Push by HTTP long-poll, default**: TV app polls `/events?since=` with a 25-second hold.
   AppSync Events over WebSocket is an upgrade if the Vega spike passes. Same event schema
   either way.

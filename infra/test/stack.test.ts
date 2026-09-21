@@ -1,3 +1,6 @@
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import * as path from "node:path";
 import { App } from "aws-cdk-lib";
 import { Match, Template } from "aws-cdk-lib/assertions";
 import { describe, expect, it } from "vitest";
@@ -10,6 +13,8 @@ function synth(extra: Partial<ConstructorParameters<typeof MemoryLaneStack>[2]> 
     env: { account: "123456789012", region: "us-east-1" },
     linkBase: "https://link.example.com",
     uploadBase: "https://upload.example.com",
+    // Hermetic: never pick up a locally built agent package by accident.
+    agentPackageDir: path.join(tmpdir(), "memorylane-no-agent-package"),
     ...extra,
   });
   return Template.fromStack(stack);
@@ -77,11 +82,12 @@ describe("MemoryLane stack", () => {
     });
   });
 
-  it("runs three Rust Lambdas on arm64 with the placeholder asset", () => {
+  it("runs four Rust Lambdas on arm64 with the placeholder asset", () => {
     const rust = template.findResources("AWS::Lambda::Function", {
       Properties: { Runtime: "provided.al2023" },
     });
-    expect(Object.keys(rust)).toHaveLength(3);
+    // api, ingest, poster, and the api binary again as the Gateway's interceptor.
+    expect(Object.keys(rust)).toHaveLength(4);
     template.hasResourceProperties("AWS::Lambda::Function", {
       Runtime: "provided.al2023",
       Architectures: ["arm64"],
@@ -183,6 +189,38 @@ describe("MemoryLane stack", () => {
     expect(tools.map((t) => t.Name)).toEqual(expect.arrayContaining(["get_now_showing", "describe_photo", "apply_cleanup", "purge_expired"]));
   });
 
+  it("runs the Concierge on AgentCore Runtime once its package is built, fed by trip.detected", () => {
+    template.resourceCountIs("AWS::BedrockAgentCore::Runtime", 0);
+    const dir = mkdtempSync(path.join(tmpdir(), "agent-"));
+    writeFileSync(path.join(dir, "main.py"), "print('agent')\n");
+    const withAgent = synth({ agentPackageDir: dir, agentModelId: "test.model" });
+    withAgent.hasResourceProperties("AWS::BedrockAgentCore::Runtime", {
+      AgentRuntimeName: "memorylane_concierge",
+      NetworkConfiguration: { NetworkMode: "PUBLIC" },
+      AgentRuntimeArtifact: { CodeConfiguration: { EntryPoint: ["main.py"], Runtime: "PYTHON_3_13", Code: { S3: Match.objectLike({ Bucket: Match.anyValue() }) } } },
+      EnvironmentVariables: Match.objectLike({ GATEWAY_URL: Match.anyValue(), GATEWAY_TOKEN_URL: Match.anyValue(), GATEWAY_CLIENT_ID: Match.anyValue(), MODEL_ID: "test.model" }),
+    });
+    withAgent.hasResourceProperties("AWS::Events::Rule", {
+      EventPattern: { source: ["memorylane"], "detail-type": ["trip.detected"] },
+    });
+    withAgent.hasResourceProperties("AWS::IAM::Policy", {
+      PolicyDocument: { Statement: Match.arrayWith([Match.objectLike({ Action: "bedrock-agentcore:InvokeAgentRuntime" })]) },
+    });
+  });
+
+  it("makes the API Lambda the Gateway's request interceptor so tool calls carry a verified caller", () => {
+    template.hasResourceProperties("AWS::BedrockAgentCore::Gateway", {
+      InterceptorConfigurations: [
+        { InterceptionPoints: ["REQUEST"], InputConfiguration: { PassRequestHeaders: true }, Interceptor: { Lambda: { Arn: Match.anyValue() } } },
+      ],
+    });
+    template.hasResourceProperties("AWS::Lambda::Function", {
+      Environment: { Variables: Match.objectLike({ AGENT_CLIENT_ID: Match.anyValue(), OAUTH_ISSUER: Match.anyValue() }) },
+    });
+    // People act for their own household, so no tool makes the caller name one.
+    for (const tool of toolDefinitions) expect(tool.inputSchema.required ?? []).not.toContain("household");
+  });
+
   it("loads the Cedar policy that gates every irreversible tool", () => {
     // One Cedar statement per Policy resource (AgentCore rejects several in one).
     const policies = Object.values(template.findResources("AWS::BedrockAgentCore::Policy"));
@@ -281,17 +319,22 @@ describe("MemoryLane stack", () => {
       Scopes: [Match.objectLike({ ScopeName: "tools" })],
     });
     const clients = Object.values(template.findResources("AWS::Cognito::UserPoolClient"));
-    expect(clients).toHaveLength(3);
-    const alexa = clients.find((c) => JSON.stringify(c.Properties.AllowedOAuthScopes).includes("tools"));
+    expect(clients).toHaveLength(4);
+    const alexa = clients.find((c) => JSON.stringify(c.Properties.AllowedOAuthScopes).includes("tools") && c.Properties.GenerateSecret !== true);
     if (!alexa) throw new Error("no Alexa+ client");
     expect(alexa.Properties.AllowedOAuthFlows).toEqual(["code"]);
     expect(alexa.Properties.GenerateSecret ?? false).toBe(false);
     expect(JSON.stringify(alexa.Properties.AllowedOAuthScopes)).toContain("openid");
     const gateway = Object.values(template.findResources("AWS::BedrockAgentCore::Gateway"))[0];
     if (!gateway) throw new Error("no gateway");
-    expect(gateway.Properties.AuthorizerConfiguration.CustomJWTAuthorizer.AllowedClients).toHaveLength(2);
+    expect(gateway.Properties.AuthorizerConfiguration.CustomJWTAuthorizer.AllowedClients).toHaveLength(3);
+    // The Concierge agent calls the Gateway as itself: client credentials, tools scope only.
+    const agent = clients.find((c) => JSON.stringify(c.Properties.AllowedOAuthFlows) === JSON.stringify(["client_credentials"]));
+    if (!agent) throw new Error("no Concierge client");
+    expect(agent.Properties.GenerateSecret).toBe(true);
+    expect(JSON.stringify(agent.Properties.AllowedOAuthScopes)).toContain("tools");
     // The skill's confidential client is a JWT audience for /session/amazon but not a Gateway caller.
-    const skill = clients.find((c) => c.Properties.GenerateSecret === true);
+    const skill = clients.find((c) => c.Properties.GenerateSecret === true && JSON.stringify(c.Properties.AllowedOAuthFlows) === JSON.stringify(["code"]));
     if (!skill) throw new Error("no Alexa skill client");
     expect(skill.Properties.AllowedOAuthFlows).toEqual(["code"]);
     const authorizer = Object.values(template.findResources("AWS::ApiGatewayV2::Authorizer"))[0];

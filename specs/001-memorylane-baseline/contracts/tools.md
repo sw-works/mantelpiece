@@ -6,6 +6,30 @@ tools are added by this feature. Every call carries `household`; the Gateway's i
 maps the caller to a household and role. Alexa+ constraints (R6): every tool answers in
 under 500 ms from stored data.
 
+## Who is calling (2026-09-21)
+
+AgentCore Gateway invokes the API Lambda directly: the event is the tool's arguments, the
+tool's qualified name (`api___get_trip`) rides in the client context, and the caller's
+identity does not reach a Lambda target at all. So the same binary also runs as the
+Gateway's REQUEST interceptor (`ToolInterceptFn`, `passRequestHeaders`): it reads the bearer
+token the Gateway's JWT authorizer accepted, checks issuer, expiry and token use again, and
+seals `{kind, subject, tool, exp}` into the arguments as `_caller` under the API's own key,
+good for sixty seconds and that one tool. As the target, the API refuses any call without
+such a seal (401).
+
+- A signed-in person (Alexa+, the phone) always acts for their own household, their Cognito
+  `sub`, whatever `household` argument arrives. No tool requires `household`.
+- The Concierge agent signs in with client credentials (`ConciergeClientId`); only that
+  client may name the household, because it acts on events for any of them.
+- The Gateway verifies the token's signature; the interceptor does not repeat that.
+- A household made on the TV without an Amazon account has no Cognito user, so a person
+  cannot reach it through the Gateway until claiming is built; the agent can.
+
+Each tool runs the API route of the same name's purpose as an internal request
+(`services/lambdas/api/src/tools.rs`), so tool and route cannot drift. `list_duplicates`,
+`read_memory` and `write_memory` answer 501 until they have a backend. `get_household` is
+NEW: name and settings, used by the Trip Curator for narration.
+
 ## Read tools
 
 | Tool | Args | Returns |

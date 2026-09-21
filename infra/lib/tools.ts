@@ -23,16 +23,19 @@ const int = (description: string): Schema => ({ type: "integer", description });
 const bool = (description: string): Schema => ({ type: "boolean", description });
 const strings = (description: string): Schema => ({ type: "array", description, items: { type: "string" } });
 
-const HOUSEHOLD = str("Household id the caller belongs to");
+// A signed-in person always acts for their own household, taken from their token by the
+// Gateway's interceptor; only the Concierge agent names one. So no tool requires it.
+const HOUSEHOLD = str("Leave out. Set only by the Concierge agent, which acts for the household an event names");
 const TRIP = str("Trip id");
 const CONFIRMATION = str("Confirmation token minted by the TV's Review Changes modal");
 
 function tool(name: string, description: string, properties: Record<string, Schema>, required: string[]): ToolDefinition {
-  return { name, description, inputSchema: { type: "object", properties, required } };
+  return { name, description, inputSchema: { type: "object", properties, required: required.filter((r) => r !== "household") } };
 }
 
 /** Read tools: answer from stored data, under 500 ms for Alexa+. */
 export const readTools: ToolDefinition[] = [
+  tool("get_household", "The household's name and settings: narration, people", { household: HOUSEHOLD }, ["household"]),
   tool("list_trips", "Trip summaries for the household, including trips joined from another TV", { household: HOUSEHOLD }, ["household"]),
   tool("get_trip", "One trip with its days, route, narrative and highlights", { household: HOUSEHOLD, trip_id: TRIP }, ["household", "trip_id"]),
   tool("get_trip_code", "The trip's join code for another MemoryLane TV", { household: HOUSEHOLD, trip_id: TRIP }, ["household", "trip_id"]),
@@ -71,8 +74,15 @@ export const writeTools: ToolDefinition[] = [
   tool(
     "save_narrative",
     "Save a trip story that passed the place-and-date check; rejected otherwise",
-    { household: HOUSEHOLD, trip_id: TRIP, text: str("The story"), model_id: str("Model that wrote it") },
-    ["household", "trip_id", "text", "model_id"],
+    {
+      household: HOUSEHOLD,
+      trip_id: TRIP,
+      text: str("The story"),
+      model_id: str("Model that wrote it"),
+      stories: strings("One paragraph per day, in day order, for narration"),
+      withhold: bool("True when the story failed the check twice: store it as withheld"),
+    },
+    ["household", "trip_id", "model_id"],
   ),
   tool("write_memory", "Remember a preference or pattern", { household: HOUSEHOLD, key: str("Key"), value: str("JSON value") }, ["household", "key", "value"]),
   tool("push_event", "Put an event on the household feed", { household: HOUSEHOLD, event: str("Event JSON with a type field") }, ["household", "event"]),

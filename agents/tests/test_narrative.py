@@ -1,4 +1,10 @@
-from memorylane_agents.narrative import check_narrative, facts_for, prompt_for, split_days
+from memorylane_agents.narrative import (
+    Facts,
+    check_narrative,
+    facts_for,
+    prompt_for,
+    split_days,
+)
 from memorylane_agents.tools import Trip
 
 
@@ -38,3 +44,21 @@ def test_split_days_prefers_paragraphs_then_deals_sentences() -> None:
     assert split_days("Only one.", 3) == ["Only one.", "", ""]
     assert split_days("", 2) == ["", ""]
     assert split_days("x", 0) == []
+
+
+def test_sentence_openers_and_paragraph_starts_are_not_names():
+    facts = Facts(
+        places={"Skógafoss", "Iceland"}, dates={"2015-06-27", "2015-07-01"}, people={"Hanyu"}
+    )
+    text = (
+        "On June 27th the family reached Iceland. Finally they saw Skógafoss.\n\n"
+        'On July 1st Hanyu walked behind the falls. "Next time," they said, "we stay longer."'
+    )
+    assert check_narrative(text, facts) == []
+    # Forms of a listed name are that name; near-misses are not.
+    assert check_narrative("They loved the Icelandic light.", facts) == []
+    assert check_narrative("They loved the Irish light.", facts) == ["unlisted name 'Irish'"]
+    # A real invention after a sentence opener is still caught.
+    assert check_narrative("On June 27th they reached Iceland.\n\nThen Paris called.", facts) == [
+        "unlisted name 'Paris'"
+    ]

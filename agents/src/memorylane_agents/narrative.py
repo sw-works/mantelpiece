@@ -86,6 +86,21 @@ _YEAR = re.compile(r"\b(19|20)\d{2}\b")
 _CAPITALISED = re.compile(r"\b[A-Z][a-zA-Z\-']+(?:\s+[A-Z][a-zA-Z\-']+)*\b")
 
 
+def _derived(word: str, known_words: set[str]) -> bool:
+    """ "Icelandic" from Iceland, "Scottish" from Scotland: a form of a listed name, not a new
+    one. The shared opening must be at least four letters and most of the shorter word."""
+    w = word.lower()
+    for k in known_words:
+        shared = 0
+        for a, b in zip(w, k, strict=False):
+            if a != b:
+                break
+            shared += 1
+        if shared >= 4 and shared * 10 >= min(len(w), len(k)) * 6:
+            return True
+    return False
+
+
 def check_narrative(text: str, facts: Facts) -> list[str]:
     """Return a list of problems; empty means the text stays within the facts."""
     problems: list[str] = []
@@ -102,9 +117,17 @@ def check_narrative(text: str, facts: Facts) -> list[str]:
     known_words |= allowed_months | WEEKDAYS | {"day", "days", "the", "we", "our"}
     for m in _CAPITALISED.finditer(text):
         phrase = m.group(0)
-        if m.start() == 0 or text[m.start() - 2 : m.start()] in {". ", "! ", "? "}:
-            continue  # sentence starts are ordinary words
-        if phrase.lower() in known or all(w.lower() in known_words for w in phrase.split()):
+        # The first word of a sentence is capitalised whatever it is: drop it and judge the
+        # rest, so "On June 27th" is checked as "June". A sentence starts the text, follows
+        # closing punctuation, or opens a paragraph.
+        before = text[: m.start()].rstrip(" \t\"'\u201c\u2018(")
+        if not before or before[-1] in ".!?:\n":
+            phrase = phrase.split(maxsplit=1)[1] if " " in phrase else ""
+        if not phrase:
+            continue
+        if phrase.lower() in known or all(
+            w.lower() in known_words or _derived(w, known_words) for w in phrase.split()
+        ):
             continue
         problems.append(f"unlisted name {phrase!r}")
     return problems

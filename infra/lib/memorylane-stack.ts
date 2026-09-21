@@ -16,6 +16,7 @@ import * as targets from "aws-cdk-lib/aws-events-targets";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as s3 from "aws-cdk-lib/aws-s3";
+import * as s3assets from "aws-cdk-lib/aws-s3-assets";
 import * as scheduler from "aws-cdk-lib/aws-scheduler";
 import * as ses from "aws-cdk-lib/aws-ses";
 import * as schedulerTargets from "aws-cdk-lib/aws-scheduler-targets";
@@ -57,6 +58,14 @@ export interface MemoryLaneStackProps extends StackProps {
    * default is a placeholder until the preview registration says which; unverified.
    */
   alexaCallbackUrls?: string[];
+  /** Directory built by `scripts/build-agent.sh`; the Runtime is left out when it is absent. */
+  agentPackageDir?: string;
+  /**
+   * Bedrock model (or inference profile) id the Concierge writes with. Defaults to Amazon
+   * Nova Pro, which needs no sign-up; an Anthropic model first needs the account's use-case
+   * form (`-c agent-model-id=us.anthropic.claude-sonnet-4-20250514-v1:0`).
+   */
+  agentModelId?: string;
   /** Where route landmarks come from: "aws" (Amazon Location Places), "wikipedia", "none". */
   placesProvider?: "aws" | "wikipedia" | "none";
   /**
@@ -80,6 +89,8 @@ const placeholderDir = path.resolve(here, "..", "assets", "placeholder");
 const cedarPolicyDir = path.resolve(here, "..", "policy");
 const ffmpegLayerDir = path.resolve(here, "..", "assets", "ffmpeg-layer");
 const skillAssetDir = path.resolve(here, "..", "..", "agents", "src");
+/** `scripts/build-agent.sh` output: the Concierge with its arm64 dependencies. */
+const agentPackageDefault = path.resolve(here, "..", "..", "agents", "build", "runtime");
 const webDistDefault = path.resolve(here, "..", "..", "apps", "web", "dist");
 
 export class MemoryLaneStack extends Stack {
@@ -225,6 +236,18 @@ export class MemoryLaneStack extends Stack {
     });
     alexaClient.node.addDependency(resourceServer);
     if (amazonProvider) alexaClient.node.addDependency(amazonProvider);
+
+    // The Concierge agent's own identity at the Gateway: client credentials, the same
+    // `memorylane/tools` scope, no user. It works for whichever household an event names.
+    const agentClient = this.userPool.addClient("Concierge", {
+      generateSecret: true,
+      oAuth: {
+        flows: { clientCredentials: true },
+        scopes: [cognito.OAuthScope.resourceServer(resourceServer, toolsScope)],
+      },
+      accessTokenValidity: Duration.hours(1),
+    });
+    agentClient.node.addDependency(resourceServer);
 
     // Custom Alexa skill account linking: a confidential client (Alexa keeps the secret),
     // authorization-code grant, the same profile scopes as the web client.
@@ -412,8 +435,7 @@ export class MemoryLaneStack extends Stack {
     });
     this.bucket.grantRead(organizeMachine, "manifests/*");
 
-    const apiFn = rustFunction("ApiFn", "api", {
-      environment: {
+    const apiEnvironment = {
         TABLE_NAME: this.table.tableName,
         MEDIA_BUCKET: this.bucket.bucketName,
         SHARE_SENDER: props.shareSender ?? "",
@@ -426,8 +448,13 @@ export class MemoryLaneStack extends Stack {
         UPLOAD_BASE: uploadBase,
         POLL_HOLD_SECONDS: "25",
         RUST_LOG: "info",
-      },
-    });
+        AGENT_CLIENT_ID: agentClient.userPoolClientId,
+    };
+    const apiFn = rustFunction("ApiFn", "api", { environment: apiEnvironment });
+    // The same binary as the Gateway's REQUEST interceptor. A function of its own because
+    // the API function needs the Gateway's URL and the Gateway needs its interceptor's
+    // ARN. It holds the signing key and nothing else: no table, no bucket, no bus.
+    const interceptFn = rustFunction("ToolInterceptFn", "api", { environment: apiEnvironment });
     this.table.grantReadWriteData(apiFn);
     this.bucket.grantReadWrite(apiFn);
     organizeMachine.grantStartExecution(apiFn);
@@ -508,6 +535,7 @@ export class MemoryLaneStack extends Stack {
       description: "Lets the AgentCore Gateway invoke the API Lambda as its tool target",
     });
     apiFn.grantInvoke(gatewayRole);
+    interceptFn.grantInvoke(gatewayRole);
     // Policy evaluation at request time (policy-permissions guide): the three actions the
     // Gateway calls on its Policy Engine, on both engine and gateway ARNs. Wildcards because
     // the Gateway's own ARN is not known until it exists. A separate policy resource so the
@@ -536,10 +564,20 @@ export class MemoryLaneStack extends Stack {
       authorizerConfiguration: {
         customJwtAuthorizer: {
           discoveryUrl: `${this.userPool.userPoolProviderUrl}/.well-known/openid-configuration`,
-          allowedClients: [client.userPoolClientId, alexaClient.userPoolClientId],
+          allowedClients: [client.userPoolClientId, alexaClient.userPoolClientId, agentClient.userPoolClientId],
         },
       },
       policyEngineConfiguration: { arn: policyEngine.attrPolicyEngineArn, mode: "ENFORCE" },
+      // A Lambda target never sees who called. The API binary therefore also runs as the
+      // REQUEST interceptor: it reads the bearer token the authorizer above accepted and
+      // seals the caller into the tool arguments; as the target it refuses unsealed calls.
+      interceptorConfigurations: [
+        {
+          interceptionPoints: ["REQUEST"],
+          interceptor: { lambda: { arn: interceptFn.functionArn } },
+          inputConfiguration: { passRequestHeaders: true },
+        },
+      ],
     });
     this.gateway.node.addDependency(engineAccess);
     // The API serves the OAuth metadata documents that point Alexa+ at this endpoint.
@@ -588,6 +626,91 @@ export class MemoryLaneStack extends Stack {
       policyFor(name, `Cedar rule from infra/policy/${file}`, readFileSync(path.join(cedarPolicyDir, file), "utf8").split("${GATEWAY_ARN}").join(this.gateway.attrGatewayArn)).node.addDependency(permit);
     }
 
+    // The Concierge on AgentCore Runtime (F-503): the Strands agent in agents/, deployed as
+    // code (no container), calling its tools through the Gateway above as its own Cognito
+    // client. Skipped until `scripts/build-agent.sh` has produced the package, so tests and
+    // a first `cdk synth` need no Python toolchain.
+    const agentPackage = props.agentPackageDir ?? agentPackageDefault;
+    if (existsSync(path.join(agentPackage, "main.py"))) {
+      const agentCode = new s3assets.Asset(this, "ConciergeCode", { path: agentPackage });
+      const runtimeRole = new iam.Role(this, "ConciergeRole", {
+        assumedBy: new iam.ServicePrincipal("bedrock-agentcore.amazonaws.com"),
+        description: "The Concierge agent: Bedrock models, its own logs and traces",
+      });
+      agentCode.grantRead(runtimeRole);
+      runtimeRole.addToPolicy(
+        new iam.PolicyStatement({
+          actions: ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"],
+          resources: ["*"],
+        }),
+      );
+      runtimeRole.addToPolicy(
+        new iam.PolicyStatement({
+          actions: ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents", "logs:DescribeLogGroups", "logs:DescribeLogStreams", "xray:PutTraceSegments", "xray:PutTelemetryRecords", "cloudwatch:PutMetricData"],
+          resources: ["*"],
+        }),
+      );
+      const runtime = new agentcore.CfnRuntime(this, "Concierge", {
+        agentRuntimeName: "memorylane_concierge",
+        description: "Trip Curator and the other MemoryLane workflows",
+        roleArn: runtimeRole.roleArn,
+        networkConfiguration: { networkMode: "PUBLIC" },
+        agentRuntimeArtifact: {
+          codeConfiguration: {
+            code: { s3: { bucket: agentCode.s3BucketName, prefix: agentCode.s3ObjectKey } },
+            entryPoint: ["main.py"],
+            runtime: "PYTHON_3_13",
+          },
+        },
+        environmentVariables: {
+          GATEWAY_URL: this.gateway.attrGatewayUrl,
+          GATEWAY_TOKEN_URL: `${domain.baseUrl()}/oauth2/token`,
+          GATEWAY_CLIENT_ID: agentClient.userPoolClientId,
+          // Hackathon shortcut, like TOKEN_SECRET: production would read Secrets Manager.
+          GATEWAY_CLIENT_SECRET: agentClient.userPoolClientSecret.unsafeUnwrap(),
+          MODEL_ID: props.agentModelId ?? "us.amazon.nova-pro-v1:0",
+        },
+      });
+      runtime.node.addDependency(runtimeRole);
+
+      // EventBridge has no AgentCore Runtime target, so one small function hands each
+      // event over. A run is synchronous; the story takes well under its timeout.
+      const forwardFn = new lambda.Function(this, "ConciergeForwardFn", {
+        runtime: lambda.Runtime.PYTHON_3_13,
+        architecture: lambda.Architecture.ARM_64,
+        handler: "index.handler",
+        timeout: Duration.minutes(5),
+        memorySize: 256,
+        environment: { AGENT_RUNTIME_ARN: runtime.attrAgentRuntimeArn },
+        code: lambda.Code.fromInline(
+          [
+            "import json, os, uuid, boto3",
+            "from botocore.config import Config",
+            "client = boto3.client('bedrock-agentcore', config=Config(read_timeout=280, retries={'max_attempts': 1}))",
+            "def handler(event, _context):",
+            "    payload = {'detail-type': event['detail-type'], 'detail': event['detail']}",
+            "    out = client.invoke_agent_runtime(agentRuntimeArn=os.environ['AGENT_RUNTIME_ARN'], runtimeSessionId=str(uuid.uuid4()) + str(uuid.uuid4()), payload=json.dumps(payload).encode(), contentType='application/json', accept='application/json')",
+            "    body = out['response'].read().decode()",
+            "    print(json.dumps({'event': event['detail-type'], 'household': event['detail'].get('household'), 'result': body[:2000]}))",
+            "    return {'ok': True}",
+          ].join("\n"),
+        ),
+      });
+      forwardFn.addToRolePolicy(
+        new iam.PolicyStatement({
+          actions: ["bedrock-agentcore:InvokeAgentRuntime"],
+          resources: [runtime.attrAgentRuntimeArn, `${runtime.attrAgentRuntimeArn}/*`],
+        }),
+      );
+      // The events the Concierge can act on today: a new or grown trip gets its story.
+      new events.Rule(this, "ConciergeEvents", {
+        eventBus: this.bus,
+        eventPattern: { source: ["memorylane"], detailType: ["trip.detected"] },
+        targets: [new targets.LambdaFunction(forwardFn, { retryAttempts: 1 })],
+      });
+      new CfnOutput(this, "ConciergeRuntimeArn", { value: runtime.attrAgentRuntimeArn });
+    }
+
     // Nightly work: one `nightly.tick` on the bus at 03:00 UTC. The Concierge is its only
     // consumer (W3 Household Patterns, memories_nightly, purge_expired) and fans out per
     // household in its own local time. No Lambda runs on a timer.
@@ -614,6 +737,7 @@ export class MemoryLaneStack extends Stack {
     new CfnOutput(this, "PolicyEngineArn", { value: policyEngine.attrPolicyEngineArn });
     new CfnOutput(this, "UserPoolId", { value: this.userPool.userPoolId });
     new CfnOutput(this, "UserPoolClientId", { value: client.userPoolClientId });
+    new CfnOutput(this, "ConciergeClientId", { value: agentClient.userPoolClientId });
     new CfnOutput(this, "AlexaSkillClientId", { value: skillClient.userPoolClientId });
     new CfnOutput(this, "AlexaSkillFunctionArn", { value: skillFn.functionArn });
     new CfnOutput(this, "MediaBucket", { value: this.bucket.bucketName });

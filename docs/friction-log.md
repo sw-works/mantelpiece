@@ -124,11 +124,34 @@ what would have helped. Dates are when we hit it.
   Also learned: a horizontal `ScrollView` inside a column grows to fill it unless it gets
   `flexGrow: 0`, which left a 400px hole under the day chips until it did.
 
+- **2026-09-21, AgentCore Gateway and Runtime, first real deploy.** What worked first
+  time: a Runtime from a code package (no container) through CloudFormation, a Lambda
+  target, Cedar in ENFORCE mode, and a client-credentials Cognito client as the agent's
+  identity. What cost time:
+  - A Lambda target never learns who called. The documented event is the tool arguments
+    and the client context carries tool and gateway ids, nothing about the caller. We made
+    the same binary the Gateway's REQUEST interceptor with `passRequestHeaders`, sealed
+    the caller into the arguments and verified the seal in the target. A `callerIdentity`
+    block in the client context would remove all of that.
+  - The interceptor cannot be the target function: the target needs the Gateway URL, the
+    Gateway needs the interceptor ARN, CloudFormation sees a cycle. Two functions, one
+    binary.
+  - The Gateway answers `Unsupported protocol version: 2025-03-26` when the
+    `mcp-protocol-version` header is absent, although the gateway was created with
+    `2025-11-25` only. Defaulting to the gateway's single supported version would be kinder.
+  - EventBridge has no AgentCore Runtime target, so every event-driven agent needs a
+    forwarding Lambda.
+  - An Anthropic model fails at the first call with "Model use case details have not been
+    submitted", from inside the Runtime, as a 500 to the invoker. Amazon Nova Pro needed
+    nothing, so it is the default here.
+
 ## What would help most
 
 1. One compatibility page per Vega SDK version: React Native pin, system-deployed ports,
    CLI-only install.
 2. An Amazon Photos read API or MCP tool.
 3. A Cognito device-code grant.
-4. A local path from phone to Fire TV: a DIAL payload a web page could send, or a
+4. Caller identity (subject, client id, scopes) in the client context of a Gateway Lambda
+   target, and an EventBridge target for AgentCore Runtime.
+5. A local path from phone to Fire TV: a DIAL payload a web page could send, or a
    share-sheet target on Fire OS that a Vega app can receive.

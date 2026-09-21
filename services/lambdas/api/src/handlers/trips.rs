@@ -190,6 +190,11 @@ pub async fn trip_json_for(
     let mut v = serde_json::to_value(&trip).map_err(|e| ApiError::internal(e.to_string()))?;
     // Places for the story and for Alexa+: route landmarks plus what Vision recognised.
     let mut places: Vec<String> = trip.landmarks().iter().map(|l| l.name.clone()).collect();
+    for country in trip.landmarks().iter().filter_map(|l| l.country.clone()) {
+        if !places.contains(&country) {
+            places.push(country);
+        }
+    }
     for m in &media {
         if let Some(l) = &m.enrichment.landmark {
             if !places.contains(&l.name) {
@@ -330,6 +335,9 @@ async fn allowed_for(app: &App, household: &HouseholdId, trip: &Trip) -> Result<
     }
     for l in trip.landmarks() {
         allowed.name(&l.name);
+        if let Some(country) = &l.country {
+            allowed.name(country);
+        }
     }
     for m in app.storage.list_media(household).await? {
         if m.trip.as_ref() == Some(&trip.id) {

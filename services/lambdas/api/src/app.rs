@@ -29,6 +29,9 @@ pub struct Config {
     pub oauth_domain: String,
     /// The AgentCore Gateway MCP endpoint Alexa+ calls (research R6).
     pub gateway_url: String,
+    /// Cognito client id of the Concierge agent: the one Gateway caller that acts for
+    /// whichever household an event names. Every other caller is a signed-in person.
+    pub agent_client_id: String,
 }
 
 impl Default for Config {
@@ -42,6 +45,7 @@ impl Default for Config {
             oauth_issuer: "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_test".into(),
             oauth_domain: "https://memorylane-test.auth.us-east-1.amazoncognito.com".into(),
             gateway_url: "https://gateway.memorylane.test/mcp".into(),
+            agent_client_id: "concierge-client".into(),
         }
     }
 }

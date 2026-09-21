@@ -3650,3 +3650,334 @@ async fn a_phone_pairs_with_the_tv_by_name_and_waits_for_approval() {
         .await;
     assert_eq!(late.status, 404);
 }
+
+/// An access token as Cognito would mint it. Unsigned: the Gateway checks signatures, the
+/// interceptor reads the claims.
+fn access_token(
+    h: &Harness,
+    sub: &str,
+    client: &str,
+    issuer: Option<&str>,
+    lifetime: i64,
+) -> String {
+    use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+    use base64::Engine;
+    let claims = json!({
+        "iss": issuer.unwrap_or(&h.app.config.oauth_issuer), "sub": sub, "client_id": client,
+        "token_use": "access", "exp": h.app.now().unix_timestamp() + lifetime,
+    });
+    format!(
+        "{}.{}.sig",
+        URL_SAFE_NO_PAD.encode(b"{}"),
+        URL_SAFE_NO_PAD.encode(claims.to_string())
+    )
+}
+
+/// One tool call the way the Gateway makes it: through the interceptor, then the target.
+async fn via_gateway(
+    h: &Harness,
+    bearer: &str,
+    tool: &str,
+    args: Value,
+) -> Result<Value, memorylane_api::ApiError> {
+    use memorylane_api::tools;
+    let event = json!({ "interceptorInputVersion": "1.0", "mcp": { "gatewayRequest": {
+        "path": "/mcp", "httpMethod": "POST", "headers": { "Authorization": format!("Bearer {bearer}") },
+        "body": { "jsonrpc": "2.0", "id": 7, "method": "tools/call", "params": { "name": tool, "arguments": args } },
+    } } });
+    let out = tools::intercept(&h.app, &event);
+    assert_eq!(out["interceptorOutputVersion"], "1.0");
+    if let Some(refused) = out["mcp"].get("transformedGatewayResponse") {
+        return Err(memorylane_api::ApiError::unauthorized(
+            refused["body"]["error"]["message"]
+                .as_str()
+                .unwrap_or_default(),
+        ));
+    }
+    let sealed = &out["mcp"]["transformedGatewayRequest"]["body"]["params"];
+    tools::call(
+        &h.app,
+        sealed["name"].as_str().unwrap(),
+        &sealed["arguments"],
+    )
+    .await
+}
+
+#[tokio::test]
+async fn gateway_tools_verify_who_is_calling() {
+    use memorylane_api::tools;
+    let h = harness();
+    let agent = h.app.config.agent_client_id.clone();
+    h.storage
+        .put_trip(&trip("amzn-owner", "kyoto"))
+        .await
+        .unwrap();
+    h.storage
+        .put_trip(&trip("someone-else", "rome"))
+        .await
+        .unwrap();
+
+    // A signed-in person acts for their own household, whatever the arguments claim.
+    let person = access_token(&h, "amzn-owner", "alexa-client", None, 3600);
+    let mine = via_gateway(
+        &h,
+        &person,
+        "api___list_trips",
+        json!({ "household": "someone-else" }),
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        mine.as_array()
+            .unwrap()
+            .iter()
+            .map(|t| t["id"].as_str().unwrap())
+            .collect::<Vec<_>>(),
+        ["kyoto"]
+    );
+    let theirs = via_gateway(
+        &h,
+        &person,
+        "api___get_trip",
+        json!({ "household": "someone-else", "trip_id": "rome" }),
+    )
+    .await;
+    assert_eq!(theirs.unwrap_err().status, 404);
+
+    // The Concierge's client acts for the household an event names.
+    let concierge = access_token(&h, &agent, &agent, None, 3600);
+    let named = via_gateway(
+        &h,
+        &concierge,
+        "api___list_trips",
+        json!({ "household": "someone-else" }),
+    )
+    .await
+    .unwrap();
+    assert_eq!(named[0]["id"], "rome");
+    assert_eq!(
+        via_gateway(&h, &concierge, "api___list_trips", json!({}))
+            .await
+            .unwrap_err()
+            .status,
+        400
+    );
+
+    // Refused at the interceptor: another issuer, an expired token, an id token, no header.
+    for bad in [
+        access_token(
+            &h,
+            "amzn-owner",
+            "alexa-client",
+            Some("https://evil.example"),
+            3600,
+        ),
+        access_token(&h, "amzn-owner", "alexa-client", None, -5),
+        "not-a-jwt".to_owned(),
+    ] {
+        let refused = via_gateway(&h, &bad, "api___list_trips", json!({}))
+            .await
+            .unwrap_err();
+        assert!(
+            refused.to_string().contains("caller not accepted"),
+            "{refused}"
+        );
+    }
+    let headerless = json!({ "interceptorInputVersion": "1.0", "mcp": { "gatewayRequest": { "body": { "jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": { "name": "api___list_trips", "arguments": {} } } } } });
+    assert!(
+        tools::intercept(&h.app, &headerless)["mcp"]["transformedGatewayResponse"]["body"]["error"]
+            ["message"]
+            .as_str()
+            .unwrap()
+            .contains("no authorization header")
+    );
+
+    // Anything but a tool call passes through untouched.
+    let listing = json!({ "interceptorInputVersion": "1.0", "mcp": { "gatewayRequest": { "body": { "jsonrpc": "2.0", "id": 2, "method": "tools/list" } } } });
+    assert_eq!(
+        tools::intercept(&h.app, &listing)["mcp"]["transformedGatewayRequest"]["body"]["method"],
+        "tools/list"
+    );
+
+    // Straight to the target, the seal is everything: absent, forged, for another tool, stale.
+    assert_eq!(
+        tools::call(
+            &h.app,
+            "api___list_trips",
+            &json!({ "household": "amzn-owner" })
+        )
+        .await
+        .unwrap_err()
+        .status,
+        401
+    );
+    let forged =
+        memorylane_api::tokens::Signer::new("someone-elses-key").seal(&tools::ToolCaller {
+            kind: tools::CallerKind::Agent,
+            subject: agent.clone(),
+            tool: "api___list_trips".into(),
+            exp: h.app.now() + Duration::minutes(1),
+        });
+    assert_eq!(
+        tools::call(
+            &h.app,
+            "api___list_trips",
+            &json!({ "household": "amzn-owner", "_caller": forged })
+        )
+        .await
+        .unwrap_err()
+        .status,
+        401
+    );
+    let for_listing = h.app.signer.seal(&tools::ToolCaller {
+        kind: tools::CallerKind::Agent,
+        subject: agent.clone(),
+        tool: "api___list_trips".into(),
+        exp: h.app.now() + Duration::minutes(1),
+    });
+    let reused = tools::call(
+        &h.app,
+        "api___purge_expired",
+        &json!({ "household": "amzn-owner", "_caller": for_listing }),
+    )
+    .await;
+    assert_eq!(reused.unwrap_err().status, 401);
+    h.advance(Duration::minutes(2));
+    let stale = tools::call(
+        &h.app,
+        "api___list_trips",
+        &json!({ "household": "amzn-owner", "_caller": for_listing }),
+    )
+    .await;
+    assert_eq!(stale.unwrap_err().status, 401);
+}
+
+#[tokio::test]
+async fn gateway_tools_run_the_same_routes_for_the_household_they_name() {
+    use memorylane_api::tools;
+    let h = harness();
+    let agent = h.app.config.agent_client_id.clone();
+    let bearer = access_token(&h, &agent, &agent, None, 3600);
+    let setup = h
+        .call(
+            Method::Post,
+            "/tv/setup",
+            Some(json!({ "device_id": "tv-1", "name": "Den" })),
+            None,
+            None,
+        )
+        .await;
+    let household = setup.body["household"].as_str().unwrap().to_owned();
+    let mut seeded_trip = trip(&household, "kyoto");
+    seeded_trip.days = vec![memorylane_core::trip::TripDay {
+        index: 1,
+        date: time::macros::date!(2026 - 04 - 03),
+        media: vec![],
+        route: Route::default(),
+        title: None,
+        story: None,
+        undated: vec![],
+        landmarks: vec![],
+    }];
+    h.storage.put_trip(&seeded_trip).await.unwrap();
+    let trip = "kyoto".to_owned();
+
+    assert_eq!(tools::tool_of("api___get_trip"), "get_trip");
+    let me = via_gateway(
+        &h,
+        &bearer,
+        "api___get_household",
+        json!({ "household": household }),
+    )
+    .await
+    .unwrap();
+    assert_eq!(me["household_name"], "Den");
+    let trips = via_gateway(
+        &h,
+        &bearer,
+        "api___list_trips",
+        json!({ "household": household }),
+    )
+    .await
+    .unwrap();
+    assert_eq!(trips.as_array().unwrap().len(), 1);
+    let got = via_gateway(
+        &h,
+        &bearer,
+        "api___get_trip",
+        json!({ "household": household, "trip_id": trip }),
+    )
+    .await
+    .unwrap();
+    assert_eq!(got["id"], trip.as_str());
+    assert!(got["days"][0]["date"].is_string(), "{got}");
+
+    // Another household's id opens nothing of this one.
+    let other = via_gateway(
+        &h,
+        &bearer,
+        "api___get_trip",
+        json!({ "household": "someone-else", "trip_id": trip }),
+    )
+    .await;
+    assert_eq!(other.unwrap_err().status, 404);
+
+    // The story is saved through the same fact check as the route.
+    let saved = via_gateway(&h, &bearer, "api___save_narrative", json!({ "household": household, "trip_id": trip, "text": "A quiet trip.", "model_id": "test", "stories": ["A quiet trip."] }),
+    )
+    .await
+    .unwrap();
+    assert_eq!(saved["check"], "passed", "{saved}");
+    let withheld = via_gateway(
+        &h,
+        &bearer,
+        "api___save_narrative",
+        json!({ "household": household, "trip_id": trip, "model_id": "test", "withhold": true }),
+    )
+    .await
+    .unwrap();
+    assert_eq!(withheld["check"], "withheld");
+
+    // Events arrive as JSON text from an agent, and land on the feed.
+    let pushed = via_gateway(&h, &bearer, "api___push_event", json!({ "household": household, "event": format!("{{\"type\":\"memory.ready\",\"trip\":\"{trip}\"}}") }),
+    )
+    .await
+    .unwrap();
+    assert!(pushed["seq"].as_u64().unwrap() > 0);
+
+    // Irreversible tools still need the TV's token; unknown and unbuilt tools say so.
+    let denied = via_gateway(
+        &h,
+        &bearer,
+        "api___apply_cleanup",
+        json!({ "household": household, "media_ids": ["m1"], "confirmation": "made-up" }),
+    )
+    .await;
+    assert_eq!(denied.unwrap_err().status, 403);
+    assert_eq!(
+        via_gateway(
+            &h,
+            &bearer,
+            "api___read_memory",
+            json!({ "household": household })
+        )
+        .await
+        .unwrap_err()
+        .status,
+        501
+    );
+    assert_eq!(
+        via_gateway(&h, &bearer, "api___nope", json!({ "household": household }))
+            .await
+            .unwrap_err()
+            .status,
+        404
+    );
+    assert_eq!(
+        via_gateway(&h, &bearer, "api___list_trips", json!({}))
+            .await
+            .unwrap_err()
+            .status,
+        400
+    );
+}

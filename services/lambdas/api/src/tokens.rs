@@ -96,13 +96,28 @@ impl Signer {
     }
 
     pub fn sign(&self, claims: &Claims) -> String {
-        let payload = serde_json::to_vec(claims).expect("claims serialise");
+        self.seal(claims)
+    }
+
+    pub fn verify(&self, token: &str, now: OffsetDateTime) -> Result<Claims, TokenError> {
+        let claims: Claims = self.open(token)?;
+        if now >= claims.exp {
+            return Err(TokenError::Expired);
+        }
+        Ok(claims)
+    }
+
+    /// Sign any value with this API's key: `base64url(json).base64url(hmac)`.
+    pub fn seal<T: Serialize>(&self, value: &T) -> String {
+        let payload = serde_json::to_vec(value).expect("sealed values serialise");
         let payload_b64 = URL_SAFE_NO_PAD.encode(&payload);
         let sig = self.mac(payload_b64.as_bytes());
         format!("{payload_b64}.{}", URL_SAFE_NO_PAD.encode(sig))
     }
 
-    pub fn verify(&self, token: &str, now: OffsetDateTime) -> Result<Claims, TokenError> {
+    /// Read back a sealed value; anything not signed with this key is refused. Expiry is
+    /// the caller's to check.
+    pub fn open<T: serde::de::DeserializeOwned>(&self, token: &str) -> Result<T, TokenError> {
         let (payload_b64, sig_b64) = token.split_once('.').ok_or(TokenError::Malformed)?;
         let sig = URL_SAFE_NO_PAD
             .decode(sig_b64)
@@ -115,11 +130,7 @@ impl Signer {
         let payload = URL_SAFE_NO_PAD
             .decode(payload_b64)
             .map_err(|_| TokenError::Malformed)?;
-        let claims: Claims = serde_json::from_slice(&payload).map_err(|_| TokenError::Malformed)?;
-        if now >= claims.exp {
-            return Err(TokenError::Expired);
-        }
-        Ok(claims)
+        serde_json::from_slice(&payload).map_err(|_| TokenError::Malformed)
     }
 
     fn mac(&self, data: &[u8]) -> Vec<u8> {

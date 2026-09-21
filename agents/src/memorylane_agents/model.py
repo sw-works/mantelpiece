@@ -25,8 +25,11 @@ class ScriptedModel:
         return self.answers.pop(0)
 
 
-def bedrock_model(model_id: str = "us.anthropic.claude-sonnet-4-20250514-v1:0") -> Model:
-    """Claude on Bedrock via the Strands model provider. Lazy import: tests need no SDK."""
+def bedrock_model(model_id: str = "us.amazon.nova-pro-v1:0") -> Model:
+    """A Bedrock model (Amazon Nova Pro by default) via the Strands model provider.
+
+    Lazy import: tests need no SDK.
+    """
     from strands.models import BedrockModel  # type: ignore[import-not-found]
 
     class _Adapter:

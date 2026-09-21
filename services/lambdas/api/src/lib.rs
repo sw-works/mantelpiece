@@ -10,6 +10,7 @@ pub mod handlers;
 pub mod req;
 pub mod starter;
 pub mod tokens;
+pub mod tools;
 
 pub use app::App;
 pub use error::ApiError;
