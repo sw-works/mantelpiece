@@ -377,6 +377,70 @@ describe("screens", () => {
     await waitFor(() => expect(shown.at(-1)).toEqual({ media: "m1", day: 1 }));
   });
 
+  it("Slideshow introduces a landmark on its first photo and on request after that", async () => {
+    const api = new FakeApi();
+    const facts = { key: "kinkaku-ji", name: "Kinkaku-ji", title: "Kinkaku-ji", tagline: "Buddhist temple in Kyoto", lines: ["The top two floors are covered in gold leaf."], summary: "", has_trivia: true, credit: "Wikipedia, CC BY-SA 4.0", url: "" };
+    const kyoto = {
+      ...trip,
+      days: [
+        { index: 1, date: "2026-04-03", media: ["m1", "m2"], title: "Day 1", route: { points: [], inferred: false, map_key: null } },
+        { index: 2, date: "2026-04-04", media: ["m3"], title: "Day 2", route: { points: [], inferred: false, map_key: null } },
+      ],
+      narrative: null,
+      route: { points: [], inferred: false, map_key: null },
+      landmark_facts: { "kinkaku-ji": facts },
+      media_tags: { m1: { landmark: "kinkaku-ji", people: [] }, m2: { landmark: "kinkaku-ji", people: [] } },
+    };
+    const view = await render(<Slideshow api={api} token="t" trip={kyoto} onBack={() => undefined} intervalMs={100000} />);
+    expect(screen.getByTestId("landmark-card")).toBeTruthy();
+    expect(screen.getByText("The top two floors are covered in gold leaf.")).toBeTruthy();
+    expect(screen.getByText("From Wikipedia, CC BY-SA 4.0")).toBeTruthy();
+    // The second photo of the same place stays clean until someone asks.
+    await view.rerender(<Slideshow api={api} token="t" trip={kyoto} startAt="m2" onBack={() => undefined} intervalMs={100000} />);
+    await waitFor(() => expect(screen.queryByTestId("landmark-card")).toBeNull());
+    await fireEvent.press(screen.getByTestId("about-place"));
+    expect(screen.getByTestId("landmark-card")).toBeTruthy();
+    // A photo of nowhere in particular offers nothing.
+    await view.rerender(<Slideshow api={api} token="t" trip={kyoto} startAt="m3" onBack={() => undefined} intervalMs={100000} />);
+    await waitFor(() => expect(screen.queryByTestId("landmark-card")).toBeNull());
+    expect(screen.queryByTestId("about-place")).toBeNull();
+  });
+
+  it("TripView narrows days and Play to the people picked, and shows what the day's places are", async () => {
+    const api = new FakeApi();
+    api.tripDetail = {
+      ...trip,
+      days: [
+        { index: 1, date: "2026-04-03", media: ["m1", "m2"], title: "Day 1: Kinkaku-ji", route: { points: [], inferred: false, map_key: null }, landmark_keys: ["kinkaku-ji"] },
+        { index: 2, date: "2026-04-04", media: ["m3"], title: "Day 2", route: { points: [], inferred: false, map_key: null } },
+      ],
+      narrative: null,
+      route: { points: [], inferred: false, map_key: null },
+      landmark_facts: { "kinkaku-ji": { key: "kinkaku-ji", name: "Kinkaku-ji", title: "Kinkaku-ji", tagline: null, lines: ["Covered in gold leaf."], summary: "", has_trivia: true, credit: "Wikipedia, CC BY-SA 4.0", url: "" } },
+      media_tags: { m1: { landmark: "kinkaku-ji", people: ["p-maya"] }, m3: { landmark: null, people: ["p-ken"] } },
+      people: [
+        { id: "p-maya", name: "Maya", media_count: 1 },
+        { id: "p-ken", name: "Ken", media_count: 1 },
+        { id: "p-x", name: null, media_count: 4 },
+      ],
+    };
+    const onPlay = jest.fn();
+    await render(<TripView api={api} token="t" tripId="kyoto" onBack={() => undefined} onInvite={() => undefined} onPlay={onPlay} />);
+    await waitFor(() => expect(screen.getByTestId("people-filter")).toBeTruthy());
+    expect(screen.getByTestId("landmark-kinkaku-ji")).toBeTruthy();
+    // Unnamed people are not offered: nobody can pick "Unnamed" from across the room.
+    expect(screen.queryByTestId("only-p-x")).toBeNull();
+    await fireEvent.press(screen.getByTestId("only-p-ken"));
+    expect(screen.queryByTestId("day-1")).toBeNull();
+    expect(screen.getByTestId("day-summary").props.children).toBe("April 4, 2026 · 1 photo");
+    await fireEvent.press(screen.getByTestId("play"));
+    expect(onPlay).toHaveBeenCalledWith(expect.objectContaining({ days: [expect.objectContaining({ index: 2, media: ["m3"] })] }));
+    await fireEvent.press(screen.getByTestId("only-p-maya"));
+    expect(screen.getByTestId("no-photos-together")).toBeTruthy();
+    await fireEvent.press(screen.getByTestId("people-everyone"));
+    expect(screen.getByTestId("day-1")).toBeTruthy();
+  });
+
   it("Slideshow draws the answer card over the photo", async () => {
     const api = new FakeApi();
     const kyoto = { ...trip, days: [{ index: 1, date: "2026-04-03", media: ["m1"], title: "Day 1", route: { points: [], inferred: false, map_key: null } }], narrative: null, route: { points: [], inferred: false, map_key: null } };

@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Text, View } from "react-native";
-import { slides as slidesOf, type Trip, type TvApi } from "../api/client";
+import { factsFor, slides as slidesOf, type Trip, type TvApi } from "../api/client";
 import { type AudioPlayer } from "../audio";
 import { FocusButton } from "../components/FocusButton";
 import { KenBurns } from "../components/KenBurns";
+import { LandmarkCard } from "../components/LandmarkCard";
 import { RemoteImage } from "../components/RemoteImage";
 import { Eyebrow, Meta } from "../components/Type";
 import { useRemoteKeys } from "../hooks/useRemoteKeys";
@@ -99,6 +100,13 @@ export function Slideshow({
       .catch(() => undefined);
   }, [narration, current, spoken, audio, api, token, trip.id]);
   useEffect(() => () => audio?.stop(), [audio]);
+  // F-210: the first photo of each landmark carries its card; after that, "About this
+  // place" brings it back on demand.
+  const introduced = useRef(new Map<string, string>());
+  const [asked, setAsked] = useState<string | null>(null);
+  const facts = current ? factsFor(trip, current.media) : null;
+  if (facts && current && !introduced.current.has(facts.key)) introduced.current.set(facts.key, current.media);
+  const showFacts = facts !== null && current !== undefined && (introduced.current.get(facts.key) === current.media || asked === current.media);
 
   if (!current) {
     return (
@@ -129,6 +137,11 @@ export function Slideshow({
           </Text>
         </View>
       )}
+      {showFacts && facts && (
+        <View style={{ position: "absolute", top: theme.safe.y, right: theme.safe.x }}>
+          <LandmarkCard facts={facts} overlay testID="landmark-card" />
+        </View>
+      )}
       {caption && (
         <View testID="caption-story" style={{ position: "absolute", left: theme.safe.x, right: theme.safe.x, bottom: 230, padding: 22, borderRadius: 20, backgroundColor: "#0b0b0fb3" }}>
           <Text style={{ color: theme.fg, fontSize: theme.heading, lineHeight: 40 }}>{caption}</Text>
@@ -146,6 +159,7 @@ export function Slideshow({
           <FocusButton label={paused ? "Play" : "Pause"} onPress={togglePause} preferred testID="playpause" />
           <FocusButton label="Previous day" variant="ghost" onPress={() => jumpDay(-1)} testID="prev-day" />
           <FocusButton label="Next day" variant="ghost" onPress={() => jumpDay(1)} testID="next-day" />
+          {facts && !showFacts && <FocusButton label="About this place" variant="ghost" onPress={() => setAsked(current.media)} testID="about-place" />}
           {dayInfo?.story && <FocusButton label={captions ? "Captions off" : "Captions"} variant="ghost" onPress={() => setCaptions((c) => !c)} testID="captions" />}
           <FocusButton label="Back" variant="ghost" onPress={onBack} testID="back" />
         </View>

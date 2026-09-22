@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
-import { clockHints, creditFor, dayLabel, longDate, type ReactionsView, storyOf, type Trip, type TvApi } from "../api/client";
+import { clockHints, creditFor, dayFacts, dayLabel, longDate, type ReactionsView, storyOf, type Trip, type TvApi, withPeople } from "../api/client";
 import { Backdrop } from "../components/Backdrop";
 import { FocusButton } from "../components/FocusButton";
+import { LandmarkCard } from "../components/LandmarkCard";
 import { MapImage } from "../components/MapImage";
 import { PhotoCard } from "../components/PhotoCard";
 import { type Nav, Screen } from "../components/Screen";
@@ -21,7 +22,9 @@ export function dayCredits(trip: Trip, media: string[]): string[] {
 
 /**
  * F-403: one trip. Its photo behind the title, the days as a row of chips, the chosen
- * day's photos with credits and reactions, its route and its story beside them.
+ * day's photos with credits and reactions, its route, what its landmarks are (F-210) and
+ * its story beside them. With face grouping on, a row of people narrows the days, the
+ * photos and Play to the photos they are in (F-704).
  */
 export function TripView({
   api,
@@ -65,7 +68,8 @@ export function TripView({
     if (!s || (s.likes === 0 && s.comments === 0)) return "";
     return `${s.likes ? `❤ ${s.likes}` : ""}${s.likes && s.comments ? " · " : ""}${s.comments ? `${s.comments} comment${s.comments === 1 ? "" : "s"}` : ""}`;
   };
-  const [trip, setTrip] = useState<Trip | null>(null);
+  const [full, setTrip] = useState<Trip | null>(null);
+  const [only, setOnly] = useState<string[]>([]);
   const [day, setDay] = useState(0);
   const [rewriting, setRewriting] = useState(false);
   const [roles, setRoles] = useState<Record<string, string>>({});
@@ -80,8 +84,15 @@ export function TripView({
     };
   }, [api, token, tripId]);
 
-  if (!trip) return <Screen nav={nav} active="home" />;
-  const current = trip.days[day];
+  if (!full) return <Screen nav={nav} active="home" />;
+  const trip = withPeople(full, only);
+  const named = (full.people ?? []).filter((p) => p.name);
+  const togglePerson = (id: string) => {
+    setOnly((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
+    setDay(0);
+  };
+  const current = trip.days[Math.min(day, trip.days.length - 1)];
+  const facts = current ? dayFacts(trip, current) : [];
   const credits = current ? dayCredits(trip, current.media) : [];
   const hints = clockHints(trip);
   const story = storyOf(trip);
@@ -103,11 +114,21 @@ export function TripView({
           <FocusButton label="Back" variant="ghost" onPress={onBack} testID="back" />
         </View>
       </View>
+      {named.length > 0 && (
+        <View testID="people-filter" style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
+          <Meta>Only photos with</Meta>
+          <FocusButton variant="chip" selected={only.length === 0} label="Everyone" onPress={() => setOnly([])} testID="people-everyone" />
+          {named.slice(0, 8).map((p) => (
+            <FocusButton key={p.id} variant="chip" selected={only.includes(p.id)} label={`${p.name} · ${p.media_count}`} onPress={() => togglePerson(p.id)} testID={`only-${p.id}`} />
+          ))}
+        </View>
+      )}
       <ScrollView horizontal style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 14, paddingVertical: 6 }}>
         {trip.days.map((d, i) => (
           <FocusButton key={d.index} variant="chip" selected={i === day} label={dayLabel(d)} preferred={i === 0} onPress={() => setDay(i)} testID={`day-${d.index}`} />
         ))}
       </ScrollView>
+      {!current && only.length > 0 && <Meta testID="no-photos-together">No photos on this trip have all of them together.</Meta>}
       {current && (
         <View style={{ flex: 1, flexDirection: "row", gap: 40 }}>
           <View style={{ width: 1000, gap: 18 }}>
@@ -168,6 +189,9 @@ export function TripView({
           </View>
           <View style={{ flex: 1, gap: 16 }}>
             <MapImage api={api} token={token} tripId={trip.id} day={current.route.map_key ? current.index : undefined} width={440} height={248} />
+            {facts.slice(0, 2).map((f) => (
+              <LandmarkCard key={f.key} facts={f} lines={1} width={440} />
+            ))}
             {people.length > 0 && (
               <View testID="contributors" style={{ gap: 8, marginTop: 8 }}>
                 <Text style={{ color: theme.fg, fontSize: theme.small, fontWeight: "600" }}>On this trip</Text>

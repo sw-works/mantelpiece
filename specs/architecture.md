@@ -264,7 +264,7 @@ in `decisions-2026-09-09.md` section 9.
 | F-701 | On this day: photos from the same month and day in earlier years, as a home row and as a W3 nightly playlist; Alexa+ answers "what were we doing this week three years ago" |
 | F-702 | Then and now: pairs of photos from the same geohash cell taken in different years, shown as a card |
 | F-703 | Best of month and best of year playlists from the F-204 score |
-| F-704 | People: opt-in per household; faces indexed into a per-household Rekognition collection, clustered by match, named from the phone page; people become a search and playlist filter and feed the F-204 score. Vectors only, deleted with the account (F-604). Pets are label search only, no identity |
+| F-704 | People: opt-in per household, switched on and off only on the TV; faces indexed into a per-household Rekognition collection, clustered by match, named from the phone page; people become a search and playlist filter, narrow a trip and its slideshow to the photos they are in, and feed the F-204 score. Every face in a photo is matched on its own. Vectors only, deleted with the account (F-604). Pets are label search only, no identity |
 | F-705 | Quick cleanup: screenshots, documents, receipts and blurry shots detected from Rekognition text and labels plus F-107 sharpness, proposed as a W4-style Review Changes batch; nothing removed without the remote |
 | F-706 | Text in photos: Rekognition DetectText indexed for search and Ask ("that restaurant sign in Kyoto") |
 | F-707 | Map view: one Amazon Location static map with every trip pinned, as a TV screen |

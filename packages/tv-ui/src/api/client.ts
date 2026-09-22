@@ -47,6 +47,30 @@ export interface TripDay {
   story?: string | null;
   /** Photos without a capture time, placed here by upload time. */
   undated?: string[];
+  /** Landmarks with facts that this day shows, most photographed first (F-210). */
+  landmark_keys?: string[];
+}
+
+/** What an encyclopedia says about a landmark in the photos (F-210). */
+export interface LandmarkFacts {
+  key: string;
+  name: string;
+  title: string;
+  tagline: string | null;
+  /** Trivia lines, or the summary's opening sentences when there is no trivia yet. */
+  lines: string[];
+  summary: string;
+  has_trivia: boolean;
+  /** Shown with the text, always: "Wikipedia, CC BY-SA 4.0". */
+  credit: string;
+  url: string;
+}
+
+/** A person who appears in a trip's photos (F-704). */
+export interface TripPerson {
+  id: string;
+  name: string | null;
+  media_count: number;
 }
 
 export interface ClockOffset {
@@ -67,6 +91,37 @@ export interface Trip extends TripSummary {
   media_credits?: Record<string, string>;
   /** Whose clock was corrected, by how much (F-155). */
   clock_offsets?: ClockOffset[];
+  /** Facts per landmark key (F-210). */
+  landmark_facts?: Record<string, LandmarkFacts>;
+  /** Per photo: the landmark it shows and the people in it. */
+  media_tags?: Record<string, { landmark: string | null; people: string[] }>;
+  /** People in this trip's photos, named first (F-704). Empty when face grouping is off. */
+  people?: TripPerson[];
+}
+
+/** Facts for the landmark a photo shows, when known. */
+export function factsFor(trip: Trip, mediaId: string): LandmarkFacts | null {
+  const key = trip.media_tags?.[mediaId]?.landmark;
+  return (key && trip.landmark_facts?.[key]) || null;
+}
+
+/** Facts for the landmarks a day shows. */
+export function dayFacts(trip: Trip, day: TripDay): LandmarkFacts[] {
+  return (day.landmark_keys ?? []).map((k) => trip.landmark_facts?.[k]).filter((f): f is LandmarkFacts => Boolean(f));
+}
+
+/**
+ * The trip narrowed to photos with every one of `people` in them, days without such
+ * photos dropped. No people: the trip as it is.
+ */
+export function withPeople(trip: Trip, people: string[]): Trip {
+  if (people.length === 0) return trip;
+  const has = (m: string) => {
+    const inPhoto = trip.media_tags?.[m]?.people ?? [];
+    return people.every((p) => inPhoto.includes(p));
+  };
+  const days = trip.days.map((d) => ({ ...d, media: d.media.filter(has) })).filter((d) => d.media.length > 0);
+  return { ...trip, days, highlights: trip.highlights.filter(has) };
 }
 
 /** Display name for a media item's contributor, or null when unknown. */
