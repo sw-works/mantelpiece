@@ -319,7 +319,15 @@ impl App {
             }
             (Method::Get, ["inbox"]) => handlers::family::inbox(self, req).await,
             (Method::Post, ["arrivals", "love"]) => handlers::family::love(self, req).await,
-            (Method::Post, ["live"]) => handlers::live::start(self, req).await,
+            (Method::Post, ["live"]) => handlers::live::request(self, req).await,
+            (Method::Get, ["live", "request"]) => handlers::live::my_request(self, req).await,
+            (Method::Delete, ["live", "request"]) => handlers::live::cancel(self, req).await,
+            (Method::Post, ["live", "requests", id, "grant"]) => {
+                handlers::live::grant(self, req, id).await
+            }
+            (Method::Post, ["live", "requests", id, "decline"]) => {
+                handlers::live::decline(self, req, id).await
+            }
             (Method::Post, ["live", "stop"]) => handlers::live::stop(self, req).await,
             (Method::Get, ["live"]) => handlers::live::current(self, req).await,
             (Method::Get, ["presence"]) => handlers::presence::list(self, req).await,

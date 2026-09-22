@@ -27,6 +27,9 @@ pub struct Household {
     /// while a stream is still winding down); retried on the next live call.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub stale_channels: Vec<String>,
+    /// Phones asking to go live, one per phone; the TV grants or declines each.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub live_requests: Vec<LiveRequest>,
 }
 
 /// One phone broadcast: an IVS channel made for it and deleted after.
@@ -41,6 +44,38 @@ pub struct LiveBroadcast {
     pub started_at: OffsetDateTime,
 }
 
+/// A phone asking the TV to show its camera. Nothing streams, and no channel exists,
+/// until the TV grants it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LiveRequest {
+    pub id: String,
+    pub contributor: ContributorId,
+    pub display_name: String,
+    #[serde(with = "time::serde::rfc3339")]
+    pub requested_at: OffsetDateTime,
+    pub status: LiveRequestStatus,
+    /// Where and how the phone streams once granted. Only the asking phone reads it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub grant: Option<LiveGrant>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LiveRequestStatus {
+    Waiting,
+    Granted,
+    Declined,
+    Cancelled,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LiveGrant {
+    pub broadcast: String,
+    pub ingest_endpoint: String,
+    pub stream_key: String,
+    pub playback_url: String,
+}
+
 impl Household {
     pub fn new(id: HouseholdId, name: impl Into<String>, now: OffsetDateTime) -> Self {
         Self {
@@ -52,6 +87,7 @@ impl Household {
             created_at: now,
             live: None,
             stale_channels: Vec::new(),
+            live_requests: Vec::new(),
         }
     }
 

@@ -355,6 +355,15 @@ export class TvApi {
     return this.call<{ ended: boolean }>("POST", "/live/stop", undefined, token);
   }
 
+  /** Let this phone's camera on: ends whoever is live now. */
+  grantLive(token: string, request: string) {
+    return this.call<{ broadcast: string }>("POST", `/live/requests/${encodeURIComponent(request)}/grant`, undefined, token);
+  }
+
+  declineLive(token: string, request: string) {
+    return this.call<void>("POST", `/live/requests/${encodeURIComponent(request)}/decline`, undefined, token);
+  }
+
   events(token: string, since: number) {
     return this.call<{ events: FeedEvent[]; next: number }>("GET", `/events?since=${since}`, undefined, token);
   }

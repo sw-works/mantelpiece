@@ -21,6 +21,17 @@ export interface FeedState {
   arrival?: Arrival | null;
   /** A phone broadcasting to this TV right now (live from the event). */
   live?: LiveNow | null;
+  /** Phones asking to go live, oldest first; the TV grants or declines each. */
+  liveRequests?: LiveAsk[];
+}
+
+export interface LiveAsk {
+  id: string;
+  from: string;
+  /** The TV stops showing the prompt then; the API refuses a late grant. */
+  expiresAt: string;
+  /** Who is live now: granting ends their broadcast. */
+  replacing: string | null;
 }
 
 export interface Arrival {
@@ -127,6 +138,7 @@ export function reduce(state: FeedState, events: FeedEvent[], next: number): Fee
     since: next,
     arrival: nextArrival(state.arrival ?? null, events, recent),
     live: nextLive(state.live ?? null, events),
+    liveRequests: nextRequests(state.liveRequests ?? [], events),
     recent,
     ticker: describe(last) ?? state.ticker,
     tripsVersion: touchesTrips ? state.tripsVersion + 1 : state.tripsVersion,
@@ -168,6 +180,18 @@ function nextArrival(current: Arrival | null, events: FeedEvent[], recent: FeedE
     }
   }
   return arrival;
+}
+
+function nextRequests(current: LiveAsk[], events: FeedEvent[]): LiveAsk[] {
+  let asks = current;
+  for (const e of events) {
+    if (e.type === "live.requested") {
+      asks = [...asks.filter((a) => a.id !== String(e.request)), { id: String(e.request), from: String(e.display_name), expiresAt: String(e.expires_at), replacing: typeof e.replacing === "string" ? e.replacing : null }];
+    } else if (e.type === "live.request_closed") {
+      asks = asks.filter((a) => a.id !== String(e.request));
+    }
+  }
+  return asks;
 }
 
 function nextLive(current: LiveNow | null, events: FeedEvent[]): LiveNow | null {

@@ -16,14 +16,39 @@ export function holdHint(width: number, height: number): string | null {
   return height > width ? "Turn your phone sideways to fill the TV." : null;
 }
 
-export type LivePhase = "idle" | "camera" | "starting" | "live" | "stopping" | "ended";
+export type LivePhase = "idle" | "camera" | "asking" | "starting" | "live" | "stopping" | "ended";
 
 /** How often a live phone asks whether its broadcast is still the household's. */
 export const LIVE_CHECK_MS = 5000;
+/** How often a phone waiting on the TV asks for the answer. */
+export const ANSWER_CHECK_MS = 2000;
 
 /** The TV ended this broadcast, or another phone took over: `GET /live` no longer names it. */
 export function broadcastGone(current: { id: string } | null, mine: string): boolean {
   return current?.id !== mine;
+}
+
+/** Why this phone is off the TV: ended there, or the TV switched to someone else. */
+export function goneText(current: { id: string; display_name: string } | null, tvName: string): string {
+  return current ? `${tvName} switched to ${current.display_name}.` : `${tvName} ended the broadcast.`;
+}
+
+/** What to tell the person while asking, or when the TV said anything but yes. */
+export function answerText(status: string, tvName: string, replacing: string | null = null): string | null {
+  switch (status) {
+    case "waiting":
+      return replacing ? `Waiting for ${tvName}. ${replacing} is live now; ${tvName} decides whether to switch.` : `Waiting for ${tvName} to let you in…`;
+    case "declined":
+      return `${tvName} said not now.`;
+    case "expired":
+      return `${tvName} did not answer. Make sure MemoryLane is open on it, then try again.`;
+    case "cancelled":
+      return "Request cancelled.";
+    case "ended":
+      return "That broadcast has ended.";
+    default:
+      return null;
+  }
 }
 
 /** Plain words for the errors this page meets. */

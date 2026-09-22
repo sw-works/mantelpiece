@@ -17,6 +17,8 @@ are in `services/crates/core/src/events.rs`; NEW kinds are added by this feature
 | photos.arrived | contributor, display_name, batch, media[], count | NEW family channel: Signal emits it as a phone's photos get renditions, one per photo up to 12, then one per dozen; `media` is the batch so far (at most 12). The TV opens Arrived over home or the idle slideshow when the event is under ten minutes old |
 | live.started | broadcast, display_name, playback_url | NEW a phone went live; the TV plays the HLS URL (about 8 s behind the camera on Vega) |
 | live.ended | broadcast | NEW from the phone or the TV |
+| live.requested | request, display_name, expires_at, replacing? | NEW a phone asks to go live; the TV prompts until `expires_at` (60 s); `replacing` names whoever a grant would cut off |
+| live.request_closed | request | NEW granted, declined or withdrawn; the TV drops the prompt |
 | dedup.proposal | trip?, groups, removable | opens Review Changes |
 | media.removed | media[] | refresh |
 | cleanup.proposal | trip?, count, reasons | NEW opens Review Changes (F-705) |

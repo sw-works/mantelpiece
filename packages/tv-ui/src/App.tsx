@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { View } from "react-native";
-import { playlistAsTrip, type Trip, TvApi } from "./api/client";
+import { ApiError, playlistAsTrip, type Trip, TvApi } from "./api/client";
 import { type Nav } from "./components/Screen";
 import { Stage } from "./components/Stage";
 import { Ticker } from "./components/Ticker";
@@ -15,6 +15,7 @@ import { Highlights } from "./screens/Highlights";
 import { Invite } from "./screens/Invite";
 import { JoinTrip } from "./screens/JoinTrip";
 import { Live } from "./screens/Live";
+import { LiveRequestPrompt } from "./components/LiveRequestPrompt";
 import { MapView } from "./screens/MapView";
 import { MemoriesHome } from "./screens/MemoriesHome";
 import { People } from "./screens/People";
@@ -138,17 +139,26 @@ export function App({ apiBase, api: injectedApi, sessionStore, tvName, audio = n
     setRoute((r) => (r.name === "ambient" || r.name === "home" ? { name: "arrived", back: r } : r));
   }, [feed.arrival, session]);
 
-  // Live from the event: a broadcast interrupts anything passive, a show included.
+  // Live from the event: someone here let the broadcast in, so it takes the screen from
+  // wherever the TV is; a switch to another phone stays on Live.
   const liveSeq = useRef(0);
   useEffect(() => {
     const l = feed.live;
     if (!l || !session || l.seq <= liveSeq.current) return;
     liveSeq.current = l.seq;
     if (!fresh(l.at, FRESH_LIVE_MS)) return;
-    setRoute((r) =>
-      r.name === "home" || r.name === "ambient" || r.name === "slideshow" ? { name: "live", back: r, from: l.from } : r.name === "arrived" ? { name: "live", back: r.back, from: l.from } : r,
-    );
+    setRoute((r) => (r.name === "live" ? { ...r, from: l.from } : { name: "live", back: r.name === "arrived" ? r.back : r, from: l.from }));
   }, [feed.live, session]);
+
+  // A phone asking to go live: one prompt at a time, oldest first, gone once answered here,
+  // withdrawn, or out of time.
+  const [answeredAsks, setAnsweredAsks] = useState<string[]>([]);
+  const ask = (feed.liveRequests ?? []).find((a) => !answeredAsks.includes(a.id) && Date.parse(a.expiresAt) > Date.now()) ?? null;
+  // The phone stopped asking, or the time ran out, while the TV answered: nothing to do.
+  const gone = (p: Promise<unknown>) => p.catch((e: unknown) => {
+    if (!(e instanceof ApiError && (e.status === 404 || e.status === 409))) throw e;
+  });
+  const dropAsk = useCallback((id: string) => setAnsweredAsks((done) => (done.includes(id) ? done : [...done, id])), []);
 
   // What is on screen, for "what's that statue" from the phone or Alexa+ (research R3).
   const token = session?.token;
@@ -358,6 +368,21 @@ export function App({ apiBase, api: injectedApi, sessionStore, tvName, audio = n
     <Stage>
       {screen}
       {route.name === "home" && <Ticker line={feed.ticker} />}
+      {ask && (
+        <LiveRequestPrompt
+          key={ask.id}
+          ask={ask}
+          onGrant={async () => {
+            await gone(api.grantLive(session.token, ask.id));
+            dropAsk(ask.id);
+          }}
+          onDecline={async () => {
+            await gone(api.declineLive(session.token, ask.id));
+            dropAsk(ask.id);
+          }}
+          onExpire={() => dropAsk(ask.id)}
+        />
+      )}
     </Stage>
   );
 }

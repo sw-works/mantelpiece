@@ -120,4 +120,54 @@ describe("family channel on the TV", () => {
     await waitFor(() => expect(api.calls).toContain("events 1"));
     expect(screen.queryByTestId("arrived")).toBeNull();
   });
+
+  it("App asks before a phone goes live, and a grant opens the broadcast", async () => {
+    const api = new FakeApi();
+    const store = new MemorySessionStore();
+    await store.save({ token: "tv-token", household: "tv-house", deviceId: "tv-1" });
+    const soon = new Date(Date.now() + 60_000).toISOString();
+    api.eventPages = [{ events: [{ seq: 1, at: now(), type: "live.requested", request: "r1", display_name: "Maya", expires_at: soon }], next: 1 }];
+    await render(<App api={api} sessionStore={store} idleMs={0} livePlayer={FakePlayer} />);
+    await waitFor(() => expect(screen.getByTestId("live-request-title").props.children).toBe("Maya wants to go live"));
+    // Nothing plays until someone here says yes.
+    expect(screen.queryByTestId("player")).toBeNull();
+    await fireEvent.press(screen.getByTestId("live-grant"));
+    expect(api.calls).toContain("grant r1");
+    await waitFor(() => expect(screen.queryByTestId("live-request")).toBeNull());
+    api.eventPages.push({
+      events: [
+        { seq: 2, at: now(), type: "live.request_closed", request: "r1" },
+        { seq: 3, at: now(), type: "live.started", broadcast: "l1", display_name: "Maya", playback_url: "https://play.test/l1.m3u8" },
+      ],
+      next: 3,
+    });
+    await waitFor(() => expect(screen.getByTestId("player")).toBeTruthy());
+  });
+
+  it("App says whose broadcast a switch ends, and Not now leaves it playing", async () => {
+    const api = new FakeApi();
+    const store = new MemorySessionStore();
+    await store.save({ token: "tv-token", household: "tv-house", deviceId: "tv-1" });
+    const soon = new Date(Date.now() + 60_000).toISOString();
+    api.eventPages = [
+      {
+        events: [
+          { seq: 1, at: now(), type: "live.started", broadcast: "l1", display_name: "Maya", playback_url: "https://play.test/l1.m3u8" },
+          { seq: 2, at: now(), type: "live.requested", request: "r2", display_name: "Sam", expires_at: soon, replacing: "Maya" },
+          { seq: 3, at: now(), type: "live.requested", request: "old", display_name: "Ben", expires_at: new Date(Date.now() - 1000).toISOString() },
+        ],
+        next: 3,
+      },
+    ];
+    await render(<App api={api} sessionStore={store} idleMs={0} livePlayer={FakePlayer} />);
+    await waitFor(() => expect(screen.getByTestId("live-request-title").props.children).toBe("Sam wants to go live"));
+    expect(screen.getByTestId("live-request-meta").props.children).toBe("This ends Maya's broadcast.");
+    expect(screen.getByText("Switch to Sam")).toBeTruthy();
+    expect(screen.getByTestId("player").props.children).toBe("https://play.test/l1.m3u8");
+    await fireEvent.press(screen.getByTestId("live-decline"));
+    expect(api.calls).toContain("decline r2");
+    // Ben's request ran out before the TV saw it: no prompt for it.
+    await waitFor(() => expect(screen.queryByTestId("live-request")).toBeNull());
+    expect(screen.getByTestId("player").props.children).toBe("https://play.test/l1.m3u8");
+  });
 });

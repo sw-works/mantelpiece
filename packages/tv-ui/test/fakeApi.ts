@@ -176,4 +176,11 @@ export class FakeApi extends TvApi {
     this.calls.push("stop live");
     return { ended: true };
   }
+  override async grantLive(_token: string, request: string) {
+    this.calls.push(`grant ${request}`);
+    return { broadcast: `b-${request}` };
+  }
+  override async declineLive(_token: string, request: string) {
+    this.calls.push(`decline ${request}`);
+  }
 }

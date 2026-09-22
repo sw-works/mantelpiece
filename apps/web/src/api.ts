@@ -82,13 +82,25 @@ export interface InboxNote {
   cover?: string;
 }
 
-/** A broadcast the API made for this phone: the stream key never leaves this phone. */
-export interface LiveStart {
-  id: string;
-  ingest_endpoint: string;
-  stream_key: string;
-  playback_url: string;
+/** This phone asked the TV to go live; the TV answers within `expires_at`. */
+export interface LiveAsk {
+  request: string;
+  status: "waiting";
+  expires_at: string;
+  /** Who is live now: a grant ends their broadcast. */
+  replacing: string | null;
   tv: string;
+}
+
+/** The TV's answer. A grant carries where to stream; the key never leaves this phone. */
+export interface LiveAnswer {
+  request: string;
+  status: "waiting" | "granted" | "declined" | "expired" | "cancelled" | "ended";
+  tv: string;
+  broadcast?: string;
+  ingest_endpoint?: string;
+  stream_key?: string;
+  playback_url?: string;
 }
 
 export class ApiError extends Error {
@@ -230,8 +242,16 @@ export class Api {
     return this.call<{ notes: InboxNote[]; push: boolean }>("GET", "/inbox", undefined, { bearer });
   }
 
-  startLive(bearer: string) {
-    return this.call<LiveStart>("POST", "/live", undefined, { bearer });
+  askLive(bearer: string) {
+    return this.call<LiveAsk>("POST", "/live", undefined, { bearer });
+  }
+
+  liveAnswer(bearer: string) {
+    return this.call<LiveAnswer>("GET", "/live/request", undefined, { bearer });
+  }
+
+  cancelLive(bearer: string) {
+    return this.call<void>("DELETE", "/live/request", undefined, { bearer });
   }
 
   stopLive(bearer: string) {
@@ -240,7 +260,7 @@ export class Api {
 
   /** The household's broadcast now, or null: the TV can end it without this phone. */
   currentLive(bearer: string) {
-    return this.call<{ live: { id: string } | null }>("GET", "/live", undefined, { bearer });
+    return this.call<{ live: { id: string; display_name: string } | null }>("GET", "/live", undefined, { bearer });
   }
 
   me(bearer: string) {

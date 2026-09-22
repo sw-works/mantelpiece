@@ -4264,23 +4264,96 @@ async fn the_tv_loves_an_arrival_and_the_senders_phone_hears_about_it() {
     );
 }
 
+/// Another phone on the same TV, paired and approved.
+async fn another_phone(h: &Harness, tv: &str, name: &str) -> String {
+    let asked = h
+        .bearer(
+            Method::Post,
+            "/pair/code",
+            Some(json!({ "device_id": "tv-1" })),
+            tv,
+        )
+        .await;
+    let code = asked.body["code"].as_str().unwrap().to_owned();
+    let req = h
+        .call(
+            Method::Post,
+            "/pair/requests",
+            Some(json!({ "code": code, "name": name })),
+            None,
+            None,
+        )
+        .await;
+    let waiting = req.body["token"].as_str().unwrap().to_owned();
+    let id = req.body["request"].as_str().unwrap().to_owned();
+    h.bearer(
+        Method::Post,
+        &format!("/pair/requests/{id}/approve"),
+        None,
+        tv,
+    )
+    .await;
+    let ok = h.bearer(Method::Get, "/pair/status", None, &waiting).await;
+    ok.body["token"].as_str().unwrap().to_owned()
+}
+
+/// The phone asks, the TV grants: the phone's answer, with the stream key.
+async fn go_live(h: &Harness, tv: &str, phone: &str) -> Value {
+    let asked = h.bearer(Method::Post, "/live", None, phone).await;
+    assert_eq!(asked.status, 202, "{:?}", asked.body);
+    let id = asked.body["request"].as_str().unwrap().to_owned();
+    let granted = h
+        .bearer(
+            Method::Post,
+            &format!("/live/requests/{id}/grant"),
+            None,
+            tv,
+        )
+        .await;
+    assert_eq!(granted.status, 200, "{:?}", granted.body);
+    h.bearer(Method::Get, "/live/request", None, phone)
+        .await
+        .body
+}
+
 #[tokio::test]
-async fn a_phone_goes_live_on_the_tv_and_the_channel_goes_when_it_ends() {
+async fn a_phone_asks_the_tv_grants_and_the_channel_goes_when_it_ends() {
     let h = harness();
     let (tv, phone, _) = paired(&h, "Grandma's TV", "Maya").await;
     assert_eq!(h.bearer(Method::Post, "/live", None, &tv).await.status, 403);
-    assert_eq!(
-        h.bearer(Method::Get, "/live", None, &tv).await.body["live"],
-        Value::Null
-    );
 
-    let started = h.bearer(Method::Post, "/live", None, &phone).await;
-    assert_eq!(started.status, 201, "{:?}", started.body);
-    assert!(started.body["stream_key"]
+    // Asking makes no channel and tells the TV who wants in.
+    let asked = h.bearer(Method::Post, "/live", None, &phone).await;
+    assert_eq!(asked.status, 202, "{:?}", asked.body);
+    assert_eq!(asked.body["status"], "waiting");
+    assert_eq!(asked.body["tv"], "Grandma's TV");
+    assert!(h.live.channels.lock().unwrap().is_empty());
+    let id = asked.body["request"].as_str().unwrap().to_owned();
+    let feed = h.bearer(Method::Get, "/events?since=0", None, &tv).await;
+    assert!(feed.body.to_string().contains("live.requested"));
+    let now = h.bearer(Method::Get, "/live", None, &tv).await;
+    assert_eq!(now.body["live"], Value::Null);
+    assert_eq!(now.body["requests"][0]["display_name"], "Maya");
+    let mine = h.bearer(Method::Get, "/live/request", None, &phone).await;
+    assert_eq!(mine.body["status"], "waiting");
+    assert!(mine.body.get("stream_key").is_none());
+
+    // Only the TV answers.
+    let grant = format!("/live/requests/{id}/grant");
+    assert_eq!(
+        h.bearer(Method::Post, &grant, None, &phone).await.status,
+        403
+    );
+    assert_eq!(h.bearer(Method::Post, &grant, None, &tv).await.status, 200);
+    let mine = h.bearer(Method::Get, "/live/request", None, &phone).await;
+    assert_eq!(mine.body["status"], "granted");
+    assert!(mine.body["stream_key"]
         .as_str()
         .is_some_and(|k| k.starts_with("sk_")));
-    assert!(started.body["ingest_endpoint"].as_str().is_some());
-    assert_eq!(started.body["tv"], "Grandma's TV");
+    assert!(mine.body["ingest_endpoint"].as_str().is_some());
+    // A second grant of the same request does nothing.
+    assert_eq!(h.bearer(Method::Post, &grant, None, &tv).await.status, 409);
+    assert_eq!(h.live.channels.lock().unwrap().len(), 1);
     let first_arn = h
         .live
         .channels
@@ -4291,19 +4364,21 @@ async fn a_phone_goes_live_on_the_tv_and_the_channel_goes_when_it_ends() {
         .cloned()
         .unwrap();
 
-    // The TV learns where to watch, and never sees the stream key.
+    // The TV learns where to watch and never sees the stream key.
     let feed = h.bearer(Method::Get, "/events?since=0", None, &tv).await;
     let text = feed.body.to_string();
     assert!(text.contains("live.started"), "{text}");
+    assert!(text.contains("live.request_closed"), "{text}");
     assert!(!text.contains("sk_"), "{text}");
     let now = h.bearer(Method::Get, "/live", None, &tv).await;
     assert_eq!(now.body["live"]["display_name"], "Maya");
-    assert!(
-        std::path::Path::new(now.body["live"]["playback_url"].as_str().unwrap())
-            .extension()
-            .is_some_and(|e| e.eq_ignore_ascii_case("m3u8"))
-    );
+    assert_eq!(now.body["requests"], json!([]));
     assert!(!now.body.to_string().contains("sk_"));
+    // Asking again while live is refused.
+    assert_eq!(
+        h.bearer(Method::Post, "/live", None, &phone).await.status,
+        409
+    );
 
     // The TV ends it; IVS refuses the delete for now, so the channel waits.
     h.live.busy.lock().unwrap().push(first_arn.clone());
@@ -4311,64 +4386,33 @@ async fn a_phone_goes_live_on_the_tv_and_the_channel_goes_when_it_ends() {
     assert_eq!(stopped.body["ended"], true);
     assert!(h.live.stopped.lock().unwrap().contains(&first_arn));
     assert!(h.live.channels.lock().unwrap().contains_key(&first_arn));
-    let feed = h.bearer(Method::Get, "/events?since=0", None, &tv).await;
-    assert!(feed.body.to_string().contains("live.ended"));
-    assert_eq!(
-        h.bearer(Method::Get, "/live", None, &tv).await.body["live"],
-        Value::Null
-    );
+    assert!(h
+        .bearer(Method::Get, "/events?since=0", None, &tv)
+        .await
+        .body
+        .to_string()
+        .contains("live.ended"));
+    // The key goes with the broadcast.
+    let mine = h.bearer(Method::Get, "/live/request", None, &phone).await;
+    assert_eq!(mine.body["status"], "ended");
+    assert!(mine.body.get("stream_key").is_none());
 
     // Going live again sweeps the old channel and makes a fresh one.
-    let again = h.bearer(Method::Post, "/live", None, &phone).await;
-    assert_eq!(again.status, 201);
+    let again = go_live(&h, &tv, &phone).await;
+    assert_eq!(again["status"], "granted");
     {
         let channels = h.live.channels.lock().unwrap();
         assert!(!channels.contains_key(&first_arn));
         assert_eq!(channels.len(), 1);
     }
-    // Only the phone that is live may end it from a phone.
-    let (_, other, _) = {
-        let asked = h
-            .bearer(
-                Method::Post,
-                "/pair/code",
-                Some(json!({ "device_id": "tv-1" })),
-                &tv,
-            )
-            .await;
-        let code = asked.body["code"].as_str().unwrap().to_owned();
-        let req = h
-            .call(
-                Method::Post,
-                "/pair/requests",
-                Some(json!({ "code": code, "name": "Ben" })),
-                None,
-                None,
-            )
-            .await;
-        let waiting = req.body["token"].as_str().unwrap().to_owned();
-        let id = req.body["request"].as_str().unwrap().to_owned();
-        h.bearer(
-            Method::Post,
-            &format!("/pair/requests/{id}/approve"),
-            None,
-            &tv,
-        )
-        .await;
-        let ok = h.bearer(Method::Get, "/pair/status", None, &waiting).await;
-        (
-            String::new(),
-            ok.body["token"].as_str().unwrap().to_owned(),
-            id,
-        )
-    };
+    // Only the live phone or the TV may end it.
+    let ben = another_phone(&h, &tv, "Ben").await;
     assert_eq!(
-        h.bearer(Method::Post, "/live/stop", None, &other)
+        h.bearer(Method::Post, "/live/stop", None, &ben)
             .await
             .status,
         403
     );
-    // The phone stops its own broadcast.
     assert_eq!(
         h.bearer(Method::Post, "/live/stop", None, &phone)
             .await
@@ -4378,13 +4422,137 @@ async fn a_phone_goes_live_on_the_tv_and_the_channel_goes_when_it_ends() {
     assert!(h.live.channels.lock().unwrap().is_empty());
 
     // A broadcast nobody ended stops showing after four hours.
-    assert_eq!(
-        h.bearer(Method::Post, "/live", None, &phone).await.status,
-        201
-    );
+    go_live(&h, &tv, &phone).await;
     h.advance(Duration::hours(5));
     assert_eq!(
         h.bearer(Method::Get, "/live", None, &tv).await.body["live"],
         Value::Null
     );
+}
+
+#[tokio::test]
+async fn a_second_phone_goes_live_only_when_the_tv_switches_to_it() {
+    let h = harness();
+    let (tv, maya, _) = paired(&h, "Grandma's TV", "Maya").await;
+    let sam = another_phone(&h, &tv, "Sam").await;
+    let first = go_live(&h, &tv, &maya).await;
+    let first_broadcast = first["broadcast"].as_str().unwrap().to_owned();
+
+    // Sam asks: Maya stays live until the TV decides, and the TV hears who it would end.
+    let asked = h.bearer(Method::Post, "/live", None, &sam).await;
+    assert_eq!(asked.status, 202);
+    assert_eq!(asked.body["replacing"], "Maya");
+    let now = h.bearer(Method::Get, "/live", None, &tv).await;
+    assert_eq!(now.body["live"]["id"], first_broadcast.as_str());
+    assert_eq!(now.body["requests"][0]["display_name"], "Sam");
+    assert_eq!(h.live.channels.lock().unwrap().len(), 1);
+
+    // Not now: Sam hears no, Maya carries on.
+    let id = asked.body["request"].as_str().unwrap().to_owned();
+    let declined = h
+        .bearer(
+            Method::Post,
+            &format!("/live/requests/{id}/decline"),
+            None,
+            &tv,
+        )
+        .await;
+    assert_eq!(declined.status, 204);
+    let answer = h.bearer(Method::Get, "/live/request", None, &sam).await;
+    assert_eq!(answer.body["status"], "declined");
+    assert_eq!(
+        h.bearer(Method::Get, "/live", None, &tv).await.body["live"]["id"],
+        first_broadcast.as_str()
+    );
+    assert_eq!(
+        h.bearer(
+            Method::Post,
+            &format!("/live/requests/{id}/grant"),
+            None,
+            &tv
+        )
+        .await
+        .status,
+        409
+    );
+
+    // Sam asks again and the TV switches: Maya's broadcast ends, Sam's begins.
+    let second = go_live(&h, &tv, &sam).await;
+    assert_eq!(second["status"], "granted");
+    let now = h.bearer(Method::Get, "/live", None, &tv).await;
+    assert_eq!(now.body["live"]["display_name"], "Sam");
+    assert_ne!(now.body["live"]["id"], first_broadcast.as_str());
+    assert_eq!(h.live.stopped.lock().unwrap().len(), 1);
+    assert_eq!(h.live.channels.lock().unwrap().len(), 1);
+    // Maya's phone learns it is off: its key is gone and its broadcast is not the TV's.
+    let maya_now = h.bearer(Method::Get, "/live/request", None, &maya).await;
+    assert_eq!(maya_now.body["status"], "ended");
+    assert!(maya_now.body.get("stream_key").is_none());
+    // Maya cannot end Sam's broadcast.
+    assert_eq!(
+        h.bearer(Method::Post, "/live/stop", None, &maya)
+            .await
+            .status,
+        403
+    );
+}
+
+#[tokio::test]
+async fn an_unanswered_request_lapses_and_a_phone_can_take_it_back() {
+    let h = harness();
+    let (tv, phone, _) = paired(&h, "Grandma's TV", "Maya").await;
+    let asked = h.bearer(Method::Post, "/live", None, &phone).await;
+    let id = asked.body["request"].as_str().unwrap().to_owned();
+    h.advance(Duration::seconds(61));
+    assert_eq!(
+        h.bearer(Method::Get, "/live/request", None, &phone)
+            .await
+            .body["status"],
+        "expired"
+    );
+    assert_eq!(
+        h.bearer(Method::Get, "/live", None, &tv).await.body["requests"],
+        json!([])
+    );
+    assert_eq!(
+        h.bearer(
+            Method::Post,
+            &format!("/live/requests/{id}/grant"),
+            None,
+            &tv
+        )
+        .await
+        .status,
+        409
+    );
+    assert!(h.live.channels.lock().unwrap().is_empty());
+
+    // Asking again replaces the old request; cancelling closes it on the TV.
+    let asked = h.bearer(Method::Post, "/live", None, &phone).await;
+    let id = asked.body["request"].as_str().unwrap().to_owned();
+    assert_eq!(
+        h.bearer(Method::Delete, "/live/request", None, &phone)
+            .await
+            .status,
+        204
+    );
+    assert_eq!(
+        h.bearer(Method::Get, "/live/request", None, &phone)
+            .await
+            .body["status"],
+        "cancelled"
+    );
+    assert_eq!(
+        h.bearer(
+            Method::Post,
+            &format!("/live/requests/{id}/grant"),
+            None,
+            &tv
+        )
+        .await
+        .status,
+        409
+    );
+    let feed = h.bearer(Method::Get, "/events?since=0", None, &tv).await;
+    assert!(feed.body.to_string().contains("live.request_closed"));
 }

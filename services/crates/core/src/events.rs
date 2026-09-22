@@ -74,6 +74,20 @@ pub enum EventKind {
     /// The broadcast ended, from the phone or the TV.
     #[serde(rename = "live.ended")]
     LiveEnded { broadcast: String },
+    /// A phone asks to go live; the TV shows a prompt until `expires_at`. `replacing` names
+    /// whoever is live now, whose broadcast a grant would end.
+    #[serde(rename = "live.requested")]
+    LiveRequested {
+        request: String,
+        display_name: String,
+        #[serde(with = "time::serde::rfc3339")]
+        expires_at: time::OffsetDateTime,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        replacing: Option<String>,
+    },
+    /// The request was granted, declined or cancelled: the TV drops the prompt.
+    #[serde(rename = "live.request_closed")]
+    LiveRequestClosed { request: String },
     #[serde(rename = "upload.progress")]
     UploadProgress {
         contributor: ContributorId,
@@ -169,6 +183,8 @@ impl Event {
             EventKind::PhotosArrived { .. } => "photos.arrived",
             EventKind::LiveStarted { .. } => "live.started",
             EventKind::LiveEnded { .. } => "live.ended",
+            EventKind::LiveRequested { .. } => "live.requested",
+            EventKind::LiveRequestClosed { .. } => "live.request_closed",
             EventKind::MediaRemoved { .. } => "media.removed",
             EventKind::CleanupProposal { .. } => "cleanup.proposal",
             EventKind::ReactionReceived { .. } => "reaction.received",
@@ -212,6 +228,8 @@ impl Event {
             | EventKind::PhotosArrived { .. }
             | EventKind::LiveStarted { .. }
             | EventKind::LiveEnded { .. }
+            | EventKind::LiveRequested { .. }
+            | EventKind::LiveRequestClosed { .. }
             | EventKind::MediaRemoved { .. }
             | EventKind::AnswerCard { .. }
             | EventKind::MemoriesReady { .. } => None,
@@ -260,6 +278,27 @@ mod tests {
             ..arrived
         };
         assert_eq!(ended.detail_type(), "live.ended");
+        let asked = Event {
+            kind: EventKind::LiveRequested {
+                request: "r1".into(),
+                display_name: "Sam".into(),
+                expires_at: datetime!(2026-09-21 10:01:00 UTC),
+                replacing: Some("Maya".into()),
+            },
+            ..ended.clone()
+        };
+        let json = serde_json::to_value(&asked).unwrap();
+        assert_eq!(json["type"], "live.requested");
+        assert_eq!(json["replacing"], "Maya");
+        assert_eq!(json["expires_at"], "2026-09-21T10:01:00Z");
+        let closed = Event {
+            kind: EventKind::LiveRequestClosed {
+                request: "r1".into(),
+            },
+            ..ended
+        };
+        assert_eq!(closed.detail_type(), "live.request_closed");
+        assert_eq!(closed.trip(), None);
     }
 
     #[test]

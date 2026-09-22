@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ago, base64UrlToBytes, describeNote, phoneToken, pushSupport, type PushEnv } from "../src/family.js";
-import { broadcastGone, cameraConstraints, holdHint, liveErrorText } from "../src/live.js";
+import { answerText, broadcastGone, cameraConstraints, goneText, holdHint, liveErrorText } from "../src/live.js";
 
 const android: PushEnv = { hasServiceWorker: true, hasPushManager: true, permission: "default", userAgent: "Mozilla/5.0 (Linux; Android 15) Chrome/140", standalone: false };
 
@@ -76,5 +76,18 @@ describe("going live", () => {
     expect(broadcastGone({ id: "b1" }, "b1")).toBe(false);
     expect(broadcastGone(null, "b1")).toBe(true);
     expect(broadcastGone({ id: "b2" }, "b1")).toBe(true);
+  });
+
+  it("says who the TV switched to, or that it ended the broadcast", () => {
+    expect(goneText({ id: "b2", display_name: "Sam" }, "Grandma's TV")).toBe("Grandma's TV switched to Sam.");
+    expect(goneText(null, "Grandma's TV")).toBe("Grandma's TV ended the broadcast.");
+  });
+
+  it("explains every answer the TV can give short of yes", () => {
+    expect(answerText("waiting", "Grandma's TV")).toMatch(/Waiting for Grandma's TV/);
+    expect(answerText("waiting", "Grandma's TV", "Maya")).toMatch(/Maya is live now/);
+    expect(answerText("declined", "Grandma's TV")).toBe("Grandma's TV said not now.");
+    expect(answerText("expired", "Grandma's TV")).toMatch(/did not answer/);
+    expect(answerText("granted", "Grandma's TV")).toBeNull();
   });
 });

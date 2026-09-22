@@ -90,6 +90,13 @@ impl Resp {
         })
     }
 
+    pub fn accepted<T: Serialize>(value: T) -> Result<Self, ApiError> {
+        Ok(Self {
+            status: 202,
+            body: serde_json::to_value(value).map_err(|e| ApiError::internal(e.to_string()))?,
+        })
+    }
+
     pub fn no_content() -> Result<Self, ApiError> {
         Ok(Self {
             status: 204,

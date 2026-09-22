@@ -1,11 +1,12 @@
 // live.html: this phone broadcasts to the household's TV. The camera opens first so the
-// person sees what the TV will see; "Go live" asks the API for a channel and starts the
-// IVS broadcast SDK (WebRTC ingest). The SDK loads only on this page.
+// person sees what the TV will see; "Go live" asks the TV, which grants or declines. Only a
+// grant makes a channel and hands this phone the stream key for the IVS broadcast SDK
+// (WebRTC ingest). The SDK loads only on this page.
 
 import { Api } from "../api.js";
 import { loadConfig } from "../config.js";
 import { phoneToken } from "../family.js";
-import { LIVE_CHECK_MS, broadcastGone, cameraConstraints, holdHint, liveErrorText, type Facing, type LivePhase } from "../live.js";
+import { ANSWER_CHECK_MS, LIVE_CHECK_MS, answerText, broadcastGone, cameraConstraints, goneText, holdHint, liveErrorText, type Facing, type LivePhase } from "../live.js";
 import { button, context, el, icon, mount, topbar } from "../ui.js";
 import { deviceIdOf } from "./upload.js";
 
@@ -36,6 +37,9 @@ export async function main(root: HTMLElement, location: Location, storage: Stora
   let client: BroadcastClient | null = null;
   let stream: MediaStream | null = null;
   let check: ReturnType<typeof setInterval> | undefined;
+  let waiting: ReturnType<typeof setInterval> | undefined;
+  const cancel = button("Cancel", { secondary: true });
+  cancel.hidden = true;
 
   const set = (next: LivePhase, text?: string) => {
     phase = next;
@@ -43,12 +47,17 @@ export async function main(root: HTMLElement, location: Location, storage: Stora
       clearInterval(check);
       check = undefined;
     }
-    primary.disabled = next === "starting" || next === "stopping";
+    if (next !== "asking" && waiting) {
+      clearInterval(waiting);
+      waiting = undefined;
+    }
+    cancel.hidden = next !== "asking";
+    primary.disabled = next === "asking" || next === "starting" || next === "stopping";
     flip.hidden = !(next === "camera" || next === "live");
-    const label = { idle: "Open the camera", camera: `Go live on ${tvName}`, starting: "Starting…", live: "Stop", stopping: "Stopping…", ended: "Go live again" }[next];
+    const label = { idle: "Open the camera", camera: `Go live on ${tvName}`, asking: `Asking ${tvName}…`, starting: "Starting…", live: "Stop", stopping: "Stopping…", ended: "Go live again" }[next];
     primary.replaceChildren(icon(next === "live" ? "check" : "video", 20), el("span", {}, label));
     primary.classList.toggle("secondary", next === "live");
-    status.textContent = text ?? { idle: "Nothing is sent until you press Go live.", camera: "Only you can see this preview.", starting: "Connecting…", live: `Live on ${tvName}. The TV runs a few seconds behind you.`, stopping: "", ended: "Broadcast ended." }[next];
+    status.textContent = text ?? { idle: "Nothing is sent until you press Go live.", camera: "Only you can see this preview.", asking: `Waiting for ${tvName} to let you in…`, starting: "Connecting…", live: `Live on ${tvName}. The TV runs a few seconds behind you.`, stopping: "", ended: "Broadcast ended." }[next];
   };
 
   const updateHint = () => {
@@ -87,6 +96,43 @@ export async function main(root: HTMLElement, location: Location, storage: Stora
     set("ended");
   };
 
+  // The TV's answer: stream on a grant, say why on anything else.
+  const answered = async () => {
+    if (phase !== "asking") return;
+    const answer = await api.liveAnswer(token).catch(() => null);
+    if (!answer || phase !== "asking" || answer.status === "waiting") return;
+    if (answer.status !== "granted" || !answer.stream_key || !answer.ingest_endpoint || !answer.broadcast) {
+      set("camera", answerText(answer.status, tvName) ?? undefined);
+      return;
+    }
+    const mine = answer.broadcast;
+    set("starting");
+    try {
+      await client!.startBroadcast(answer.stream_key, answer.ingest_endpoint);
+    } catch (e) {
+      await api.stopLive(token).catch(() => undefined);
+      set("camera", liveErrorText(e));
+      return;
+    }
+    set("live");
+    // The TV can end it or switch to another phone; the SDK does not always notice the cut.
+    check = setInterval(() => {
+      void api
+        .currentLive(token)
+        .then(({ live: now }) => {
+          if (phase !== "live" || !broadcastGone(now, mine)) return;
+          client?.stopBroadcast();
+          set("ended", goneText(now, tvName));
+        })
+        .catch(() => undefined);
+    }, LIVE_CHECK_MS);
+  };
+
+  cancel.onclick = async () => {
+    set("camera", answerText("cancelled", tvName) ?? undefined);
+    await api.cancelLive(token).catch(() => undefined);
+  };
+
   primary.onclick = async () => {
     try {
       if (phase === "idle" || phase === "ended") {
@@ -95,26 +141,13 @@ export async function main(root: HTMLElement, location: Location, storage: Stora
         return;
       }
       if (phase === "camera") {
-        set("starting");
-        const live = await api.startLive(token);
-        await client!.startBroadcast(live.stream_key, live.ingest_endpoint);
-        set("live");
-        // The TV's End broadcast cuts the stream, but the SDK does not always notice.
-        check = setInterval(() => {
-          void api
-            .currentLive(token)
-            .then(({ live: now }) => {
-              if (phase !== "live" || !broadcastGone(now, live.id)) return;
-              client?.stopBroadcast();
-              set("ended", `${tvName} ended the broadcast.`);
-            })
-            .catch(() => undefined);
-        }, LIVE_CHECK_MS);
+        const asked = await api.askLive(token);
+        set("asking", answerText("waiting", tvName, asked.replacing) ?? undefined);
+        waiting = setInterval(() => void answered(), ANSWER_CHECK_MS);
         return;
       }
       if (phase === "live") await stop();
     } catch (e) {
-      if (phase === "starting") await api.stopLive(token).catch(() => undefined);
       set(stream ? "camera" : "idle", liveErrorText(e));
     }
   };
@@ -128,6 +161,7 @@ export async function main(root: HTMLElement, location: Location, storage: Stora
   };
   // Leaving the page ends the broadcast rather than leaving the TV on a frozen frame.
   window.addEventListener("pagehide", () => {
+    if (phase === "asking") void api.cancelLive(token).catch(() => undefined);
     if (phase === "live") {
       client?.stopBroadcast();
       void api.stopLive(token).catch(() => undefined);
@@ -141,6 +175,7 @@ export async function main(root: HTMLElement, location: Location, storage: Stora
     preview,
     hint,
     primary,
+    cancel,
     flip,
     status,
     el("a", { class: "link", href: "/?owner=1" }, icon("back", 18), el("span", {}, "Back to photos")),
