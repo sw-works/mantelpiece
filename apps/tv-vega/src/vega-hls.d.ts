@@ -6,5 +6,7 @@ declare module "vega-hls" {
   export const Hls: any;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   export const Events: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  export const ErrorTypes: any;
   export function installPolyfills(): void;
 }

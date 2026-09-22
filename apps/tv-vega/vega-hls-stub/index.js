@@ -4,4 +4,5 @@
 export const available = false;
 export const Hls = null;
 export const Events = null;
+export const ErrorTypes = null;
 export function installPolyfills() {}

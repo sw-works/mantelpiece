@@ -36,6 +36,28 @@ export const HLS_CONFIG = {
   backBufferLength: 10,
 };
 
+/**
+ * The TV hears `live.started` before the phone's first segment reaches IVS, and until then
+ * the playlist answers 404, which hls.js does not retry. Ask for it this often, for this
+ * long, before starting hls.js once: Vega's media element does not survive a second
+ * MediaSource attach.
+ */
+export const RETRY_MS = 2000;
+export const GIVE_UP_MS = 60_000;
+
+async function playlistReady(uri: string, alive: () => boolean): Promise<boolean> {
+  const since = Date.now();
+  while (alive() && Date.now() - since < GIVE_UP_MS) {
+    try {
+      if ((await fetch(uri)).ok) return true;
+    } catch {
+      // not reachable yet
+    }
+    await new Promise((r) => setTimeout(r, RETRY_MS));
+  }
+  return false;
+}
+
 function VegaLivePlayer({ uri, onState }: LivePlayerProps) {
   const video = useRef<VideoPlayer | null>(null);
   const hls = useRef<any>(null);
@@ -47,6 +69,11 @@ function VegaLivePlayer({ uri, onState }: LivePlayerProps) {
     let alive = true;
     VegaHls.installPolyfills();
     (async () => {
+      if (!(await playlistReady(uri, () => alive))) {
+        if (alive) report.current?.("error");
+        return;
+      }
+      if (!alive) return;
       const vp = new W3cMedia.VideoPlayer();
       await vp.initialize();
       if (!alive) {
@@ -61,7 +88,14 @@ function VegaLivePlayer({ uri, onState }: LivePlayerProps) {
       if (surface.current) vp.setSurfaceHandle(surface.current);
       const player = new VegaHls.Hls(HLS_CONFIG);
       player.on(VegaHls.Events.ERROR, (_e: unknown, data: any) => {
-        if (data?.fatal) report.current?.("error");
+        if (!data?.fatal || !alive) return;
+        // A dropped phone connection: keep asking for the playlist on the same attach.
+        if (data.type === VegaHls.ErrorTypes.NETWORK_ERROR) {
+          report.current?.("stalled");
+          setTimeout(() => alive && player.startLoad(), RETRY_MS);
+        } else {
+          report.current?.("error");
+        }
       });
       hls.current = player;
       player.loadSource(uri);

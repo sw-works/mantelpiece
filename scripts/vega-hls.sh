@@ -43,6 +43,7 @@ import W3CMediaPolyfill from "./polyfills/W3CMediaPolyfill";
 export const available = true;
 export const Hls = HlsLib.Hls ?? HlsLib.default;
 export const Events = HlsLib.Events ?? (HlsLib.default && HlsLib.default.Events);
+export const ErrorTypes = HlsLib.ErrorTypes ?? (HlsLib.default && HlsLib.default.ErrorTypes);
 
 let installed = false;
 export function installPolyfills() {
@@ -69,6 +70,10 @@ export function installPolyfills() {
   TextDecoderPolyfill.install();
   W3CMediaPolyfill.install();
   MiscPolyfill.install();
+  // hls.js picks the AAC profile from the user agent: anything not Firefox or Android is
+  // forced to HE-AAC (a Chrome workaround), and Vega's decoder errors on that switch when IVS
+  // sends AAC-LC. Its Android paths keep AAC-LC, which is what a Fire TV wants.
+  if (!/android/i.test(g.navigator.userAgent)) g.navigator.userAgent = `${g.navigator.userAgent} Android`;
 }
 JS
 echo "built $OUT"
