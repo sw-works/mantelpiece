@@ -1,6 +1,6 @@
 {
   "//": "Reverse-DNS name is required by the Vega packager and must match components.interactive.id in manifest.toml",
-  "name": "com.hanyu.memorylane.main",
+  "name": "com.hanyu.mantelpiece.main",
   "displayName": "Mantelpiece",
   "//api": "Deployed API base URL (stack output ApiUrl); scripts/tv-config.sh fills it. Empty falls back to the tv-ui placeholder",
   "apiBase": "https://ctdyl7s959.execute-api.us-west-2.amazonaws.com"

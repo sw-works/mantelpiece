@@ -4,8 +4,8 @@
 //! copied there at write time, filtered to the kinds a member may see. Both Lambdas use
 //! this instead of `Storage::append_event` directly.
 
-use memorylane_core::events::{Event, EventKind};
-use memorylane_core::ids::HouseholdId;
+use mantelpiece_core::events::{Event, EventKind};
+use mantelpiece_core::ids::HouseholdId;
 use time::OffsetDateTime;
 
 use crate::{Result, Storage};

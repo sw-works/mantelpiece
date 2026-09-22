@@ -1,5 +1,5 @@
 [package]
-name = "memorylane-ingest"
+name = "mantelpiece-ingest"
 description = "Pure-compute ingest steps: checksum, EXIF, perceptual hash, quality signals, burst grouping, renditions"
 version.workspace = true
 edition.workspace = true
@@ -7,7 +7,7 @@ license.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-memorylane-core.workspace = true
+mantelpiece-core.workspace = true
 serde.workspace = true
 thiserror.workspace = true
 time.workspace = true

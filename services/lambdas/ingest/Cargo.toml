@@ -1,5 +1,5 @@
 [package]
-name = "memorylane-ingest-lambda"
+name = "mantelpiece-ingest-lambda"
 description = "Step Functions task handlers: per-file signals and renditions, model enrichment, per-household organisation into trips"
 version.workspace = true
 edition.workspace = true
@@ -7,7 +7,7 @@ license.workspace = true
 rust-version.workspace = true
 
 [lib]
-name = "memorylane_ingest_lambda"
+name = "mantelpiece_ingest_lambda"
 path = "src/lib.rs"
 
 [[bin]]
@@ -15,10 +15,10 @@ name = "ingest"
 path = "src/main.rs"
 
 [dependencies]
-memorylane-core.workspace = true
-memorylane-ingest.workspace = true
-memorylane-trips.workspace = true
-memorylane-store.workspace = true
+mantelpiece-core.workspace = true
+mantelpiece-ingest.workspace = true
+mantelpiece-trips.workspace = true
+mantelpiece-store.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true

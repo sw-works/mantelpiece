@@ -1,5 +1,5 @@
-import memorylane_agents
+import mantelpiece_agents
 
 
 def test_package_imports() -> None:
-    assert memorylane_agents.__doc__
+    assert mantelpiece_agents.__doc__

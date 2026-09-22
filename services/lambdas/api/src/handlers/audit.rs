@@ -1,6 +1,6 @@
 //! Audit log (F-605): written centrally from `App::handle`, read by the owner.
 
-use memorylane_core::audit::{action_for, AuditEntry};
+use mantelpiece_core::audit::{action_for, AuditEntry};
 
 use crate::app::{App, Caller};
 use crate::error::ApiError;

@@ -1,7 +1,7 @@
 # Alexa+ add-on
 
 Mantelpiece's tools reach Alexa+ through the same AgentCore Gateway the Concierge uses
-(research R6, `specs/001-memorylane-baseline/contracts/tools.md`). Nothing Alexa-specific
+(research R6, `specs/001-mantelpiece-baseline/contracts/tools.md`). Nothing Alexa-specific
 runs in the backend: the add-on is an MCP client with an OAuth token for one household.
 
 Status 2026-09-09: the stack and the API serve everything below; the registration itself
@@ -12,11 +12,11 @@ marked *unverified* comes from the preview documentation, not from a run.
 
 | Piece | Where | Value after `make deploy` |
 |-------|-------|---------------------------|
-| MCP endpoint | `CfnGateway` in `infra/lib/memorylane-stack.ts` | `GatewayUrl` output; Streamable HTTP, spec 2025-11-25 |
+| MCP endpoint | `CfnGateway` in `infra/lib/mantelpiece-stack.ts` | `GatewayUrl` output; Streamable HTTP, spec 2025-11-25 |
 | Authorization server metadata | `GET /.well-known/oauth-authorization-server` on the API | RFC 8414 document pointing at the Cognito hosted UI |
 | Protected resource metadata | `GET /.well-known/oauth-protected-resource` | RFC 9728 document naming the Gateway as the resource |
 | OAuth client | Cognito app client `AlexaPlus`, no secret, PKCE required | client id in the Cognito console |
-| Scope | Cognito resource server `memorylane`, scope `tools` | `memorylane/tools` |
+| Scope | Cognito resource server `mantelpiece`, scope `tools` | `mantelpiece/tools` |
 | Tool policy | `infra/policy/*.cedar` | irreversible tools deny without a TV-minted confirmation |
 
 The redirect URI on the `AlexaPlus` client is a placeholder until the preview says which
@@ -29,7 +29,7 @@ to use; pass the real ones through the `alexaCallbackUrls` stack prop.
    output.
 3. Authentication: OAuth 2.0 authorization code with PKCE. Authorization URL
    `<OAUTH_DOMAIN>/oauth2/authorize`, token URL `<OAUTH_DOMAIN>/oauth2/token`, client id
-   from the `AlexaPlus` app client, scope `memorylane/tools`. Both URLs are in the
+   from the `AlexaPlus` app client, scope `mantelpiece/tools`. Both URLs are in the
    authorization server metadata document.
 4. Copy the redirect URIs the console shows into `alexaCallbackUrls` and redeploy.
 5. Register example phrases:
@@ -57,15 +57,15 @@ TV gets an empty trip list, never another household's data (F-602).
 ## Echo Show slideshow: the custom skill (2026-09-12)
 
 Alexa+ add-ons have no screen surface and Amazon Photos' Photo Frame takes no third-party
-feed, so trips reach an Echo Show through a classic custom skill in `agents/src/memorylane_skill`
+feed, so trips reach an Echo Show through a classic custom skill in `agents/src/mantelpiece_skill`
 (stdlib Python, one Lambda, `agents/skill/` holds the interaction model and manifest).
 
-- "Alexa, ask Memory Lane to play the latest trip" or "... to show Skye": on a screen the
+- "Alexa, ask Mantelpiece to play the latest trip" or "... to show Skye": on a screen the
   skill renders an APL `Pager` of the trip's TV renditions (highlights first, then each
   day, 24 at most) with the trip name and day title as a caption, and an `AutoPage`
   command advances every 8 seconds. Without a screen it reads the trip's story, or the
   day titles when no story passed the check.
-- "Alexa, open Memory Lane" lists the newest trips and waits for a name. Names match by
+- "Alexa, open Mantelpiece" lists the newest trips and waits for a name. Names match by
   word overlap, so "the Skye one" finds "Skye and Lochalsh, April 2025".
 - "... to play Skye on the TV": the skill calls `POST /trips/{id}/play`, the API puts a
   `play.requested` event on the household feed, and the Fire TV app opens the slideshow.

@@ -1,4 +1,4 @@
-# Research: MemoryLane Baseline
+# Research: Mantelpiece Baseline
 
 Each item resolves an unknown from the plan's Technical Context or an open question in
 `specs/architecture.md` section 9. "Verified" says how far the answer has been checked:

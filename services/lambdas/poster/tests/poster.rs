@@ -2,11 +2,11 @@
 
 #![allow(clippy::cast_possible_truncation)]
 
-use memorylane_core::ids::{BatchId, ContributorId, HouseholdId, MediaId};
-use memorylane_core::media::{Enrichment, MediaItem, MediaKind, ProcessingState, Signals};
-use memorylane_poster::{poster_key, run, Input, MemoryFrames, Poster};
-use memorylane_store::memory::{MemoryBlobs, MemoryStorage};
-use memorylane_store::{Blobs, Storage};
+use mantelpiece_core::ids::{BatchId, ContributorId, HouseholdId, MediaId};
+use mantelpiece_core::media::{Enrichment, MediaItem, MediaKind, ProcessingState, Signals};
+use mantelpiece_poster::{poster_key, run, Input, MemoryFrames, Poster};
+use mantelpiece_store::memory::{MemoryBlobs, MemoryStorage};
+use mantelpiece_store::{Blobs, Storage};
 use std::collections::BTreeSet;
 use std::sync::Arc;
 use time::macros::datetime;

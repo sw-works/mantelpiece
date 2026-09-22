@@ -3,7 +3,7 @@
 //! goes.
 
 use async_trait::async_trait;
-use memorylane_core::ids::{HouseholdId, MediaId};
+use mantelpiece_core::ids::{HouseholdId, MediaId};
 use std::collections::HashMap;
 use std::sync::Mutex;
 
@@ -129,7 +129,7 @@ impl RekognitionFaces {
                 }
             })
             .collect();
-        format!("memorylane-{safe}")
+        format!("mantelpiece-{safe}")
     }
 
     fn image(jpeg: &[u8]) -> aws_sdk_rekognition::types::Image {
@@ -230,7 +230,7 @@ mod tests {
         assert!(f.search(&h, "face-1").await.unwrap().is_empty());
         assert_eq!(
             RekognitionFaces::collection_id(&HouseholdId::new("a.b|c")),
-            "memorylane-a_b_c"
+            "mantelpiece-a_b_c"
         );
     }
 }

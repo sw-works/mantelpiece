@@ -1,9 +1,9 @@
 //! Device-code sign-in (F-401).
 
-use memorylane_core::contributor::Contributor;
-use memorylane_core::device_code::{DeviceCode, DeviceCodeError, DeviceCodeState, Poll};
-use memorylane_core::household::Household;
-use memorylane_core::ids::{ContributorId, DeviceId, HouseholdId};
+use mantelpiece_core::contributor::Contributor;
+use mantelpiece_core::device_code::{DeviceCode, DeviceCodeError, DeviceCodeState, Poll};
+use mantelpiece_core::household::Household;
+use mantelpiece_core::ids::{ContributorId, DeviceId, HouseholdId};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use time::OffsetDateTime;
@@ -43,7 +43,7 @@ pub async fn issue(app: &App, req: &Req) -> Result<Resp, ApiError> {
             .expires_at
             .format(&time::format_description::well_known::Rfc3339)
             .unwrap_or_default(),
-        poll_seconds: memorylane_core::device_code::POLL_HOLD.whole_seconds(),
+        poll_seconds: mantelpiece_core::device_code::POLL_HOLD.whole_seconds(),
         code: dc.code,
     })
 }
@@ -61,7 +61,7 @@ pub async fn approve(app: &App, req: &Req) -> Result<Resp, ApiError> {
         .as_ref()
         .ok_or_else(|| ApiError::unauthorized("sign in with Amazon first"))?;
     let body: ApproveBody = req.json()?;
-    let code = memorylane_core::codes::normalize(&body.code)
+    let code = mantelpiece_core::codes::normalize(&body.code)
         .ok_or_else(|| ApiError::bad_request("invalid code"))?;
     let mut dc = app
         .storage

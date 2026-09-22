@@ -1,8 +1,8 @@
-from memorylane_agents import tracing
-from memorylane_agents.gateway import GatewayTools
-from memorylane_agents.model import ScriptedModel
-from memorylane_agents.runtime import invoke
-from memorylane_agents.tools import InMemoryTools, Trip
+from mantelpiece_agents import tracing
+from mantelpiece_agents.gateway import GatewayTools
+from mantelpiece_agents.model import ScriptedModel
+from mantelpiece_agents.runtime import invoke
+from mantelpiece_agents.tools import InMemoryTools, Trip
 
 GOOD = "Hanyu started at Kinkaku-ji. Maya arrived for Fushimi Inari. The last day was quiet."
 

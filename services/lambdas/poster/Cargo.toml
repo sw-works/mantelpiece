@@ -1,5 +1,5 @@
 [package]
-name = "memorylane-poster"
+name = "mantelpiece-poster"
 description = "Poster frames for uploaded videos: ffmpeg from a Lambda layer, then the same renditions photos get"
 version.workspace = true
 edition.workspace = true
@@ -7,7 +7,7 @@ license.workspace = true
 rust-version.workspace = true
 
 [lib]
-name = "memorylane_poster"
+name = "mantelpiece_poster"
 path = "src/lib.rs"
 
 [[bin]]
@@ -15,9 +15,9 @@ name = "poster"
 path = "src/main.rs"
 
 [dependencies]
-memorylane-core.workspace = true
-memorylane-ingest.workspace = true
-memorylane-store.workspace = true
+mantelpiece-core.workspace = true
+mantelpiece-ingest.workspace = true
+mantelpiece-store.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true

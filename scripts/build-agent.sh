@@ -13,10 +13,10 @@ uv pip install --quiet \
   --python-version "$PY" \
   --only-binary=:all: \
   "bedrock-agentcore>=0.1" "strands-agents>=1.0"
-cp -R src/memorylane_agents "$OUT/"
+cp -R src/mantelpiece_agents "$OUT/"
 # The Runtime starts this file; everything else is importable next to it.
 cat > "$OUT/main.py" <<'PYEOF'
-from memorylane_agents.runtime import main
+from mantelpiece_agents.runtime import main
 
 if __name__ == "__main__":
     main()

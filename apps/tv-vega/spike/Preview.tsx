@@ -3,14 +3,14 @@
 // public sample photos, cycling every few seconds so a screenshot loop can capture each.
 // Off the normal build like LiveSpike: swap the entry in index.js by hand (see README).
 import { useEffect, useState } from "react";
-import { Ask, JoinTrip, MapView, People, ReviewChanges, Slideshow } from "@memorylane/tv-ui";
-import { Highlights } from "@memorylane/tv-ui/src/screens/Highlights";
-import { Invite } from "@memorylane/tv-ui/src/screens/Invite";
-import { MemoriesHome } from "@memorylane/tv-ui/src/screens/MemoriesHome";
-import { TripView } from "@memorylane/tv-ui/src/screens/TripView";
-import { Stage } from "@memorylane/tv-ui/src/components/Stage";
-import { Ticker } from "@memorylane/tv-ui/src/components/Ticker";
-import { FakeApi } from "@memorylane/tv-ui/test/fakeApi";
+import { Ask, JoinTrip, MapView, People, ReviewChanges, Slideshow } from "@mantelpiece/tv-ui";
+import { Highlights } from "@mantelpiece/tv-ui/src/screens/Highlights";
+import { Invite } from "@mantelpiece/tv-ui/src/screens/Invite";
+import { MemoriesHome } from "@mantelpiece/tv-ui/src/screens/MemoriesHome";
+import { TripView } from "@mantelpiece/tv-ui/src/screens/TripView";
+import { Stage } from "@mantelpiece/tv-ui/src/components/Stage";
+import { Ticker } from "@mantelpiece/tv-ui/src/components/Ticker";
+import { FakeApi } from "@mantelpiece/tv-ui/test/fakeApi";
 
 const api = new FakeApi();
 (api as any).mediaUrl = async (_t: string, id: string) => ({ url: `https://picsum.photos/seed/${id}/960/540`, expires_in: 3600 });
@@ -49,7 +49,7 @@ api.proposalList = [
   { id: "p1", kind: "dedup", action: { type: "apply_dedup" }, trip: "kyoto", before: 214, after: 185, state: "open", requested_by: "concierge", expires_at: null, samples: [{ keep: "k4", remove: ["k5", "k6", "k7", "k8"], reason: "same second, sharper" }, { keep: "k9", remove: ["k10", "k11", "k12"], reason: "same frame" }, { keep: "k1", remove: ["k2", "k3"], reason: "exposure" }, { keep: "k13", remove: ["k14"], reason: "burst" }, { keep: "k15", remove: ["k16"], reason: "burst" }] },
   { id: "p2", kind: "cleanup", action: { type: "apply_cleanup" }, trip: null, before: 1462, after: 1450, state: "open", requested_by: "concierge", expires_at: null, samples: [{ keep: null, remove: ["s1", "s2", "s3"], reason: "screenshot text" }, { keep: null, remove: ["s4", "s5"], reason: "receipt" }] },
 ] as any;
-(api as any).householdCode = async () => ({ code: "ABC234", scope: "trip", trip: "kyoto", link: "https://upload.memorylane.test/?t=ABC234", accepts_uploads: true, contributors: 3, member_households: 2 });
+(api as any).householdCode = async () => ({ code: "ABC234", scope: "trip", trip: "kyoto", link: "https://upload.mantelpiece.test/?t=ABC234", accepts_uploads: true, contributors: 3, member_households: 2 });
 (api as any).tripCode = (api as any).householdCode;
 
 const nav = { tvName: "Living room TV", items: ["Memories", "Map", "People", "Ask", "Join a trip", "Add photos", "Review"].map((label, i) => ({ key: ["home", "map", "people", "ask", "join", "invite", "review"][i]!, label, onPress: () => undefined, badge: label === "Review" ? 2 : undefined })) };

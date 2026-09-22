@@ -8,7 +8,7 @@
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine;
 use hmac::{Hmac, Mac};
-use memorylane_core::ids::{ContributorId, HouseholdId, TripId};
+use mantelpiece_core::ids::{ContributorId, HouseholdId, TripId};
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
 use thiserror::Error;

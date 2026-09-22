@@ -14,10 +14,10 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import Any
 
-ATTR_HOUSEHOLD = "memorylane.household"
-ATTR_WORKFLOW = "memorylane.workflow"
-ATTR_TOOL = "memorylane.tool"
-ATTR_TRIGGER = "memorylane.trigger"
+ATTR_HOUSEHOLD = "mantelpiece.household"
+ATTR_WORKFLOW = "mantelpiece.workflow"
+ATTR_TOOL = "mantelpiece.tool"
+ATTR_TRIGGER = "mantelpiece.trigger"
 
 
 @dataclass
@@ -75,7 +75,7 @@ def tracer() -> RecordingTracer | OtelTracer:
         try:
             from opentelemetry import trace  # type: ignore[import-not-found]
 
-            _current = OtelTracer(trace.get_tracer("memorylane_agents"))
+            _current = OtelTracer(trace.get_tracer("mantelpiece_agents"))
         except ImportError:
             _current = RecordingTracer()
     return _current

@@ -8,7 +8,7 @@ Mantelpiece
 
 ## Tagline
 
-One QR on the TV turns a family trip into a shared album that builds itself.
+The family TV, shared with everyone's phones: photos the moment they land, and a live camera from wherever they are.
 
 ## Track
 
@@ -25,6 +25,11 @@ trip scans the same QR from their own phone and their photos land in the same tr
 credited to them. The TV shows uploads arriving live. The same code works on another Fire TV:
 grandma opens "Join a trip", types it, and the trip appears on her screen the evening it
 happens, with everyone's photos and her reactions flowing back to yours.
+
+Photos take over the TV the moment they land, with the sender's name; one button on the
+remote sends back "loved your photos" as a notification on their phone. A phone can also ask
+to go live: someone on the TV says yes, and the camera from the party, the recital or the
+other side of the world plays on the big screen a few seconds behind.
 
 The backend groups burst shots and picks the keeper, scores every photo, aligns the clocks
 of different phones from overlapping GPS, splits the trip into days, draws the route, and
@@ -86,6 +91,6 @@ EventBridge, Cognito, Login with Amazon, Rekognition, Amazon Bedrock, Bedrock Ag
 
 ## Links
 
-- Repository: https://github.com/hanyuxiao/memory-lane (public before submission)
+- Repository: https://github.com/hanyuxiao/mantelpiece (public before submission)
 - Architecture: `specs/architecture.md`, diagrams in `docs/diagrams/`
 - Friction log: `docs/friction-log.md`; Alexa+ add-on: `docs/alexa-plus.md`

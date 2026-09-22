@@ -1,9 +1,9 @@
 import pytest
 
-from memorylane_agents import workflows
-from memorylane_agents.model import ScriptedModel
-from memorylane_agents.router import handle_event
-from memorylane_agents.tools import CleanupCandidate, ConfirmationRequired, InMemoryTools
+from mantelpiece_agents import workflows
+from mantelpiece_agents.model import ScriptedModel
+from mantelpiece_agents.router import handle_event
+from mantelpiece_agents.tools import CleanupCandidate, ConfirmationRequired, InMemoryTools
 
 
 def test_quick_cleanup_proposes_and_applies_only_with_a_token(tools: InMemoryTools) -> None:

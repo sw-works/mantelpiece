@@ -70,7 +70,7 @@ pub async fn delete_account(app: &App, req: &Req) -> Result<Resp, ApiError> {
         .get_household(&household)
         .await?
         .unwrap_or_else(|| {
-            memorylane_core::household::Household::new(household.clone(), "My TV", now)
+            mantelpiece_core::household::Household::new(household.clone(), "My TV", now)
         });
     record.deleting_since = Some(now);
     record.people_enabled = false;
@@ -110,7 +110,7 @@ pub async fn settings(app: &App, req: &Req) -> Result<Resp, ApiError> {
         .get_household(&household)
         .await?
         .unwrap_or_else(|| {
-            memorylane_core::household::Household::new(household.clone(), "My TV", app.now())
+            mantelpiece_core::household::Household::new(household.clone(), "My TV", app.now())
         });
     if let Some(v) = body.narration_enabled {
         record.narration_enabled = v;

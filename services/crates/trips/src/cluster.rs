@@ -9,7 +9,7 @@
 //! `undated` so the caller can flag them.
 
 use crate::Sample;
-use memorylane_core::ids::MediaId;
+use mantelpiece_core::ids::MediaId;
 use time::{Date, Duration};
 
 #[derive(Clone, Copy, Debug, PartialEq)]

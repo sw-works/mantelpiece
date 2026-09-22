@@ -1,8 +1,8 @@
 //! Kick off the per-household organize state machine when an upload batch completes.
 
 use async_trait::async_trait;
-use memorylane_core::ids::HouseholdId;
-use memorylane_store::{Result, StorageError};
+use mantelpiece_core::ids::HouseholdId;
+use mantelpiece_store::{Result, StorageError};
 use std::sync::Mutex;
 
 #[async_trait]

@@ -1,8 +1,8 @@
 import { App } from "aws-cdk-lib";
-import { MemoryLaneStack } from "../lib/memorylane-stack.js";
+import { MantelpieceStack } from "../lib/mantelpiece-stack.js";
 
 const app = new App();
-new MemoryLaneStack(app, "MemoryLane", {
+new MantelpieceStack(app, "Mantelpiece", {
   env: { account: process.env.CDK_DEFAULT_ACCOUNT, region: process.env.CDK_DEFAULT_REGION ?? "us-east-1" },
   // Custom domains for the phone pages; without them the stack's CloudFront URLs are used.
   linkBase: app.node.tryGetContext("link-base") as string | undefined,

@@ -1,7 +1,7 @@
 //! Memories that resurface (F-701 to F-703, F-707): `GET /memories/home` (the
 //! `memories_for` tool) and `GET /map`, the all-trips pin map.
 
-use memorylane_trips::memories::{self, Period};
+use mantelpiece_trips::memories::{self, Period};
 use serde_json::json;
 use time::{Date, Month};
 

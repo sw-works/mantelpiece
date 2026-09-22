@@ -1,7 +1,7 @@
-from memorylane_agents import workflows
-from memorylane_agents.model import ScriptedModel
-from memorylane_agents.runtime import invoke
-from memorylane_agents.tools import InMemoryTools, NowShowing, PhotoAnswer
+from mantelpiece_agents import workflows
+from mantelpiece_agents.model import ScriptedModel
+from mantelpiece_agents.runtime import invoke
+from mantelpiece_agents.tools import InMemoryTools, NowShowing, PhotoAnswer
 
 
 def showing(tools: InMemoryTools, media: str = "m1") -> None:

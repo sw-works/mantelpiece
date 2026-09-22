@@ -3,9 +3,9 @@
 //! sure a recognised landmark has its encyclopedia facts stored. Neither ever fails a
 //! task: a lookup that errors leaves the landmark a plain name.
 
-use memorylane_core::geo::GeoPoint;
-use memorylane_core::landmark::{self, LandmarkFacts};
-use memorylane_store::places::Place;
+use mantelpiece_core::geo::GeoPoint;
+use mantelpiece_core::landmark::{self, LandmarkFacts};
+use mantelpiece_store::places::Place;
 
 use crate::Ingest;
 

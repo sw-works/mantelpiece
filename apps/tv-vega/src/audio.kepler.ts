@@ -6,7 +6,7 @@
 // off and the Slideshow shows the story as captions. Not yet verified on a Vega device or
 // the Virtual Device: the SDK is not installed on this machine.
 
-import type { AudioPlayer } from "@memorylane/tv-ui";
+import type { AudioPlayer } from "@mantelpiece/tv-ui";
 import * as ReactNative from "react-native";
 
 interface W3cAudio {

@@ -1,4 +1,4 @@
-"""Request handling for the MemoryLane custom skill.
+"""Request handling for the Mantelpiece custom skill.
 
 Intents (skill/en-US.json): PlayTripIntent {trip}, ListTripsIntent, and the AMAZON
 built-ins. Every path needs account linking; without a token the reply is a LinkAccount
@@ -26,7 +26,7 @@ def handle(envelope: dict[str, Any], backend: Backend, skill_id: str | None = No
         envelope.get("context", {}).get("System", {}).get("application", {}).get("applicationId")
     )
     if skill_id and app_id != skill_id:
-        return _speak("This request did not come from the MemoryLane skill.", end=True)
+        return _speak("This request did not come from the Mantelpiece skill.", end=True)
     request = envelope.get("request", {})
     kind = request.get("type")
     if kind == "SessionEndedRequest":
@@ -50,7 +50,7 @@ def handle(envelope: dict[str, Any], backend: Backend, skill_id: str | None = No
         if e.status in (401, 403):
             return _link_account()
         return _speak(
-            "MemoryLane is not answering right now. Please try again in a moment.", end=True
+            "Mantelpiece is not answering right now. Please try again in a moment.", end=True
         )
     owner = session["token"]
     trips = sorted(backend.trips(owner), key=lambda t: t.get("start", ""), reverse=True)
@@ -123,7 +123,7 @@ def slides_for(backend: Backend, token: str, trip: dict[str, Any]) -> list[dict[
             url = backend.media_url(token, media_id, "tv")
         except BackendError:
             continue
-        slides.append({"url": url, "title": trip.get("name", "MemoryLane"), "caption": caption})
+        slides.append({"url": url, "title": trip.get("name", "Mantelpiece"), "caption": caption})
     return slides
 
 
@@ -218,7 +218,7 @@ def _link_account() -> dict:
             "outputSpeech": {
                 "type": "PlainText",
                 "text": (
-                    "Please link your Amazon account to MemoryLane in the Alexa app, "
+                    "Please link your Amazon account to Mantelpiece in the Alexa app, "
                     "then ask again."
                 ),
             },

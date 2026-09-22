@@ -3,7 +3,7 @@
 //! the ingest Lambda.
 
 use async_trait::async_trait;
-use memorylane_core::events::Event;
+use mantelpiece_core::events::Event;
 use std::sync::Mutex;
 
 use crate::{Result, StorageError};
@@ -34,7 +34,7 @@ pub struct EventBridgeBus {
 }
 
 impl EventBridgeBus {
-    pub const SOURCE: &'static str = "memorylane";
+    pub const SOURCE: &'static str = "mantelpiece";
 
     pub fn from_config(config: &aws_config::SdkConfig, bus_name: impl Into<String>) -> Self {
         Self {

@@ -1,10 +1,10 @@
 //! Join a trip from another Fire TV by the same code (F-162, F-411). The trip stays
 //! under its owner; the member household holds a pointer and its own pins and hides.
 
-use memorylane_core::events::EventKind;
-use memorylane_core::ids::TripId;
-use memorylane_core::membership::Membership;
-use memorylane_core::trip_code::CodeScope;
+use mantelpiece_core::events::EventKind;
+use mantelpiece_core::ids::TripId;
+use mantelpiece_core::membership::Membership;
+use mantelpiece_core::trip_code::CodeScope;
 use serde::Deserialize;
 use serde_json::json;
 
@@ -20,7 +20,7 @@ struct JoinBody {
 pub async fn join(app: &App, req: &Req) -> Result<Resp, ApiError> {
     let member = app.owner(req)?;
     let body: JoinBody = req.json()?;
-    let code = memorylane_core::codes::normalize(&body.code)
+    let code = mantelpiece_core::codes::normalize(&body.code)
         .ok_or_else(|| ApiError::bad_request("invalid code"))?;
     let code = app
         .storage

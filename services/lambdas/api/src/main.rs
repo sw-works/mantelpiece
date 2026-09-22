@@ -7,21 +7,21 @@
 
 use lambda_http::{Body, Error, Request, RequestExt};
 use lambda_runtime::{run, service_fn, LambdaEvent};
-use memorylane_api::app::{App, Config};
-use memorylane_api::req::{Jwt, Method, Req};
-use memorylane_api::starter::SfnStarter;
-use memorylane_api::tokens::Signer;
-use memorylane_api::tools;
-use memorylane_store::bus::EventBridgeBus;
-use memorylane_store::dynamo::DynamoStorage;
-use memorylane_store::faces::RekognitionFaces;
-use memorylane_store::live::IvsLive;
-use memorylane_store::mailer::SesMailer;
-use memorylane_store::maps::LocationMaps;
-use memorylane_store::push::WebPush;
-use memorylane_store::s3::S3Blobs;
-use memorylane_store::speech::PollySpeech;
-use memorylane_store::vectors::DynamoVectors;
+use mantelpiece_api::app::{App, Config};
+use mantelpiece_api::req::{Jwt, Method, Req};
+use mantelpiece_api::starter::SfnStarter;
+use mantelpiece_api::tokens::Signer;
+use mantelpiece_api::tools;
+use mantelpiece_store::bus::EventBridgeBus;
+use mantelpiece_store::dynamo::DynamoStorage;
+use mantelpiece_store::faces::RekognitionFaces;
+use mantelpiece_store::live::IvsLive;
+use mantelpiece_store::mailer::SesMailer;
+use mantelpiece_store::maps::LocationMaps;
+use mantelpiece_store::push::WebPush;
+use mantelpiece_store::s3::S3Blobs;
+use mantelpiece_store::speech::PollySpeech;
+use mantelpiece_store::vectors::DynamoVectors;
 use std::sync::Arc;
 use time::{Duration, OffsetDateTime};
 

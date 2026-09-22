@@ -3,8 +3,8 @@
 //! flagged as such.
 
 use crate::Sample;
-use memorylane_core::geo::GeoPoint;
-use memorylane_core::trip::{Route, RoutePoint};
+use mantelpiece_core::geo::GeoPoint;
+use mantelpiece_core::trip::{Route, RoutePoint};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Params {

@@ -3,7 +3,7 @@
 
 use async_trait::async_trait;
 use aws_sdk_dynamodb::types::AttributeValue;
-use memorylane_core::ids::{HouseholdId, MediaId, TripId};
+use mantelpiece_core::ids::{HouseholdId, MediaId, TripId};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Mutex;

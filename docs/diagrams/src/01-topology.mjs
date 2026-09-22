@@ -1,6 +1,6 @@
 import { diagram, node } from "./svg.mjs";
-// Topology as built — services/lambdas/api, services/lambdas/ingest, infra/lib/memorylane-stack.ts,
-// agents/src/memorylane_agents. Drawn 2026-09-08.
+// Topology as built — services/lambdas/api, services/lambdas/ingest, infra/lib/mantelpiece-stack.ts,
+// agents/src/mantelpiece_agents. Drawn 2026-09-08.
 const W = 200, GAP = 36, H = 64;
 const X = (i) => 40 + i * (W + GAP);
 const R0 = 96, R1 = 250, R2 = 404, R3 = 610;
@@ -8,7 +8,7 @@ const mid = (i) => X(i) + W / 2;
 
 export default () => diagram({
   width: 1460, height: 900,
-  title: "MemoryLane · Topology — one QR, one hosted backend, one governed tool surface",
+  title: "Mantelpiece · Topology — one QR, one hosted backend, one governed tool surface",
   subtitle: "Phones upload straight to S3; ingest is deterministic Rust until keepers reach a model; agents reach data only through the Gateway, and irreversible tools only with a token the remote minted.",
   groups: [
     { x: X(2) - 18, y: R2 - 44, w: 3 * W + 2 * GAP + 36, h: H + 66, label: "Step Functions · Ingest" },

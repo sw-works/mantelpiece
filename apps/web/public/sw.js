@@ -2,8 +2,8 @@
 // and the Web Share Target receiver: photos shared from the phone's share sheet are parked
 // in a cache and the uploader page picks them up. Also shows the family channel's pushes:
 // the TV loved this phone's photos.
-const CACHE = "memorylane-shell-v3";
-const SHARED = "memorylane-shared";
+const CACHE = "mantelpiece-shell-v3";
+const SHARED = "mantelpiece-shared";
 const SHARE_PATH = "/share-target";
 
 self.addEventListener("install", (event) => {
@@ -60,7 +60,7 @@ self.addEventListener("push", (event) => {
       body: message.body,
       icon: "/icons/icon-192.png",
       badge: "/icons/icon-192.png",
-      tag: "memorylane-reaction",
+      tag: "mantelpiece-reaction",
       data: { url: message.url },
     }),
   );

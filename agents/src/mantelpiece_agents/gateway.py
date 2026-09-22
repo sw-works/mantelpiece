@@ -2,7 +2,7 @@
 
 Each method is one MCP ``tools/call`` whose target is the API Lambda. The Gateway is
 stateless, so a call is a single JSON-RPC POST: no session, no SDK, standard library only.
-The agent signs in as itself with Cognito client credentials (scope ``memorylane/tools``);
+The agent signs in as itself with Cognito client credentials (scope ``mantelpiece/tools``);
 the token is cached until shortly before it expires.
 
 The HTTP transport is injectable, which is how the tests drive this without a Gateway.
@@ -66,7 +66,7 @@ class GatewayTools:
         token_url: str,
         client_id: str,
         client_secret: str,
-        scope: str = "memorylane/tools",
+        scope: str = "mantelpiece/tools",
         target: str = "api",
         transport: Transport = _urllib_transport,
         clock: Callable[[], float] = time.time,

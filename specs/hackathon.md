@@ -1,4 +1,4 @@
-# MemoryLane: Hackathon Plan
+# Mantelpiece: Hackathon Plan
 
 Status: Draft for hackathon execution
 Target: Build, Ship, Shape: Amazon Developer Hackathon (Devpost)
@@ -35,7 +35,7 @@ button on the phone page using the browser's speech recognition so voice still r
 
 | Week | Dates | Deliverable |
 |------|-------|-------------|
-| 1 | Sep 8 to 14 | CDK skeleton: Cognito+LWA, device-code Lambda, S3, DynamoDB, API, long-poll events. PWA uploader to S3 multipart. Vega SDK 0.24 install; read its RN pin (0.83 or 0.72); split `apps/tv` into `packages/tv-ui` plus `apps/tv-vega`; hello-world on VVD, then MemoryLane. Spike, pass/fail only: native LWA, WebSocket, AsyncStorage, hardware Back on VVD. Add `[os.version]` to the manifest. Public repo, LICENSE. Apply Alexa+ preview. Friction log. |
+| 1 | Sep 8 to 14 | CDK skeleton: Cognito+LWA, device-code Lambda, S3, DynamoDB, API, long-poll events. PWA uploader to S3 multipart. Vega SDK 0.24 install; read its RN pin (0.83 or 0.72); split `apps/tv` into `packages/tv-ui` plus `apps/tv-vega`; hello-world on VVD, then Mantelpiece. Spike, pass/fail only: native LWA, WebSocket, AsyncStorage, hardware Back on VVD. Add `[os.version]` to the manifest. Public repo, LICENSE. Apply Alexa+ preview. Friction log. |
 | 2 | Sep 15 to 21 | Ingest Step Functions with Distributed Map: Rust Lambda with libheif/turbojpeg for decode, EXIF, pHash, sharpness, renditions; burst grouping and keeper pick; Rekognition and Titan on keepers; ffmpeg layer for video posters. |
 | 3 | Sep 22 to 28 | Trip clustering, route build, Location static map, narrative via Bedrock. Trip codes, guest join, contributor attribution, cross-contributor dedup. Fire TV: onboarding QR, Invite QR, Memories home, Trip view. |
 | 4 | Sep 29 to Oct 5 | Gateway Lambda targets, Identity, Runtime agent, Memory. W1, W2. Fire TV Ask screen, Review Changes modal. Per-trip embedding cache. |

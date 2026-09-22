@@ -32,7 +32,7 @@ are in `services/crates/core/src/events.rs`; NEW kinds are added by this feature
 Rules: a member household's feed receives events for joined trips filtered to
 contribution.received, memory.ready, reaction.received, media.removed.
 
-## EventBridge (bus `memorylane`)
+## EventBridge (bus `mantelpiece`)
 
 | detail-type | source | consumer |
 |-------------|--------|----------|

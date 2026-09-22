@@ -17,8 +17,8 @@ pub mod landmarks;
 pub mod organize;
 pub mod signal;
 
-use memorylane_core::ids::{HouseholdId, MediaId};
-use memorylane_store::{Blobs, Bus, Faces, Maps, Storage, StorageError, Vectors, Vision};
+use mantelpiece_core::ids::{HouseholdId, MediaId};
+use mantelpiece_store::{Blobs, Bus, Faces, Maps, Storage, StorageError, Vectors, Vision};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use thiserror::Error;
@@ -63,11 +63,11 @@ pub struct Ingest {
     pub maps: Arc<dyn Maps>,
     pub bus: Arc<dyn Bus>,
     /// Named places along routes (F-206); `NoPlaces` turns lookups off.
-    pub places: Arc<dyn memorylane_store::Places>,
+    pub places: Arc<dyn mantelpiece_store::Places>,
     /// What is known about a landmark (F-210); `NoEncyclopedia` leaves them plain names.
-    pub encyclopedia: Arc<dyn memorylane_store::Encyclopedia>,
+    pub encyclopedia: Arc<dyn mantelpiece_store::Encyclopedia>,
     /// Clustering thresholds; the defaults are the product rules, tools may relax them.
-    pub cluster: memorylane_trips::cluster::Params,
+    pub cluster: mantelpiece_trips::cluster::Params,
     pub clock: Clock,
 }
 

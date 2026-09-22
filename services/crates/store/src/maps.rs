@@ -1,8 +1,8 @@
 //! Static maps for trips and days (F-207) and the all-trips map (F-707) through Amazon
-//! Location Service. The route itself is computed in `memorylane-trips`; this only draws.
+//! Location Service. The route itself is computed in `mantelpiece-trips`; this only draws.
 
 use async_trait::async_trait;
-use memorylane_core::geo::GeoPoint;
+use mantelpiece_core::geo::GeoPoint;
 use std::sync::Mutex;
 
 use crate::{Result, StorageError};

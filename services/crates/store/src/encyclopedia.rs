@@ -4,8 +4,8 @@
 //! article whose title is the name. Wikipedia for real runs, a fixed list for tests.
 
 use async_trait::async_trait;
-use memorylane_core::geo::GeoPoint;
-use memorylane_core::landmark;
+use mantelpiece_core::geo::GeoPoint;
+use mantelpiece_core::landmark;
 use std::fmt::Write as _;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
@@ -134,7 +134,7 @@ impl Wikipedia {
     pub fn new(endpoint: impl Into<String>) -> Self {
         Self {
             endpoint: endpoint.into(),
-            user_agent: "Mantelpiece/0.1 (https://github.com/hanyuxiao/memory-lane)".into(),
+            user_agent: "Mantelpiece/0.1 (https://github.com/hanyuxiao/mantelpiece)".into(),
             last_call: Mutex::default(),
         }
     }
@@ -278,7 +278,7 @@ mod tests {
         );
     }
 
-    /// Hits the live API: `cargo test -p memorylane-store -- --ignored live_wikipedia`.
+    /// Hits the live API: `cargo test -p mantelpiece-store -- --ignored live_wikipedia`.
     #[tokio::test]
     #[ignore = "network"]
     async fn live_wikipedia_finds_the_falls_by_the_name_amazon_location_uses() {

@@ -1,6 +1,6 @@
 //! OAuth metadata for the Alexa+ MCP add-on (research R6, contracts/tools.md). Alexa+ reads
 //! the authorization server document, runs OAuth 2.1 with PKCE against Cognito's hosted
-//! endpoints with the `memorylane/tools` scope, and calls the Gateway with the token.
+//! endpoints with the `mantelpiece/tools` scope, and calls the Gateway with the token.
 //! Shapes follow RFC 8414 and RFC 9728; not yet verified against the Alexa+ preview.
 
 use serde_json::json;
@@ -8,7 +8,7 @@ use serde_json::json;
 use crate::app::App;
 use crate::req::Resp;
 
-pub const SCOPE: &str = "memorylane/tools";
+pub const SCOPE: &str = "mantelpiece/tools";
 
 #[must_use]
 pub fn authorization_server(app: &App) -> Resp {

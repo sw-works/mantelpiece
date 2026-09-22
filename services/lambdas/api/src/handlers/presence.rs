@@ -1,8 +1,8 @@
 //! What each TV is showing (research R3): `PUT /presence` on every slide change and
 //! pause, `GET /presence` for the phone's Ask page.
 
-use memorylane_core::ids::{DeviceId, MediaId, TripId};
-use memorylane_core::presence::Presence;
+use mantelpiece_core::ids::{DeviceId, MediaId, TripId};
+use mantelpiece_core::presence::Presence;
 use serde::Deserialize;
 
 use crate::app::App;

@@ -24,7 +24,7 @@ import urllib.parse
 import urllib.request
 
 API = "https://commons.wikimedia.org/w/api.php"
-AGENT = {"User-Agent": "memorylane-testbed/0.1 (https://github.com; hackathon test data)"}
+AGENT = {"User-Agent": "mantelpiece-testbed/0.1 (https://github.com; hackathon test data)"}
 DEFAULT = "Category:Photographs by Sergei Gussev, Iceland"
 
 

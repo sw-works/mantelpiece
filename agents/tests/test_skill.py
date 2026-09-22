@@ -1,6 +1,6 @@
-from memorylane_skill.apl import PAGER_ID, TOKEN
-from memorylane_skill.backend import InMemoryBackend
-from memorylane_skill.handler import find_trip, handle, slides_for, story_for
+from mantelpiece_skill.apl import PAGER_ID, TOKEN
+from mantelpiece_skill.backend import InMemoryBackend
+from mantelpiece_skill.handler import find_trip, handle, slides_for, story_for
 
 SKYE = {
     "id": "skye",

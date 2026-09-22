@@ -38,7 +38,7 @@ export class MemoryResumeStore implements ResumeStore {
   }
 }
 
-const DB = "memorylane";
+const DB = "mantelpiece";
 const STORE = "uploads";
 
 export class IndexedDbResumeStore implements ResumeStore {

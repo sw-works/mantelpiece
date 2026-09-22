@@ -1,6 +1,6 @@
 import pytest
 
-from memorylane_agents.tools import DedupGroup, InMemoryTools, Trip
+from mantelpiece_agents.tools import DedupGroup, InMemoryTools, Trip
 
 
 @pytest.fixture

@@ -1,8 +1,8 @@
 //! Resumable multipart uploads from the phone browser (F-101, F-103, F-106).
 
-use memorylane_core::events::EventKind;
-use memorylane_core::ids::{BatchId, ContributorId, MediaId};
-use memorylane_core::media::{Enrichment, MediaItem, MediaKind, ProcessingState, Signals};
+use mantelpiece_core::events::EventKind;
+use mantelpiece_core::ids::{BatchId, ContributorId, MediaId};
+use mantelpiece_core::media::{Enrichment, MediaItem, MediaKind, ProcessingState, Signals};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
@@ -10,7 +10,7 @@ use crate::app::{App, Caller};
 use crate::error::ApiError;
 use crate::req::{Req, Resp};
 use crate::tokens::Session;
-use memorylane_store::CompletedPart;
+use mantelpiece_store::CompletedPart;
 use std::collections::BTreeSet;
 
 #[derive(Deserialize)]
@@ -157,7 +157,7 @@ struct Mine {
     bytes: u64,
     state: ProcessingState,
     uploaded_at: String,
-    trip: Option<memorylane_core::ids::TripId>,
+    trip: Option<mantelpiece_core::ids::TripId>,
 }
 
 /// The caller's own uploads with their processing state (US2), newest first.

@@ -3,7 +3,7 @@
 //! Works across contributors: two phones at the same landmark within the window produce
 //! one group. Keepers are chosen by sharpness, then exposure closeness to mid-grey.
 
-use memorylane_core::ids::MediaId;
+use mantelpiece_core::ids::MediaId;
 use serde::{Deserialize, Serialize};
 use time::{Duration, OffsetDateTime};
 

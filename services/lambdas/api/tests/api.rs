@@ -2,23 +2,23 @@
 
 #![allow(clippy::too_many_lines)]
 
-use memorylane_api::app::{App, Config};
-use memorylane_api::req::{Jwt, Method, Req, Resp};
-use memorylane_api::starter::MemoryStarter;
-use memorylane_api::tokens::Signer;
-use memorylane_core::ids::{HouseholdId, MediaId, TripId};
-use memorylane_core::trip::{Route, Trip};
-use memorylane_store::bus::MemoryBus;
-use memorylane_store::faces::MemoryFaces;
-use memorylane_store::live::MemoryLive;
-use memorylane_store::mailer::MemoryMailer;
-use memorylane_store::maps::MemoryMaps;
-use memorylane_store::memory::{MemoryBlobs, MemoryStorage};
-use memorylane_store::push::MemoryPush;
-use memorylane_store::speech::MemorySpeech;
-use memorylane_store::vectors::MemoryVectors;
-use memorylane_store::Blobs as _;
-use memorylane_store::{Storage, Vectors};
+use mantelpiece_api::app::{App, Config};
+use mantelpiece_api::req::{Jwt, Method, Req, Resp};
+use mantelpiece_api::starter::MemoryStarter;
+use mantelpiece_api::tokens::Signer;
+use mantelpiece_core::ids::{HouseholdId, MediaId, TripId};
+use mantelpiece_core::trip::{Route, Trip};
+use mantelpiece_store::bus::MemoryBus;
+use mantelpiece_store::faces::MemoryFaces;
+use mantelpiece_store::live::MemoryLive;
+use mantelpiece_store::mailer::MemoryMailer;
+use mantelpiece_store::maps::MemoryMaps;
+use mantelpiece_store::memory::{MemoryBlobs, MemoryStorage};
+use mantelpiece_store::push::MemoryPush;
+use mantelpiece_store::speech::MemorySpeech;
+use mantelpiece_store::vectors::MemoryVectors;
+use mantelpiece_store::Blobs as _;
+use mantelpiece_store::{Storage, Vectors};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -84,7 +84,7 @@ fn harness() -> Harness {
     // The owner exists once they approved a TV; tests that skip that flow still need them.
     futures_block(
         h.storage
-            .put_contributor(&memorylane_core::contributor::Contributor::owner(
+            .put_contributor(&mantelpiece_core::contributor::Contributor::owner(
                 HouseholdId::new("amzn-owner"),
                 "Hanyu",
                 h.app.now(),
@@ -93,7 +93,7 @@ fn harness() -> Harness {
     h
 }
 
-fn futures_block<F: std::future::Future<Output = memorylane_store::Result<()>>>(f: F) {
+fn futures_block<F: std::future::Future<Output = mantelpiece_store::Result<()>>>(f: F) {
     // MemoryStorage never awaits anything real, so a no-op waker drives it to completion.
     let mut f = std::pin::pin!(f);
     let waker = std::task::Waker::noop();
@@ -126,21 +126,21 @@ async fn enriched(
         .await
         .unwrap()
         .unwrap();
-    m.state = memorylane_core::media::ProcessingState::Enriched;
+    m.state = mantelpiece_core::media::ProcessingState::Enriched;
     m.is_keeper = true;
-    m.captured = Some(memorylane_core::media::CaptureTime::new(
+    m.captured = Some(mantelpiece_core::media::CaptureTime::new(
         datetime!(2026-04-04 05:00:00 UTC),
         None,
     ));
     m.enrichment.scene_tags = tags
         .iter()
-        .map(|t| memorylane_core::media::Tag {
+        .map(|t| mantelpiece_core::media::Tag {
             name: (*t).to_owned(),
             confidence: 0.9,
         })
         .collect();
     if let Some((landmark, text)) = description {
-        m.description = Some(memorylane_core::media::Description {
+        m.description = Some(mantelpiece_core::media::Description {
             text: text.into(),
             landmark: Some(landmark.into()),
             model_id: "test".into(),
@@ -148,7 +148,7 @@ async fn enriched(
         });
     }
     h.storage.put_media(&m).await.unwrap();
-    let vector = memorylane_ingest::embed::embed_media(
+    let vector = mantelpiece_ingest::embed::embed_media(
         &m.enrichment.scene_tags,
         description.map(|d| d.0),
         None,
@@ -360,7 +360,7 @@ async fn cleanup_and_delete_tools_need_tokens_and_open_proposals() {
         .await
         .unwrap()
         .unwrap();
-    m.cleanup_reason = Some(memorylane_core::media::CleanupReason::Screenshot);
+    m.cleanup_reason = Some(mantelpiece_core::media::CleanupReason::Screenshot);
     h.storage.put_media(&m).await.unwrap();
     let candidates = h.owner(Method::Get, "/media/cleanup", None).await;
     assert_eq!(candidates.body[0]["reason"], "screenshot");
@@ -479,10 +479,10 @@ async fn cleanup_and_delete_tools_need_tokens_and_open_proposals() {
 async fn a_second_household_joins_by_code_sees_the_trip_and_pins_privately() {
     let h = harness();
     let mut kyoto = trip("amzn-owner", "kyoto");
-    kyoto.contributors = vec![memorylane_core::ids::ContributorId::new("amzn-owner")];
+    kyoto.contributors = vec![mantelpiece_core::ids::ContributorId::new("amzn-owner")];
     let photo = enriched(&h, "temple.jpg", 61, &["Temple"], None).await;
     let other = enriched(&h, "ramen.jpg", 62, &["Ramen"], None).await;
-    kyoto.days = vec![memorylane_core::trip::TripDay {
+    kyoto.days = vec![mantelpiece_core::trip::TripDay {
         landmarks: vec![],
         index: 1,
         date: time::macros::date!(2026 - 04 - 03),
@@ -505,7 +505,7 @@ async fn a_second_household_joins_by_code_sees_the_trip_and_pins_privately() {
         h.storage.put_media(&m).await.unwrap();
     }
     h.storage
-        .put_household(&memorylane_core::household::Household::new(
+        .put_household(&mantelpiece_core::household::Household::new(
             HouseholdId::new("amzn-owner"),
             "Hanyu's living room",
             h.app.now(),
@@ -513,15 +513,15 @@ async fn a_second_household_joins_by_code_sees_the_trip_and_pins_privately() {
         .await
         .unwrap();
     h.storage
-        .put_household(&memorylane_core::household::Household::new(
+        .put_household(&mantelpiece_core::household::Household::new(
             HouseholdId::new("amzn-ruth"),
             "Ruth's living room",
             h.app.now(),
         ))
         .await
         .unwrap();
-    let ruth = h.app.signer.sign(&memorylane_api::tokens::Claims {
-        session: memorylane_api::tokens::Session::Tv {
+    let ruth = h.app.signer.sign(&mantelpiece_api::tokens::Claims {
+        session: mantelpiece_api::tokens::Session::Tv {
             household: HouseholdId::new("amzn-ruth"),
             subject: "amzn-ruth".into(),
         },
@@ -635,9 +635,9 @@ async fn a_second_household_joins_by_code_sees_the_trip_and_pins_privately() {
     h.app
         .emit(
             &HouseholdId::new("amzn-owner"),
-            memorylane_core::events::EventKind::ContributionReceived {
+            mantelpiece_core::events::EventKind::ContributionReceived {
                 trip: Some(TripId::new("kyoto")),
-                contributor: memorylane_core::ids::ContributorId::new("c"),
+                contributor: mantelpiece_core::ids::ContributorId::new("c"),
                 display_name: "Maya".into(),
                 count: 3,
             },
@@ -647,8 +647,8 @@ async fn a_second_household_joins_by_code_sees_the_trip_and_pins_privately() {
     h.app
         .emit(
             &HouseholdId::new("amzn-owner"),
-            memorylane_core::events::EventKind::UploadProgress {
-                contributor: memorylane_core::ids::ContributorId::new("c"),
+            mantelpiece_core::events::EventKind::UploadProgress {
+                contributor: mantelpiece_core::ids::ContributorId::new("c"),
                 done: 1,
                 total: 3,
             },
@@ -707,7 +707,7 @@ async fn a_second_household_joins_by_code_sees_the_trip_and_pins_privately() {
 async fn roles_rename_and_guests_never_edit() {
     let h = harness();
     let mut kyoto = trip("amzn-owner", "kyoto");
-    kyoto.contributors = vec![memorylane_core::ids::ContributorId::new("amzn-owner")];
+    kyoto.contributors = vec![mantelpiece_core::ids::ContributorId::new("amzn-owner")];
     h.storage.put_trip(&kyoto).await.unwrap();
     let (ken_token, ken) = h.co_editor("amzn-ken", "Ken", Some("kyoto")).await;
     // Demote then promote through the route; a guest can never be promoted.
@@ -890,8 +890,8 @@ async fn seeded(
     let id = MediaId::new(init.body["media_id"].as_str().unwrap());
     let mut m = h.storage.get_media(&house, &id).await.unwrap().unwrap();
     m.is_keeper = true;
-    m.captured = Some(memorylane_core::media::CaptureTime::new(when, None));
-    m.gps = gps.map(|(a, b)| memorylane_core::geo::GeoPoint::new(a, b));
+    m.captured = Some(mantelpiece_core::media::CaptureTime::new(when, None));
+    m.gps = gps.map(|(a, b)| mantelpiece_core::geo::GeoPoint::new(a, b));
     m.quality_score = Some(score);
     h.storage.put_media(&m).await.unwrap();
     id
@@ -963,9 +963,9 @@ async fn memories_home_and_the_all_trips_map() {
     let empty = h.owner(Method::Get, "/map", None).await;
     assert!(empty.body["url"].is_null());
     let mut kyoto = trip("amzn-owner", "kyoto");
-    kyoto.route.points.push(memorylane_core::trip::RoutePoint {
+    kyoto.route.points.push(mantelpiece_core::trip::RoutePoint {
         estimated: false,
-        at: memorylane_core::geo::GeoPoint::new(35.0, 135.7),
+        at: mantelpiece_core::geo::GeoPoint::new(35.0, 135.7),
         time: kyoto.start,
         media: then.clone(),
     });
@@ -1010,9 +1010,9 @@ async fn people_opt_in_naming_merging_search_and_deletion() {
     let beach = enriched(&h, "beach.jpg", 91, &["Beach"], None).await;
     let temple = enriched(&h, "temple.jpg", 92, &["Temple"], None).await;
     let maya =
-        memorylane_core::person::Person::new(house.clone(), "f1", beach.clone(), h.app.now());
+        mantelpiece_core::person::Person::new(house.clone(), "f1", beach.clone(), h.app.now());
     let mut maya_again =
-        memorylane_core::person::Person::new(house.clone(), "f2", temple.clone(), h.app.now());
+        mantelpiece_core::person::Person::new(house.clone(), "f2", temple.clone(), h.app.now());
     maya_again.add_face("f3", beach.clone());
     h.storage.put_person(&maya).await.unwrap();
     h.storage.put_person(&maya_again).await.unwrap();
@@ -1159,7 +1159,7 @@ async fn reactions_from_contributors_viewers_and_members_reach_the_ticker() {
     let h = harness();
     let mut kyoto = trip("amzn-owner", "kyoto");
     let photo = enriched(&h, "ramen.jpg", 101, &["Ramen"], None).await;
-    kyoto.days = vec![memorylane_core::trip::TripDay {
+    kyoto.days = vec![mantelpiece_core::trip::TripDay {
         landmarks: vec![],
         index: 3,
         date: time::macros::date!(2026 - 04 - 05),
@@ -1398,9 +1398,9 @@ async fn audit_log_records_sign_in_shares_and_gated_tools_with_their_tokens() {
     );
     assert_eq!(
         doc.body["authorization_endpoint"],
-        "https://memorylane-test.auth.us-east-1.amazoncognito.com/oauth2/authorize"
+        "https://mantelpiece-test.auth.us-east-1.amazoncognito.com/oauth2/authorize"
     );
-    assert_eq!(doc.body["scopes_supported"][0], "memorylane/tools");
+    assert_eq!(doc.body["scopes_supported"][0], "mantelpiece/tools");
     let res = h
         .call(
             Method::Get,
@@ -1410,7 +1410,7 @@ async fn audit_log_records_sign_in_shares_and_gated_tools_with_their_tokens() {
             None,
         )
         .await;
-    assert_eq!(res.body["resource"], "https://gateway.memorylane.test/mcp");
+    assert_eq!(res.body["resource"], "https://gateway.mantelpiece.test/mcp");
     assert_eq!(res.body["mcp_protocol_version"], "2025-11-25");
 }
 
@@ -1418,7 +1418,7 @@ async fn audit_log_records_sign_in_shares_and_gated_tools_with_their_tokens() {
 async fn share_links_need_a_confirmation_and_open_publicly_until_they_expire() {
     let h = harness();
     h.storage
-        .put_household(&memorylane_core::household::Household::new(
+        .put_household(&mantelpiece_core::household::Household::new(
             HouseholdId::new("amzn-owner"),
             "Living room",
             h.app.now(),
@@ -1513,7 +1513,7 @@ async fn share_links_need_a_confirmation_and_open_publicly_until_they_expire() {
     let id = made.body["id"].as_str().unwrap().to_owned();
     assert_eq!(
         made.body["link"],
-        format!("https://upload.memorylane.test/s.html?s={id}")
+        format!("https://upload.mantelpiece.test/s.html?s={id}")
     );
     assert_eq!(made.body["expires_at"], "2026-09-15T10:00:00Z");
     let sent = h.mailer.sent.lock().unwrap().clone();
@@ -1602,7 +1602,7 @@ async fn narration_is_behind_a_flag_and_the_ambient_playlist_honours_pins_and_hi
     let house = HouseholdId::new("amzn-owner");
     let mut kyoto = trip("amzn-owner", "kyoto");
     kyoto.days = vec![
-        memorylane_core::trip::TripDay {
+        mantelpiece_core::trip::TripDay {
             landmarks: vec![],
             index: 1,
             date: time::macros::date!(2026 - 04 - 03),
@@ -1612,7 +1612,7 @@ async fn narration_is_behind_a_flag_and_the_ambient_playlist_honours_pins_and_hi
             story: Some("Hanyu started at Kinkaku-ji.".into()),
             undated: vec![],
         },
-        memorylane_core::trip::TripDay {
+        mantelpiece_core::trip::TripDay {
             landmarks: vec![],
             index: 2,
             date: time::macros::date!(2026 - 04 - 04),
@@ -1929,9 +1929,9 @@ async fn ask_describes_the_photo_on_screen_or_searches_or_admits_nothing() {
 async fn narratives_are_checked_stored_per_day_and_regenerated_through_the_bus() {
     let h = harness();
     let mut kyoto = trip("amzn-owner", "kyoto");
-    kyoto.contributors = vec![memorylane_core::ids::ContributorId::new("amzn-owner")];
+    kyoto.contributors = vec![mantelpiece_core::ids::ContributorId::new("amzn-owner")];
     kyoto.days = (1..=2)
-        .map(|i| memorylane_core::trip::TripDay {
+        .map(|i| mantelpiece_core::trip::TripDay {
             landmarks: vec![],
             index: i,
             date: time::macros::date!(2026 - 04 - 03) + Duration::days(i64::from(i) - 1),
@@ -1948,7 +1948,7 @@ async fn narratives_are_checked_stored_per_day_and_regenerated_through_the_bus()
         .collect();
     h.storage.put_trip(&kyoto).await.unwrap();
     h.storage
-        .put_contributor(&memorylane_core::contributor::Contributor::owner(
+        .put_contributor(&mantelpiece_core::contributor::Contributor::owner(
             HouseholdId::new("amzn-owner"),
             "Hanyu",
             h.app.now(),
@@ -2065,8 +2065,8 @@ async fn keeper_moves_within_a_burst_and_non_keepers_inherit() {
         m.burst_group = Some("g1".into());
         m.is_keeper = keeper;
         if !keeper {
-            m.state = memorylane_core::media::ProcessingState::Enriched;
-            m.enrichment.scene_tags = vec![memorylane_core::media::Tag {
+            m.state = mantelpiece_core::media::ProcessingState::Enriched;
+            m.enrichment.scene_tags = vec![mantelpiece_core::media::Tag {
                 name: "Temple".into(),
                 confidence: 0.9,
             }];
@@ -2240,7 +2240,7 @@ async fn an_alexa_skill_trades_its_cognito_token_for_an_owner_session() {
 async fn a_play_request_reaches_the_tv_through_the_feed() {
     let h = harness();
     let mut kyoto = trip("amzn-owner", "kyoto");
-    kyoto.days = vec![memorylane_core::trip::TripDay {
+    kyoto.days = vec![mantelpiece_core::trip::TripDay {
         landmarks: vec![],
         index: 1,
         date: time::macros::date!(2026 - 04 - 03),
@@ -2744,10 +2744,10 @@ async fn guest_sessions_are_bound_to_their_device() {
 async fn codes_report_live_counts_and_the_read_only_view_opens_by_code() {
     let h = harness();
     let mut kyoto = trip("amzn-owner", "kyoto");
-    kyoto.contributors = vec![memorylane_core::ids::ContributorId::new("amzn-owner")];
+    kyoto.contributors = vec![mantelpiece_core::ids::ContributorId::new("amzn-owner")];
     h.storage.put_trip(&kyoto).await.unwrap();
     h.storage
-        .put_contributor(&memorylane_core::contributor::Contributor::owner(
+        .put_contributor(&mantelpiece_core::contributor::Contributor::owner(
             HouseholdId::new("amzn-owner"),
             "Hanyu",
             h.app.now(),
@@ -2820,7 +2820,7 @@ async fn removing_media_cascades_out_of_trips_and_playlists_but_keeps_the_origin
         MediaId::new(second.body["media_id"].as_str().unwrap()),
     );
     let mut kyoto = trip("amzn-owner", "kyoto");
-    kyoto.days = vec![memorylane_core::trip::TripDay {
+    kyoto.days = vec![mantelpiece_core::trip::TripDay {
         landmarks: vec![],
         index: 1,
         date: time::macros::date!(2026 - 04 - 03),
@@ -2844,8 +2844,8 @@ async fn removing_media_cascades_out_of_trips_and_playlists_but_keeps_the_origin
         h.storage.put_media(&m).await.unwrap();
     }
     h.storage
-        .put_playlist(&memorylane_core::trip::Playlist {
-            id: memorylane_core::ids::PlaylistId::new("p1"),
+        .put_playlist(&mantelpiece_core::trip::Playlist {
+            id: mantelpiece_core::ids::PlaylistId::new("p1"),
             household: HouseholdId::new("amzn-owner"),
             name: "Best".into(),
             source: "ask".into(),
@@ -2872,7 +2872,7 @@ async fn removing_media_cascades_out_of_trips_and_playlists_but_keeps_the_origin
         .storage
         .get_playlist(
             &HouseholdId::new("amzn-owner"),
-            &memorylane_core::ids::PlaylistId::new("p1"),
+            &mantelpiece_core::ids::PlaylistId::new("p1"),
         )
         .await
         .unwrap()
@@ -3202,8 +3202,8 @@ async fn auth_and_routing_edges() {
         h.bearer(Method::Get, "/me", None, "garbage").await.status,
         401
     );
-    let expired = h.app.signer.sign(&memorylane_api::tokens::Claims {
-        session: memorylane_api::tokens::Session::Tv {
+    let expired = h.app.signer.sign(&mantelpiece_api::tokens::Claims {
+        session: mantelpiece_api::tokens::Session::Tv {
             household: HouseholdId::new("h"),
             subject: "s".into(),
         },
@@ -3240,10 +3240,10 @@ async fn finishing_a_batch_starts_organize() {
 /// their stories; the guards themselves are exercised here.
 mod roles {
     use super::*;
-    use memorylane_api::app::TripAccess;
-    use memorylane_core::contributor::Role;
-    use memorylane_core::ids::ContributorId;
-    use memorylane_core::membership::Membership;
+    use mantelpiece_api::app::TripAccess;
+    use mantelpiece_core::contributor::Role;
+    use mantelpiece_core::ids::ContributorId;
+    use mantelpiece_core::membership::Membership;
 
     impl Harness {
         /// A friend with an Amazon account joins by household code and is promoted to
@@ -3307,8 +3307,8 @@ mod roles {
             )
             .unwrap();
             self.storage.put_membership(&m).await.unwrap();
-            self.app.signer.sign(&memorylane_api::tokens::Claims {
-                session: memorylane_api::tokens::Session::Phone {
+            self.app.signer.sign(&mantelpiece_api::tokens::Claims {
+                session: mantelpiece_api::tokens::Session::Phone {
                     household: HouseholdId::new(household),
                     subject: household.into(),
                 },
@@ -3705,8 +3705,8 @@ async fn via_gateway(
     bearer: &str,
     tool: &str,
     args: Value,
-) -> Result<Value, memorylane_api::ApiError> {
-    use memorylane_api::tools;
+) -> Result<Value, mantelpiece_api::ApiError> {
+    use mantelpiece_api::tools;
     let event = json!({ "interceptorInputVersion": "1.0", "mcp": { "gatewayRequest": {
         "path": "/mcp", "httpMethod": "POST", "headers": { "Authorization": format!("Bearer {bearer}") },
         "body": { "jsonrpc": "2.0", "id": 7, "method": "tools/call", "params": { "name": tool, "arguments": args } },
@@ -3714,7 +3714,7 @@ async fn via_gateway(
     let out = tools::intercept(&h.app, &event);
     assert_eq!(out["interceptorOutputVersion"], "1.0");
     if let Some(refused) = out["mcp"].get("transformedGatewayResponse") {
-        return Err(memorylane_api::ApiError::unauthorized(
+        return Err(mantelpiece_api::ApiError::unauthorized(
             refused["body"]["error"]["message"]
                 .as_str()
                 .unwrap_or_default(),
@@ -3731,7 +3731,7 @@ async fn via_gateway(
 
 #[tokio::test]
 async fn gateway_tools_verify_who_is_calling() {
-    use memorylane_api::tools;
+    use mantelpiece_api::tools;
     let h = harness();
     let agent = h.app.config.agent_client_id.clone();
     h.storage
@@ -3838,7 +3838,7 @@ async fn gateway_tools_verify_who_is_calling() {
         401
     );
     let forged =
-        memorylane_api::tokens::Signer::new("someone-elses-key").seal(&tools::ToolCaller {
+        mantelpiece_api::tokens::Signer::new("someone-elses-key").seal(&tools::ToolCaller {
             kind: tools::CallerKind::Agent,
             subject: agent.clone(),
             tool: "api___list_trips".into(),
@@ -3880,7 +3880,7 @@ async fn gateway_tools_verify_who_is_calling() {
 
 #[tokio::test]
 async fn gateway_tools_run_the_same_routes_for_the_household_they_name() {
-    use memorylane_api::tools;
+    use mantelpiece_api::tools;
     let h = harness();
     let agent = h.app.config.agent_client_id.clone();
     let bearer = access_token(&h, &agent, &agent, None, 3600);
@@ -3895,7 +3895,7 @@ async fn gateway_tools_run_the_same_routes_for_the_household_they_name() {
         .await;
     let household = setup.body["household"].as_str().unwrap().to_owned();
     let mut seeded_trip = trip(&household, "kyoto");
-    seeded_trip.days = vec![memorylane_core::trip::TripDay {
+    seeded_trip.days = vec![mantelpiece_core::trip::TripDay {
         index: 1,
         date: time::macros::date!(2026 - 04 - 03),
         media: vec![],
@@ -4015,7 +4015,7 @@ async fn landmark_facts_reach_the_trip_and_trivia_must_stay_inside_the_summary()
     let gold = enriched(&h, "gold.jpg", 71, &["Temple"], None).await;
     let plain = enriched(&h, "plain.jpg", 72, &["Street"], None).await;
     let mut kyoto = trip("amzn-owner", "kyoto");
-    let day = memorylane_core::trip::TripDay {
+    let day = mantelpiece_core::trip::TripDay {
         index: 1,
         date: time::macros::date!(2026 - 04 - 04),
         media: vec![gold.clone(), plain.clone()],
@@ -4027,13 +4027,14 @@ async fn landmark_facts_reach_the_trip_and_trivia_must_stay_inside_the_summary()
     };
     kyoto.days = vec![day];
     h.storage.put_trip(&kyoto).await.unwrap();
-    let maya = memorylane_core::person::Person::new(house.clone(), "f1", gold.clone(), h.app.now());
+    let maya =
+        mantelpiece_core::person::Person::new(house.clone(), "f1", gold.clone(), h.app.now());
     h.storage.put_person(&maya).await.unwrap();
     for id in [&gold, &plain] {
         let mut m = h.storage.get_media(&house, id).await.unwrap().unwrap();
         m.trip = Some(TripId::new("kyoto"));
         if id == &gold {
-            m.enrichment.landmark = Some(memorylane_core::media::Tag {
+            m.enrichment.landmark = Some(mantelpiece_core::media::Tag {
                 name: "Kinkaku-ji".into(),
                 confidence: 0.85,
             });
@@ -4042,7 +4043,7 @@ async fn landmark_facts_reach_the_trip_and_trivia_must_stay_inside_the_summary()
         h.storage.put_media(&m).await.unwrap();
     }
     h.storage
-        .put_landmark_facts(&memorylane_core::landmark::LandmarkFacts {
+        .put_landmark_facts(&mantelpiece_core::landmark::LandmarkFacts {
             key: "kinkaku-ji".into(),
             name: "Kinkaku-ji".into(),
             title: "Kinkaku-ji".into(),

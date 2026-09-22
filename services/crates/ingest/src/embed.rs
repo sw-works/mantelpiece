@@ -4,7 +4,7 @@
 //! call, no network, stable across runs; a learned embedding can replace it behind the
 //! `Vectors` trait later.
 
-use memorylane_core::media::Tag;
+use mantelpiece_core::media::Tag;
 
 pub const DIM: usize = 128;
 

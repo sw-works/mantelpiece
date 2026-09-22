@@ -4,9 +4,9 @@ import json
 
 import pytest
 
-from memorylane_agents.gateway import GatewayTools, ToolError
-from memorylane_agents.model import ScriptedModel
-from memorylane_agents.workflows import trip_curator
+from mantelpiece_agents.gateway import GatewayTools, ToolError
+from mantelpiece_agents.model import ScriptedModel
+from mantelpiece_agents.workflows import trip_curator
 
 TRIP = {
     "id": "kyoto",
@@ -37,7 +37,7 @@ class Wire:
         if url.endswith("/oauth2/token"):
             self.tokens += 1
             assert headers["authorization"].startswith("Basic ")
-            assert b"grant_type=client_credentials" in body and b"memorylane%2Ftools" in body
+            assert b"grant_type=client_credentials" in body and b"mantelpiece%2Ftools" in body
             return 200, json.dumps({"access_token": f"tok{self.tokens}", "expires_in": 3600})
         call = json.loads(body)
         assert call["method"] == "tools/call"

@@ -2,10 +2,10 @@
 //! `ShareAlbum` confirmation minted on the TV, publishes a playlist for seven days and
 //! optionally emails the link. `GET /s/{share}` is public and read-only until expiry.
 
-use memorylane_core::confirmation::ConfirmedAction;
-use memorylane_core::ids::{HouseholdId, MediaId, PlaylistId, ShareLinkId};
-use memorylane_core::share_link::{ShareLink, ShareTarget};
-use memorylane_store::mailer::Mail;
+use mantelpiece_core::confirmation::ConfirmedAction;
+use mantelpiece_core::ids::{HouseholdId, MediaId, PlaylistId, ShareLinkId};
+use mantelpiece_core::share_link::{ShareLink, ShareTarget};
+use mantelpiece_store::mailer::Mail;
 use serde::Deserialize;
 use serde_json::{json, Value};
 use time::format_description::well_known::Rfc3339;

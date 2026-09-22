@@ -1,6 +1,6 @@
 //! The place-and-date check every model-written text passes before it is shown
 //! (constitution IV, F-301). A story naming a year, month or capitalised name absent from
-//! the metadata is withheld. Mirrors `agents/src/memorylane_agents/narrative.py`.
+//! the metadata is withheld. Mirrors `agents/src/mantelpiece_agents/narrative.py`.
 
 use std::collections::BTreeSet;
 

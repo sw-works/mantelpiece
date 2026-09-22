@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine;
 use hmac::{Hmac, Mac};
-use memorylane_core::contributor::PushSubscription;
+use mantelpiece_core::contributor::PushSubscription;
 use serde::Serialize;
 use sha2::Sha256;
 use std::sync::Mutex;
@@ -95,7 +95,7 @@ impl WebPush {
     pub fn from_secret(secret: &str, subject: impl Into<String>) -> Result<Self> {
         for counter in 0u8..=255 {
             let mut mac = Hmac::<Sha256>::new_from_slice(secret.as_bytes()).map_err(backend)?;
-            mac.update(b"memorylane vapid v1");
+            mac.update(b"mantelpiece vapid v1");
             mac.update(&[counter]);
             let bytes = mac.finalize().into_bytes();
             if let (Ok(key_pair), Ok(secret)) = (

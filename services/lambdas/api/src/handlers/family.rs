@@ -2,9 +2,9 @@
 //! arrival with one button; the sender's phone gets a web push, and the note waits in the
 //! phone's inbox either way.
 
-use memorylane_core::contributor::{Contributor, InboxNote, PushSubscription};
-use memorylane_core::ids::{ContributorId, HouseholdId, MediaId};
-use memorylane_store::push::{PushMessage, PushOutcome};
+use mantelpiece_core::contributor::{Contributor, InboxNote, PushSubscription};
+use mantelpiece_core::ids::{ContributorId, HouseholdId, MediaId};
+use mantelpiece_store::push::{PushMessage, PushOutcome};
 use serde::Deserialize;
 use serde_json::json;
 

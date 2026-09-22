@@ -1,4 +1,4 @@
-# Specification Quality Checklist: MemoryLane Baseline
+# Specification Quality Checklist: Mantelpiece Baseline
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning
 **Created**: 2026-09-09

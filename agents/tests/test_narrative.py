@@ -1,11 +1,11 @@
-from memorylane_agents.narrative import (
+from mantelpiece_agents.narrative import (
     Facts,
     check_narrative,
     facts_for,
     prompt_for,
     split_days,
 )
-from memorylane_agents.tools import Trip
+from mantelpiece_agents.tools import Trip
 
 
 def test_prompt_lists_only_metadata(kyoto: Trip) -> None:

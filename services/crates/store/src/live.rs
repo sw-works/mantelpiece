@@ -95,7 +95,7 @@ impl Live for IvsLive {
             .name(name)
             .latency_mode(ChannelLatencyMode::LowLatency)
             .r#type(ChannelType::BasicChannelType)
-            .tags("memorylane:household", household)
+            .tags("mantelpiece:household", household)
             .send()
             .await
             .map_err(backend)?;

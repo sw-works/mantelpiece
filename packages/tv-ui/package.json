@@ -1,8 +1,8 @@
 {
-  "name": "@memorylane/tv-ui",
+  "name": "@mantelpiece/tv-ui",
   "private": true,
   "version": "0.1.0",
-  "description": "MemoryLane Fire TV screens, hooks and API client. React Native core only; the platform shells (apps/tv-vega) supply react-native.",
+  "description": "Mantelpiece Fire TV screens, hooks and API client. React Native core only; the platform shells (apps/tv-vega) supply react-native.",
   "main": "src/index.ts",
   "types": "src/index.ts",
   "scripts": {

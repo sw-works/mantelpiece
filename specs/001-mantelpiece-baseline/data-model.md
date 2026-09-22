@@ -1,4 +1,4 @@
-# Data Model: MemoryLane Baseline
+# Data Model: Mantelpiece Baseline
 
 One DynamoDB table, partition key `pk = household id`, sort key `sk = <type>#<id>`.
 Existing types live in `services/crates/core`; new ones are marked NEW. Blob keys are in S3.

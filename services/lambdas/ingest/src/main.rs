@@ -1,15 +1,15 @@
 //! Lambda entry point for the ingest tasks. The state machine passes a [`Task`] as input.
 
 use lambda_runtime::{run, service_fn, Error, LambdaEvent};
-use memorylane_ingest_lambda::{Ingest, Task};
-use memorylane_store::bus::EventBridgeBus;
-use memorylane_store::dynamo::DynamoStorage;
-use memorylane_store::faces::RekognitionFaces;
-use memorylane_store::maps::LocationMaps;
-use memorylane_store::s3::S3Blobs;
-use memorylane_store::vectors::DynamoVectors;
-use memorylane_store::vision::{AwsVision, MemoryVision};
-use memorylane_store::Vision;
+use mantelpiece_ingest_lambda::{Ingest, Task};
+use mantelpiece_store::bus::EventBridgeBus;
+use mantelpiece_store::dynamo::DynamoStorage;
+use mantelpiece_store::faces::RekognitionFaces;
+use mantelpiece_store::maps::LocationMaps;
+use mantelpiece_store::s3::S3Blobs;
+use mantelpiece_store::vectors::DynamoVectors;
+use mantelpiece_store::vision::{AwsVision, MemoryVision};
+use mantelpiece_store::Vision;
 use std::sync::Arc;
 use time::OffsetDateTime;
 
@@ -41,15 +41,15 @@ async fn main() -> Result<(), Error> {
         maps: Arc::new(LocationMaps::from_config(&aws)),
         bus: Arc::new(EventBridgeBus::from_config(&aws, env("EVENT_BUS")?)),
         places: match std::env::var("PLACES_PROVIDER").as_deref() {
-            Ok("wikipedia") => Arc::new(memorylane_store::places::WikipediaPlaces::default()),
-            Ok("none") => Arc::new(memorylane_store::places::NoPlaces),
-            _ => Arc::new(memorylane_store::places::AwsPlaces::from_config(&aws)),
+            Ok("wikipedia") => Arc::new(mantelpiece_store::places::WikipediaPlaces::default()),
+            Ok("none") => Arc::new(mantelpiece_store::places::NoPlaces),
+            _ => Arc::new(mantelpiece_store::places::AwsPlaces::from_config(&aws)),
         },
         encyclopedia: match std::env::var("ENCYCLOPEDIA").as_deref() {
-            Ok("none") => Arc::new(memorylane_store::encyclopedia::NoEncyclopedia),
-            _ => Arc::new(memorylane_store::encyclopedia::Wikipedia::default()),
+            Ok("none") => Arc::new(mantelpiece_store::encyclopedia::NoEncyclopedia),
+            _ => Arc::new(mantelpiece_store::encyclopedia::Wikipedia::default()),
         },
-        cluster: memorylane_trips::cluster::Params::default(),
+        cluster: mantelpiece_trips::cluster::Params::default(),
         clock: Arc::new(OffsetDateTime::now_utc),
     });
     run(service_fn(move |event: LambdaEvent<Task>| {

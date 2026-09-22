@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#0b0b0f"/>
+  <!-- two photos standing on the mantel, the front one amber -->
+  <g>
+    <rect x="128" y="132" width="150" height="190" rx="14" fill="#f2f2f5"/>
+    <rect x="150" y="156" width="106" height="142" rx="6" fill="#2b2b36"/>
+    <circle cx="186" cy="196" r="16" fill="#9a9aa5"/>
+    <path d="M154 292l44-54 34 38 22-24 2 40z" fill="#9a9aa5"/>
+  </g>
+  <g>
+    <rect x="248" y="172" width="150" height="150" rx="14" fill="#ffb454"/>
+    <rect x="270" y="194" width="106" height="106" rx="6" fill="#0b0b0f"/>
+    <circle cx="300" cy="224" r="14" fill="#ffb454"/>
+    <path d="M274 294l40-44 30 30 18-18 2 32z" fill="#ffb454"/>
+  </g>
+  <!-- the mantel shelf -->
+  <rect x="88" y="326" width="336" height="26" rx="13" fill="#f2f2f5"/>
+  <rect x="120" y="352" width="272" height="14" rx="7" fill="#5c5c68"/>
+</svg>

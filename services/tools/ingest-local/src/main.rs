@@ -14,19 +14,19 @@
 //!
 //! Writes `report.md`, `report.json` and the thumb and TV renditions under `--out`.
 
-use memorylane_core::household::Household;
-use memorylane_core::ids::{BatchId, ContributorId, HouseholdId, MediaId};
-use memorylane_core::media::{Enrichment, MediaItem, MediaKind, ProcessingState, Signals};
-use memorylane_ingest::checksum::sha256_hex;
-use memorylane_ingest_lambda::{Ingest, Task};
-use memorylane_store::bus::MemoryBus;
-use memorylane_store::faces::MemoryFaces;
-use memorylane_store::maps::MemoryMaps;
-use memorylane_store::memory::{MemoryBlobs, MemoryStorage};
-use memorylane_store::places::{NoPlaces, Places, WikipediaPlaces};
-use memorylane_store::vectors::MemoryVectors;
-use memorylane_store::vision::{AwsVision, MemoryVision};
-use memorylane_store::{Blobs, Storage, Vision};
+use mantelpiece_core::household::Household;
+use mantelpiece_core::ids::{BatchId, ContributorId, HouseholdId, MediaId};
+use mantelpiece_core::media::{Enrichment, MediaItem, MediaKind, ProcessingState, Signals};
+use mantelpiece_ingest::checksum::sha256_hex;
+use mantelpiece_ingest_lambda::{Ingest, Task};
+use mantelpiece_store::bus::MemoryBus;
+use mantelpiece_store::faces::MemoryFaces;
+use mantelpiece_store::maps::MemoryMaps;
+use mantelpiece_store::memory::{MemoryBlobs, MemoryStorage};
+use mantelpiece_store::places::{NoPlaces, Places, WikipediaPlaces};
+use mantelpiece_store::vectors::MemoryVectors;
+use mantelpiece_store::vision::{AwsVision, MemoryVision};
+use mantelpiece_store::{Blobs, Storage, Vision};
 use serde_json::{json, Value};
 use std::collections::BTreeSet;
 use std::fmt::Write as _;
@@ -227,14 +227,14 @@ async fn main() {
             Arc::new(NoPlaces)
         },
         encyclopedia: if args.places {
-            Arc::new(memorylane_store::encyclopedia::Wikipedia::default())
-                as Arc<dyn memorylane_store::Encyclopedia>
+            Arc::new(mantelpiece_store::encyclopedia::Wikipedia::default())
+                as Arc<dyn mantelpiece_store::Encyclopedia>
         } else {
-            Arc::new(memorylane_store::encyclopedia::NoEncyclopedia)
+            Arc::new(mantelpiece_store::encyclopedia::NoEncyclopedia)
         },
-        cluster: memorylane_trips::cluster::Params {
+        cluster: mantelpiece_trips::cluster::Params {
             min_trip_days: args.min_trip_days,
-            ..memorylane_trips::cluster::Params::default()
+            ..mantelpiece_trips::cluster::Params::default()
         },
         clock: Arc::new(OffsetDateTime::now_utc),
     };
@@ -442,7 +442,7 @@ async fn main() {
                 d.media.len(),
                 d.undated.len(),
                 d.route.points.len(),
-                memorylane_trips::route::length_m(&d.route) / 1000.0,
+                mantelpiece_trips::route::length_m(&d.route) / 1000.0,
                 d.title.as_deref().unwrap_or("-")
             );
         }
@@ -455,7 +455,7 @@ async fn main() {
                 md,
                 "Day {} landmarks along the route (photos within {} m, source):\n",
                 d.index,
-                memorylane_ingest_lambda::organize::LANDMARK_RADIUS_M
+                mantelpiece_ingest_lambda::organize::LANDMARK_RADIUS_M
             );
             for l in &d.landmarks {
                 let _ = writeln!(
@@ -576,7 +576,7 @@ fn stem_of(media: &[MediaItem], id: &MediaId) -> String {
 /// One FeatureCollection: a LineString per day (GPS and estimated points flagged per
 /// vertex in `properties.estimated`), a Point per landmark with its photo count, and a
 /// Point per route photo linking to its thumbnail.
-fn geojson(trips: &[memorylane_core::trip::Trip], media: &[MediaItem]) -> Value {
+fn geojson(trips: &[mantelpiece_core::trip::Trip], media: &[MediaItem]) -> Value {
     let mut features = vec![];
     for trip in trips {
         for d in &trip.days {
@@ -590,7 +590,7 @@ fn geojson(trips: &[memorylane_core::trip::Trip], media: &[MediaItem]) -> Value 
                 features.push(json!({
                     "type": "Feature",
                     "geometry": { "type": "LineString", "coordinates": coords },
-                    "properties": { "trip": trip.name, "day": d.index, "date": d.date.to_string(), "title": d.title, "estimated": d.route.points.iter().map(|p| p.estimated).collect::<Vec<_>>(), "length_m": memorylane_trips::route::length_m(&d.route) }
+                    "properties": { "trip": trip.name, "day": d.index, "date": d.date.to_string(), "title": d.title, "estimated": d.route.points.iter().map(|p| p.estimated).collect::<Vec<_>>(), "length_m": mantelpiece_trips::route::length_m(&d.route) }
                 }));
             }
             for p in &d.route.points {
@@ -614,7 +614,7 @@ fn geojson(trips: &[memorylane_core::trip::Trip], media: &[MediaItem]) -> Value 
 
 /// Leaflet over OpenStreetMap tiles, data inlined: routes per day, dashed where the
 /// position was estimated, landmark pins with counts, photo dots with thumbnails.
-fn map_html(trips: &[memorylane_core::trip::Trip], media: &[MediaItem]) -> String {
+fn map_html(trips: &[mantelpiece_core::trip::Trip], media: &[MediaItem]) -> String {
     let data = serde_json::to_string(&geojson(trips, media)).unwrap();
     let title = trips
         .iter()

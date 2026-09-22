@@ -1,8 +1,8 @@
 //! Trip and household codes (F-151 to F-153) and joining by code (F-152).
 
-use memorylane_core::contributor::{Contributor, ContributorKind, Role};
-use memorylane_core::ids::{ContributorId, HouseholdId, TripId};
-use memorylane_core::trip_code::{CodeScope, TripCode};
+use mantelpiece_core::contributor::{Contributor, ContributorKind, Role};
+use mantelpiece_core::ids::{ContributorId, HouseholdId, TripId};
+use mantelpiece_core::trip_code::{CodeScope, TripCode};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use time::Duration;
@@ -178,7 +178,7 @@ struct JoinBody {
 /// they are a named guest. Either way the answer is an upload session token.
 pub async fn join(app: &App, req: &Req) -> Result<Resp, ApiError> {
     let body: JoinBody = req.json()?;
-    let code_str = memorylane_core::codes::normalize(&body.code)
+    let code_str = mantelpiece_core::codes::normalize(&body.code)
         .ok_or_else(|| ApiError::bad_request("invalid code"))?;
     let code = app
         .storage

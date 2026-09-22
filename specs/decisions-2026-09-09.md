@@ -181,7 +181,7 @@ question 7 closes.
 ## 8. Devpost
 
 Project page created 2026-09-08 with name, tagline, description and built-with tags:
-https://devpost.com/software/memorylane-0lsmz3. No repo link yet (repo not public), no video,
+https://devpost.com/software/mantelpiece-0lsmz3. No repo link yet (repo not public), no video,
 form not submitted. Still owed: public repo with visible MIT license, video under 3 minutes
 on a Fire TV device or VVD, track and mini-challenge answers, five feedback questions,
 friction log URL.
@@ -320,7 +320,7 @@ compile-checked only.
   gazetteer, so a model-named landmark becomes a 0.6-confidence tag), and writes an
   embedding for Ask.
 - Embeddings are deterministic: labels, landmark, detected text and description are
-  feature-hashed into 128 dimensions (`memorylane_ingest::embed`), and a query is hashed
+  feature-hashed into 128 dimensions (`mantelpiece_ingest::embed`), and a query is hashed
   the same way. No model call, no network, stable across runs; a learned embedding can
   sit behind the same `Vectors` trait later.
 - Organize draws a static route map for the trip and each day through `Maps` and stores
@@ -400,7 +400,7 @@ compile-checked only.
   Own trips and household codes are refused. `DELETE /memberships/{trip}` leaves.
   `GET /trips` on the member's TV lists joined trips with `shared_by`, and
   `GET /trips/{trip}` serves them through `trip_access`.
-- Feed fan-out at write time (`memorylane_store::feed::emit`): events about a trip that
+- Feed fan-out at write time (`mantelpiece_store::feed::emit`): events about a trip that
   members may see (contribution.received, memory.ready, reaction.received, media.removed)
   are copied to each active member's feed, so a member TV's long-poll needs no second
   cursor. Both Lambdas emit through it.
@@ -418,7 +418,7 @@ compile-checked only.
 
 ## 19. US8 memories (tasks T081 to T085)
 
-- `memorylane_trips::memories`: On this day (same month and day, earlier years), Then and
+- `mantelpiece_trips::memories`: On this day (same month and day, earlier years), Then and
   now (same 500 m place, best photo from the earliest and latest year, at least a year
   apart, one pair per roughly 1 km cell) and best of a month or year (one per burst),
   all keepers only, hidden and removed excluded, ranked by the pipeline's score. Pure
@@ -517,14 +517,14 @@ compile-checked only.
 
 ## 24. Polish and cross-cutting (tasks T102 to T108)
 
-- Alexa+ OAuth (R6): a Cognito resource server `memorylane` with scope `tools`, a public
+- Alexa+ OAuth (R6): a Cognito resource server `mantelpiece` with scope `tools`, a public
   `AlexaPlus` app client (no secret, so PKCE is required on the code grant) and the
   Gateway's allowed clients widened to it. The API serves RFC 8414 and RFC 9728 metadata
   at `/.well-known/oauth-authorization-server` and `/.well-known/oauth-protected-resource`
   from `OAUTH_ISSUER`, `OAUTH_DOMAIN` and `GATEWAY_URL`. The redirect URI is a placeholder
   behind the `alexaCallbackUrls` prop; registration steps in `docs/alexa-plus.md` are
   from the preview documentation, unverified.
-- Tracing (F-506): `memorylane_agents.tracing` opens one span per agent run
+- Tracing (F-506): `mantelpiece_agents.tracing` opens one span per agent run
   (`agent.<workflow>`, tagged household, workflow, trigger) and one per Gateway tool call
   (`tool.<name>`, tagged tool and household). OpenTelemetry is used when importable, which
   is what AgentCore Runtime injects; otherwise a recording tracer keeps the shape for
@@ -555,7 +555,7 @@ compile-checked only.
   own metric; no JavaScript error in the device log; Fast Refresh served the bundle from
   Metro over the reverse-forwarded port 8081.
 - Onboarding renders with the theme and the focus ring and shows "Network request failed"
-  because the shell passes no API base and `api.memorylane.test` does not resolve. The
+  because the shell passes no API base and `api.mantelpiece.test` does not resolve. The
   device is as far as the app can go until the stack is deployed and the shell reads an
   API base (open: where the Vega shell gets deployment config; `app.json` or a generated
   `src/config.ts`).
@@ -610,7 +610,7 @@ compile-checked only.
   cloud hop stays; the phone side gets shorter instead.
 - `apps/web` is now a Web Share Target: the manifest declares a `share_target` POST to
   `/share-target` for images and videos, the service worker answers it by parking each
-  file in the `memorylane-shared` cache and redirecting to `/?shared=<n>`, and the
+  file in the `mantelpiece-shared` cache and redirecting to `/?shared=<n>`, and the
   uploader takes the files out and runs the normal queue. Android Chrome only; iOS Safari
   has no share target. Untested on a phone: the flow is unit-tested with a fake cache,
   and the manifest and worker are hand-checked against the spec, not run on a device.
@@ -620,7 +620,7 @@ compile-checked only.
   401s. Offline or a server error is not treated as expired.
 - PWA icons are rendered by `apps/web/scripts/icons.mjs` (no image library) and committed,
   so installation on Android has the 192 and 512 px icons Chrome requires.
-- Alternatives left on the table: a `memorylane-import` mode for `ingest-local` that
+- Alternatives left on the table: a `mantelpiece-import` mode for `ingest-local` that
   uploads a folder through the same presigned endpoints (good for USB drives on a laptop),
   and a Fire OS-only build with Storage Access Framework for a real TV-side USB import.
 
@@ -642,7 +642,7 @@ compile-checked only.
 ## 29. Echo Show slideshow through a custom Alexa skill (2026-09-12)
 
 - Amazon Photos' Photo Frame mode takes no third-party feed (friction log, 2026-09-12),
-  so the Echo Show gets MemoryLane through a classic custom skill with APL: `Pager` of
+  so the Echo Show gets Mantelpiece through a classic custom skill with APL: `Pager` of
   `Image` pages plus `AutoPage`, the documented slideshow pattern. Alexa+ add-ons stay the
   voice and tool surface; the skill is only the screen.
 - `POST /session/amazon` (Cognito JWT) mints the same owner session the phone gets after
@@ -650,7 +650,7 @@ compile-checked only.
   Lambda trades the account-linked token once per container. A new `AlexaSkill` Cognito
   client with a secret serves account linking; it is a JWT audience for the API but not an
   allowed client on the AgentCore Gateway.
-- The skill is stdlib Python under `agents/src/memorylane_skill` so the Lambda asset is
+- The skill is stdlib Python under `agents/src/mantelpiece_skill` so the Lambda asset is
   the source tree; `agents/skill/` holds the interaction model and manifest. Tests cover
   linking, listing, play with and without a screen, name matching and the skill-id check.
 - Unverified: never run against Alexa. The APL document follows the published examples;
@@ -779,7 +779,7 @@ compile-checked only.
 - IVS refuses to delete a channel whose stream is still winding down; the API parks it and
   sweeps it on the household's next start or stop, which may never come. Channels are not
   in the stack, so `make down` runs `scripts/ivs-sweep.sh` (deletes channels tagged
-  `memorylane:household`). An idle channel costs nothing.
+  `mantelpiece:household`). An idle channel costs nothing.
 - Not verified: a real Fire TV, a real phone camera (iOS Safari or Android Chrome), the
   glass-to-glass lag for the web broadcast path (the ffmpeg path measured 7.9 s on
   2026-09-15, about 10 s today), push to iOS, and whether the release build carries the
@@ -801,18 +801,21 @@ compile-checked only.
 
 ## 33. The app is called Mantelpiece (2026-09-22)
 
-- Why rename: "MemoryLane" is about looking back, and the app now carries what is happening
-  now: photos that take over the TV as they land, one-button reactions to the phone, and a
-  phone's live camera on the TV. The mantelpiece is the shelf under the TV where a family's
-  photos already stand.
+- Why the rename: the earlier name was about looking back, and the app now carries what is
+  happening now: photos that take over the TV as they land, one-button reactions to the
+  phone, and a phone's live camera on the TV. The mantelpiece is the shelf under the TV
+  where a family's photos already stand.
 - Checked before settling: hearth.tv, homecast.tv, mantel.tv, porchlight.tv, postcard.tv and
   every matching `.app` are taken. mantelpiece.tv is free, and no competing app or trademark
   turned up in a web search (not a legal clearance). Rejected on the way: PhoneHome ("phoning
   home" is telemetry and spyware jargon, plus the E.T. association), HomeSync (Samsung shipped
   one, and it sounds like file sync), Homeport (an existing software trademark), Doorstep (a
-  crowd of delivery apps), Photo Shelf (descriptive, undersells live video, .com and .app gone),
-  Mantelshelf (more British-sounding than mantelpiece, not less).
-- What changed: only the name people see, on the TV, the phone pages, the web manifest, the
-  Alexa skill (invocation name "mantelpiece") and the docs. The repository, crate names, npm
-  packages, CloudFormation stack name and the Vega app id `com.hanyu.memorylane.main` keep
-  the old name; changing the app id means a new store listing and drops every paired phone.
+  crowd of delivery apps), Photo Shelf (descriptive, undersells live video, .com and .app
+  gone), Mantelshelf (more British-sounding than mantelpiece, not less).
+- The rename went all the way through: screens and pages, crates, npm packages, the Python
+  agent packages, the CDK stack and its files, the Vega package and component ids
+  (`com.hanyu.mantelpiece.main`), the Alexa skill and its invocation name, the IndexedDB
+  name, the spec folder, the docs and the icon. A deployed stack under the old name keeps
+  its retained table, bucket and user pool: they are orphans and go by hand.
+- The icon is two framed photos standing on a shelf (`docs/brand/icon.svg`), replacing the
+  route line, which belonged to the old name.

@@ -6,7 +6,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-require-imports -- hls.js is untyped vendor code; see the require note below */
 import { type ComponentType, useEffect, useRef } from "react";
 import { StyleSheet, View, type ViewStyle } from "react-native";
-import type { LivePlayer, LivePlayerProps } from "@memorylane/tv-ui";
+import type { LivePlayer, LivePlayerProps } from "@mantelpiece/tv-ui";
 import * as VegaHls from "vega-hls";
 
 // The W3C media port by `require` with the few members used here: an `import` makes tsc

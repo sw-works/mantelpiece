@@ -1,8 +1,8 @@
 //! Playlists (F-304): the `create_playlist` tool target and what the TV plays.
 
-use memorylane_core::events::EventKind;
-use memorylane_core::ids::{MediaId, PlaylistId};
-use memorylane_core::trip::Playlist;
+use mantelpiece_core::events::EventKind;
+use mantelpiece_core::ids::{MediaId, PlaylistId};
+use mantelpiece_core::trip::Playlist;
 use serde::Deserialize;
 
 use crate::app::App;

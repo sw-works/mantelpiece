@@ -4,23 +4,23 @@ import * as path from "node:path";
 import { App } from "aws-cdk-lib";
 import { Match, Template } from "aws-cdk-lib/assertions";
 import { describe, expect, it } from "vitest";
-import { MemoryLaneStack } from "../lib/memorylane-stack.js";
+import { MantelpieceStack } from "../lib/mantelpiece-stack.js";
 import { irreversibleTools, toolDefinitions } from "../lib/tools.js";
 
-function synth(extra: Partial<ConstructorParameters<typeof MemoryLaneStack>[2]> = {}) {
+function synth(extra: Partial<ConstructorParameters<typeof MantelpieceStack>[2]> = {}) {
   const app = new App();
-  const stack = new MemoryLaneStack(app, "Test", {
+  const stack = new MantelpieceStack(app, "Test", {
     env: { account: "123456789012", region: "us-east-1" },
     linkBase: "https://link.example.com",
     uploadBase: "https://upload.example.com",
     // Hermetic: never pick up a locally built agent package by accident.
-    agentPackageDir: path.join(tmpdir(), "memorylane-no-agent-package"),
+    agentPackageDir: path.join(tmpdir(), "mantelpiece-no-agent-package"),
     ...extra,
   });
   return Template.fromStack(stack);
 }
 
-describe("MemoryLane stack", () => {
+describe("Mantelpiece stack", () => {
   const template = synth();
 
   it("hosts the phone pages on two CloudFront distributions and uses their URLs when no domain is given", () => {
@@ -29,7 +29,7 @@ describe("MemoryLane stack", () => {
     template.hasResourceProperties("AWS::CloudFront::Distribution", { DistributionConfig: Match.objectLike({ DefaultRootObject: "index.html" }) });
     template.resourceCountIs("Custom::CDKBucketDeployment", 1);
     const app = new App();
-    const stack = new MemoryLaneStack(app, "NoDomain", { env: { account: "123456789012", region: "us-east-1" } });
+    const stack = new MantelpieceStack(app, "NoDomain", { env: { account: "123456789012", region: "us-east-1" } });
     const t = Template.fromStack(stack);
     const fns = Object.values(t.findResources("AWS::Lambda::Function", { Properties: { Handler: "bootstrap" } }));
     const api = fns.find((f) => f.Properties.Environment?.Variables?.LINK_BASE !== undefined);
@@ -205,13 +205,13 @@ describe("MemoryLane stack", () => {
     writeFileSync(path.join(dir, "main.py"), "print('agent')\n");
     const withAgent = synth({ agentPackageDir: dir, agentModelId: "test.model" });
     withAgent.hasResourceProperties("AWS::BedrockAgentCore::Runtime", {
-      AgentRuntimeName: "memorylane_concierge",
+      AgentRuntimeName: "mantelpiece_concierge",
       NetworkConfiguration: { NetworkMode: "PUBLIC" },
       AgentRuntimeArtifact: { CodeConfiguration: { EntryPoint: ["main.py"], Runtime: "PYTHON_3_13", Code: { S3: Match.objectLike({ Bucket: Match.anyValue() }) } } },
       EnvironmentVariables: Match.objectLike({ GATEWAY_URL: Match.anyValue(), GATEWAY_TOKEN_URL: Match.anyValue(), GATEWAY_CLIENT_ID: Match.anyValue(), MODEL_ID: "test.model" }),
     });
     withAgent.hasResourceProperties("AWS::Events::Rule", {
-      EventPattern: { source: ["memorylane"], "detail-type": ["trip.detected"] },
+      EventPattern: { source: ["mantelpiece"], "detail-type": ["trip.detected"] },
     });
     withAgent.hasResourceProperties("AWS::IAM::Policy", {
       PolicyDocument: { Statement: Match.arrayWith([Match.objectLike({ Action: "bedrock-agentcore:InvokeAgentRuntime" })]) },
@@ -266,7 +266,7 @@ describe("MemoryLane stack", () => {
       expect(policy.DependsOn).toContain(permitId);
       expect(JSON.stringify(policy.Properties.Definition.Cedar.Statement)).toContain("principal is AgentCore::OAuthUser");
     }
-    template.hasResourceProperties("AWS::BedrockAgentCore::PolicyEngine", { Name: "memorylane_tools" });
+    template.hasResourceProperties("AWS::BedrockAgentCore::PolicyEngine", { Name: "mantelpiece_tools" });
     // The Gateway's execution role may read the engine and ask it for decisions.
     template.hasResourceProperties("AWS::IAM::Policy", {
       PolicyDocument: {
@@ -278,7 +278,7 @@ describe("MemoryLane stack", () => {
   it("emits nightly.tick on the bus from a schedule, with no timer on any Lambda", () => {
     template.hasResourceProperties("AWS::Scheduler::Schedule", {
       ScheduleExpression: "cron(0 3 * * ? *)",
-      Target: Match.objectLike({ EventBridgeParameters: { DetailType: "nightly.tick", Source: "memorylane.schedule" } }),
+      Target: Match.objectLike({ EventBridgeParameters: { DetailType: "nightly.tick", Source: "mantelpiece.schedule" } }),
     });
     const rules = template.findResources("AWS::Events::Rule");
     for (const rule of Object.values(rules)) {
@@ -299,7 +299,7 @@ describe("MemoryLane stack", () => {
   it("runs the Alexa skill as a Python Lambda that only Alexa may invoke", () => {
     template.hasResourceProperties("AWS::Lambda::Function", {
       Runtime: "python3.13",
-      Handler: "memorylane_skill.handler.lambda_handler",
+      Handler: "mantelpiece_skill.handler.lambda_handler",
       Environment: { Variables: Match.objectLike({ API_BASE: Match.anyValue(), SKILL_ID: "" }) },
     });
     template.hasResourceProperties("AWS::Lambda::Permission", { Principal: "alexa-appkit.amazon.com", Action: "lambda:InvokeFunction" });
@@ -323,9 +323,9 @@ describe("MemoryLane stack", () => {
     expect(policies).toContain("ses:FromAddress");
   });
 
-  it("gives Alexa+ a PKCE-only OAuth client with the memorylane/tools scope on the Gateway", () => {
+  it("gives Alexa+ a PKCE-only OAuth client with the mantelpiece/tools scope on the Gateway", () => {
     template.hasResourceProperties("AWS::Cognito::UserPoolResourceServer", {
-      Identifier: "memorylane",
+      Identifier: "mantelpiece",
       Scopes: [Match.objectLike({ ScopeName: "tools" })],
     });
     const clients = Object.values(template.findResources("AWS::Cognito::UserPoolClient"));

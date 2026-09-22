@@ -3,15 +3,15 @@
 //! Idempotent (F-106): re-running over the same media produces the same groups and
 //! updates the same trips in place. Trips are matched to existing ones by date overlap.
 
-use memorylane_core::events::EventKind;
-use memorylane_core::geo::GeoPoint;
-use memorylane_core::ids::{ContributorId, HouseholdId, MediaId, TripId};
-use memorylane_core::media::{MediaItem, ProcessingState};
-use memorylane_core::trip::{Landmark, Trip, TripDay};
-use memorylane_ingest::burst::{self, Candidate};
-use memorylane_ingest::quality;
-use memorylane_store::places::Place;
-use memorylane_trips::{clock, cluster, highlights, naming, route, Sample};
+use mantelpiece_core::events::EventKind;
+use mantelpiece_core::geo::GeoPoint;
+use mantelpiece_core::ids::{ContributorId, HouseholdId, MediaId, TripId};
+use mantelpiece_core::media::{MediaItem, ProcessingState};
+use mantelpiece_core::trip::{Landmark, Trip, TripDay};
+use mantelpiece_ingest::burst::{self, Candidate};
+use mantelpiece_ingest::quality;
+use mantelpiece_store::places::Place;
+use mantelpiece_trips::{clock, cluster, highlights, naming, route, Sample};
 use serde::Serialize;
 use std::collections::{BTreeSet, HashMap};
 use time::{OffsetDateTime, UtcOffset};
@@ -233,7 +233,7 @@ async fn render_maps(
     trip: &mut Trip,
     previous: Option<&Trip>,
 ) -> Result<()> {
-    let unchanged = |prev: &memorylane_core::trip::Route, now: &memorylane_core::trip::Route| {
+    let unchanged = |prev: &mantelpiece_core::trip::Route, now: &mantelpiece_core::trip::Route| {
         prev.map_key.is_some() && prev.points.len() == now.points.len()
     };
     if trip.route.points.is_empty() {
@@ -507,7 +507,7 @@ struct BuildTrip<'a> {
     previous: Option<&'a Trip>,
     pinned: &'a [MediaId],
     hidden: &'a [MediaId],
-    offsets: &'a [memorylane_core::trip::ClockOffset],
+    offsets: &'a [mantelpiece_core::trip::ClockOffset],
     /// Photos with no capture time, placed at the end of the last day and flagged.
     undated: &'a [MediaId],
 }
@@ -652,7 +652,7 @@ async fn announce(
 
 async fn emit(ingest: &Ingest, household: &HouseholdId, kind: EventKind) -> Result<()> {
     let event =
-        memorylane_store::feed::emit(ingest.storage.as_ref(), household, ingest.now(), kind)
+        mantelpiece_store::feed::emit(ingest.storage.as_ref(), household, ingest.now(), kind)
             .await?;
     ingest.bus.publish(&event).await?;
     Ok(())
@@ -661,8 +661,8 @@ async fn emit(ingest: &Ingest, household: &HouseholdId, kind: EventKind) -> Resu
 #[cfg(test)]
 mod trip_place_tests {
     use super::*;
-    use memorylane_core::ids::{HouseholdId, TripId};
-    use memorylane_core::trip::{Route, TripDay};
+    use mantelpiece_core::ids::{HouseholdId, TripId};
+    use mantelpiece_core::trip::{Route, TripDay};
     use time::macros::{date, datetime};
 
     fn town(name: &str, country: &str) -> Landmark {

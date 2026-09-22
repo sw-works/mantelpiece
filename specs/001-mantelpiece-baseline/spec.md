@@ -1,6 +1,6 @@
-# Feature Specification: MemoryLane Baseline
+# Feature Specification: Mantelpiece Baseline
 
-**Feature Branch**: `001-memorylane-baseline`
+**Feature Branch**: `001-mantelpiece-baseline`
 
 **Created**: 2026-09-09
 
@@ -17,7 +17,7 @@ contradicts the decision log of 2026-09-09.
 
 ### User Story 1 - Sign in the TV from the phone (Priority: P1)
 
-A household installs MemoryLane on their Fire TV. The first screen shows a short code and a
+A household installs Mantelpiece on their Fire TV. The first screen shows a short code and a
 QR. Someone scans it with their phone, signs in with their Amazon account, approves the TV,
 and the TV is signed in. Nothing is typed on the remote.
 
@@ -155,7 +155,7 @@ TV; cancel and see nothing removed; confirm and see 20 removed and recoverable f
 
 ### User Story 7 - Join a trip from another TV (Priority: P2)
 
-Grandma's Fire TV runs MemoryLane in her own household. She enters the trip code from the
+Grandma's Fire TV runs Mantelpiece in her own household. She enters the trip code from the
 family's Invite screen and the Kyoto trip appears on her TV the evening it happens, with
 everyone's photos, the story and the route. Her reactions show up on the family's TV.
 
@@ -267,7 +267,7 @@ album; after expiry it does not.
 **Acceptance Scenarios**:
 
 1. **Given** a playlist, **When** shared, **Then** the TV asks for confirmation first, then produces an expiring link and optionally emails it (F-601, F-504).
-2. **Given** a recipient with a MemoryLane TV, **When** sharing, **Then** a join code is offered before a link (W5).
+2. **Given** a recipient with a Mantelpiece TV, **When** sharing, **Then** a join code is offered before a link (W5).
 3. **Given** an expired link, **When** opened, **Then** it shows nothing.
 
 ---

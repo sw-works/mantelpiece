@@ -1,7 +1,7 @@
 //! Pre-model quality signals (F-107) and the 0 to 10 interest score (F-204).
 
 use image::{imageops::FilterType, DynamicImage};
-use memorylane_core::media::{Enrichment, Signals};
+use mantelpiece_core::media::{Enrichment, Signals};
 
 /// Longest side used for signal computation. Keeps the Laplacian cheap and makes
 /// sharpness comparable across resolutions.
@@ -86,7 +86,7 @@ pub fn score(signals: &Signals, enrichment: &Enrichment, uniqueness: f32) -> f32
 mod tests {
     use super::*;
     use crate::test_images::flat;
-    use memorylane_core::media::Tag;
+    use mantelpiece_core::media::Tag;
 
     #[test]
     fn checker_is_sharper_than_flat_field() {

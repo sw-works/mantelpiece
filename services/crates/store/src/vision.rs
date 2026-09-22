@@ -2,7 +2,7 @@
 //! faces and text; a Bedrock multimodal model for descriptions of keepers.
 
 use async_trait::async_trait;
-use memorylane_core::media::{Enrichment, Tag};
+use mantelpiece_core::media::{Enrichment, Tag};
 use std::sync::Mutex;
 
 use crate::{Result, StorageError};

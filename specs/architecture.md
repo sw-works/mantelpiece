@@ -1,8 +1,7 @@
 # Mantelpiece: Architecture and Requirements
 
 Status: Draft for hackathon execution
-App name: Mantelpiece (mantelpiece.tv; called MemoryLane until 2026-09-22, still the
-repository, crate and package id names)
+App name: Mantelpiece (mantelpiece.tv)
 Companion: `hackathon.md` (entry strategy, rules, timeline, demo plan), `decisions-2026-09-09.md` (Fire TV research log)
 Goal: zero infrastructure for the user. Install one Fire TV app, upload from phone, done.
 Created: 2026-09-08

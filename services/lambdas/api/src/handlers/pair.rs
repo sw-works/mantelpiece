@@ -3,11 +3,11 @@
 //! away. No account anywhere: the code proves the phone saw the screen, the approval
 //! proves someone at the TV wants it in.
 
-use memorylane_core::contributor::{Contributor, ContributorKind, PairStatus};
-use memorylane_core::device_code::DeviceCode;
-use memorylane_core::events::EventKind;
-use memorylane_core::household::Household;
-use memorylane_core::ids::{ContributorId, DeviceId, HouseholdId};
+use mantelpiece_core::contributor::{Contributor, ContributorKind, PairStatus};
+use mantelpiece_core::device_code::DeviceCode;
+use mantelpiece_core::events::EventKind;
+use mantelpiece_core::household::Household;
+use mantelpiece_core::ids::{ContributorId, DeviceId, HouseholdId};
 use serde::Deserialize;
 use serde_json::json;
 use time::format_description::well_known::Rfc3339;
@@ -113,7 +113,7 @@ pub async fn code(app: &App, req: &Req) -> Result<Resp, ApiError> {
 
 /// The household a live pairing code belongs to.
 async fn household_for(app: &App, raw: &str) -> Result<Household, ApiError> {
-    let code = memorylane_core::codes::normalize(raw)
+    let code = mantelpiece_core::codes::normalize(raw)
         .ok_or_else(|| ApiError::bad_request("invalid code"))?;
     let dc = app
         .storage

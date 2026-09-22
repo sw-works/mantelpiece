@@ -1,5 +1,5 @@
 [package]
-name = "memorylane-api"
+name = "mantelpiece-api"
 description = "Backend API Lambda: device-code sign-in, trip codes, contributor join, uploads, events"
 version.workspace = true
 edition.workspace = true
@@ -11,10 +11,10 @@ name = "api"
 path = "src/main.rs"
 
 [dependencies]
-memorylane-core.workspace = true
-memorylane-store.workspace = true
-memorylane-ingest.workspace = true
-memorylane-trips.workspace = true
+mantelpiece-core.workspace = true
+mantelpiece-store.workspace = true
+mantelpiece-ingest.workspace = true
+mantelpiece-trips.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true

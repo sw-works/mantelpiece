@@ -2,10 +2,10 @@
 //! are public knowledge fetched at ingest and shared by every household; trivia lines are
 //! written by the Concierge from the summary and stored only when the summary backs them.
 
-use memorylane_core::ids::HouseholdId;
-use memorylane_core::landmark::{self, LandmarkFacts};
-use memorylane_core::media::MediaItem;
-use memorylane_core::trip::Trip;
+use mantelpiece_core::ids::HouseholdId;
+use mantelpiece_core::landmark::{self, LandmarkFacts};
+use mantelpiece_core::media::MediaItem;
+use mantelpiece_core::trip::Trip;
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::collections::BTreeMap;

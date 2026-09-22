@@ -1,10 +1,10 @@
 // Photos shared from the phone's share sheet (Web Share Target). The service worker
-// answers the share POST by parking each file in the `memorylane-shared` cache and sending
+// answers the share POST by parking each file in the `mantelpiece-shared` cache and sending
 // the browser to `/?shared=<n>`; the uploader page takes them out here and uploads them
 // like a picker selection. Android Chrome only: iOS Safari has no share target, so iPhones
 // keep the QR and the picker.
 
-export const SHARED_CACHE = "memorylane-shared";
+export const SHARED_CACHE = "mantelpiece-shared";
 
 /** The subset of the Cache API this needs, so tests can pass a plain object. */
 export interface SharedCache {

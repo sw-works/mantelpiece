@@ -7,8 +7,8 @@
 //! it as a correction when enough pairs agree and the offset is larger than noise.
 
 use crate::Sample;
-use memorylane_core::ids::ContributorId;
-use memorylane_core::trip::ClockOffset;
+use mantelpiece_core::ids::ContributorId;
+use mantelpiece_core::trip::ClockOffset;
 use std::collections::BTreeMap;
 use time::Duration;
 

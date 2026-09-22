@@ -3,11 +3,11 @@
 //! (research R8, no model call on this path); otherwise it is a search that becomes a
 //! playlist. Both answers reach the TV as feed events.
 
-use memorylane_core::events::EventKind;
-use memorylane_core::ids::{ContributorId, HouseholdId, MediaId, PlaylistId};
-use memorylane_core::media::MediaItem;
-use memorylane_core::presence::{freshest, Presence};
-use memorylane_core::trip::Playlist;
+use mantelpiece_core::events::EventKind;
+use mantelpiece_core::ids::{ContributorId, HouseholdId, MediaId, PlaylistId};
+use mantelpiece_core::media::MediaItem;
+use mantelpiece_core::presence::{freshest, Presence};
+use mantelpiece_core::trip::Playlist;
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::fmt::Write as _;
@@ -75,7 +75,7 @@ pub async fn describe(
     {
         Some(name) => app
             .storage
-            .get_landmark_facts(&memorylane_core::landmark::key(name))
+            .get_landmark_facts(&mantelpiece_core::landmark::key(name))
             .await?
             .map(|f| super::landmarks::view(&f)),
         None => None,

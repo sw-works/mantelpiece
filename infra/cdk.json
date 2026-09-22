@@ -1,5 +1,5 @@
 {
-  "app": "npx tsx bin/memorylane.ts",
+  "app": "npx tsx bin/mantelpiece.ts",
   "context": {
     "@aws-cdk/core:newStyleStackSynthesis": true
   }

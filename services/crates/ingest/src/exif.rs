@@ -1,8 +1,8 @@
 //! EXIF extraction (F-104): timestamp with its zone, GPS, orientation, camera.
 
 use exif::{In, Reader, Tag, Value};
-use memorylane_core::geo::GeoPoint;
-use memorylane_core::media::CaptureTime;
+use mantelpiece_core::geo::GeoPoint;
+use mantelpiece_core::media::CaptureTime;
 use std::io::Cursor;
 use time::{Date, Month, PrimitiveDateTime, Time, UtcOffset};
 

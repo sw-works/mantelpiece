@@ -12,11 +12,11 @@ name = "ingest-local"
 path = "src/main.rs"
 
 [dependencies]
-memorylane-core.workspace = true
-memorylane-ingest.workspace = true
-memorylane-ingest-lambda = { path = "../../lambdas/ingest" }
-memorylane-store.workspace = true
-memorylane-trips.workspace = true
+mantelpiece-core.workspace = true
+mantelpiece-ingest.workspace = true
+mantelpiece-ingest-lambda = { path = "../../lambdas/ingest" }
+mantelpiece-store.workspace = true
+mantelpiece-trips.workspace = true
 serde_json.workspace = true
 time.workspace = true
 tokio.workspace = true

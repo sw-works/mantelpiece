@@ -2,9 +2,9 @@
 //! On this day, Then and now, and best of a month or year. Keepers only, nothing hidden
 //! or removed, ranked by the score the pipeline already computed (constitution V).
 
-use memorylane_core::geo::GeoPoint;
-use memorylane_core::ids::{HouseholdId, MediaId};
-use memorylane_core::media::MediaItem;
+use mantelpiece_core::geo::GeoPoint;
+use mantelpiece_core::ids::{HouseholdId, MediaId};
+use mantelpiece_core::media::MediaItem;
 use std::collections::BTreeMap;
 use time::{Date, Month};
 
@@ -148,8 +148,8 @@ pub fn best_of(media: &[MediaItem], viewer: &HouseholdId, period: Period) -> Vec
 #[cfg(test)]
 mod tests {
     use super::*;
-    use memorylane_core::ids::{BatchId, ContributorId};
-    use memorylane_core::media::{CaptureTime, Enrichment, MediaKind, ProcessingState, Signals};
+    use mantelpiece_core::ids::{BatchId, ContributorId};
+    use mantelpiece_core::media::{CaptureTime, Enrichment, MediaKind, ProcessingState, Signals};
     use std::collections::BTreeSet;
     use time::macros::datetime;
     use time::OffsetDateTime;

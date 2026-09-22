@@ -2,7 +2,7 @@ import { qrMatrix } from "../src/qr";
 
 describe("qrMatrix", () => {
   it("produces a square matrix with finder patterns", () => {
-    const m = qrMatrix("https://upload.memorylane.test/?t=AB2C3D");
+    const m = qrMatrix("https://upload.mantelpiece.test/?t=AB2C3D");
     expect(m.length).toBeGreaterThanOrEqual(21);
     expect(m.every((row) => row.length === m.length)).toBe(true);
     // Top-left finder pattern: 7x7 with a dark border.

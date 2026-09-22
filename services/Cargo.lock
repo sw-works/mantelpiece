@@ -2160,11 +2160,11 @@ name = "ingest-local"
 version = "0.1.0"
 dependencies = [
  "aws-config",
- "memorylane-core",
- "memorylane-ingest",
- "memorylane-ingest-lambda",
- "memorylane-store",
- "memorylane-trips",
+ "mantelpiece-core",
+ "mantelpiece-ingest",
+ "mantelpiece-ingest-lambda",
+ "mantelpiece-store",
+ "mantelpiece-trips",
  "serde_json",
  "time",
  "tokio",
@@ -2398,6 +2398,142 @@ dependencies = [
 ]
 
 [[package]]
+name = "mantelpiece-api"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "aws-config",
+ "aws-sdk-sfn",
+ "base64 0.22.1",
+ "hex",
+ "hmac 0.12.1",
+ "http 1.5.0",
+ "lambda_http",
+ "lambda_runtime",
+ "mantelpiece-core",
+ "mantelpiece-ingest",
+ "mantelpiece-store",
+ "mantelpiece-trips",
+ "rand 0.9.5",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "thiserror",
+ "time",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "mantelpiece-core"
+version = "0.1.0"
+dependencies = [
+ "rand 0.9.5",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "time",
+ "uuid",
+]
+
+[[package]]
+name = "mantelpiece-ingest"
+version = "0.1.0"
+dependencies = [
+ "hex",
+ "image",
+ "kamadak-exif",
+ "mantelpiece-core",
+ "serde",
+ "sha2 0.10.9",
+ "thiserror",
+ "time",
+]
+
+[[package]]
+name = "mantelpiece-ingest-lambda"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "aws-config",
+ "image",
+ "lambda_runtime",
+ "mantelpiece-core",
+ "mantelpiece-ingest",
+ "mantelpiece-store",
+ "mantelpiece-trips",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "time",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "mantelpiece-poster"
+version = "0.1.0"
+dependencies = [
+ "aws-config",
+ "image",
+ "lambda_runtime",
+ "mantelpiece-core",
+ "mantelpiece-ingest",
+ "mantelpiece-store",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "time",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "mantelpiece-store"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "aws-config",
+ "aws-sdk-bedrockruntime",
+ "aws-sdk-dynamodb",
+ "aws-sdk-eventbridge",
+ "aws-sdk-geomaps",
+ "aws-sdk-geoplaces",
+ "aws-sdk-ivs",
+ "aws-sdk-polly",
+ "aws-sdk-rekognition",
+ "aws-sdk-s3",
+ "aws-sdk-s3vectors",
+ "aws-sdk-sesv2",
+ "aws-smithy-types",
+ "base64 0.22.1",
+ "hmac 0.12.1",
+ "http 1.5.0",
+ "mantelpiece-core",
+ "serde",
+ "serde_dynamo",
+ "serde_json",
+ "sha2 0.10.9",
+ "thiserror",
+ "time",
+ "tokio",
+ "ureq",
+ "web-push-native",
+]
+
+[[package]]
+name = "mantelpiece-trips"
+version = "0.1.0"
+dependencies = [
+ "mantelpiece-core",
+ "serde",
+ "time",
+]
+
+[[package]]
 name = "matchers"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2421,142 +2557,6 @@ name = "memchr"
 version = "2.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf8baf1c55e62ffcace7a9f06f4bd9cd3f0c4beb022d3b367256b91b87513d98"
-
-[[package]]
-name = "memorylane-api"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "aws-config",
- "aws-sdk-sfn",
- "base64 0.22.1",
- "hex",
- "hmac 0.12.1",
- "http 1.5.0",
- "lambda_http",
- "lambda_runtime",
- "memorylane-core",
- "memorylane-ingest",
- "memorylane-store",
- "memorylane-trips",
- "rand 0.9.5",
- "serde",
- "serde_json",
- "sha2 0.10.9",
- "thiserror",
- "time",
- "tokio",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
-name = "memorylane-core"
-version = "0.1.0"
-dependencies = [
- "rand 0.9.5",
- "serde",
- "serde_json",
- "thiserror",
- "time",
- "uuid",
-]
-
-[[package]]
-name = "memorylane-ingest"
-version = "0.1.0"
-dependencies = [
- "hex",
- "image",
- "kamadak-exif",
- "memorylane-core",
- "serde",
- "sha2 0.10.9",
- "thiserror",
- "time",
-]
-
-[[package]]
-name = "memorylane-ingest-lambda"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "aws-config",
- "image",
- "lambda_runtime",
- "memorylane-core",
- "memorylane-ingest",
- "memorylane-store",
- "memorylane-trips",
- "serde",
- "serde_json",
- "thiserror",
- "time",
- "tokio",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
-name = "memorylane-poster"
-version = "0.1.0"
-dependencies = [
- "aws-config",
- "image",
- "lambda_runtime",
- "memorylane-core",
- "memorylane-ingest",
- "memorylane-store",
- "serde",
- "serde_json",
- "thiserror",
- "time",
- "tokio",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
-name = "memorylane-store"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "aws-config",
- "aws-sdk-bedrockruntime",
- "aws-sdk-dynamodb",
- "aws-sdk-eventbridge",
- "aws-sdk-geomaps",
- "aws-sdk-geoplaces",
- "aws-sdk-ivs",
- "aws-sdk-polly",
- "aws-sdk-rekognition",
- "aws-sdk-s3",
- "aws-sdk-s3vectors",
- "aws-sdk-sesv2",
- "aws-smithy-types",
- "base64 0.22.1",
- "hmac 0.12.1",
- "http 1.5.0",
- "memorylane-core",
- "serde",
- "serde_dynamo",
- "serde_json",
- "sha2 0.10.9",
- "thiserror",
- "time",
- "tokio",
- "ureq",
- "web-push-native",
-]
-
-[[package]]
-name = "memorylane-trips"
-version = "0.1.0"
-dependencies = [
- "memorylane-core",
- "serde",
- "time",
-]
 
 [[package]]
 name = "mime"

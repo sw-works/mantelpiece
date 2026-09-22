@@ -64,7 +64,7 @@ Facts from the Vega docs and Amazon staff replies on the developer community:
 
 ## 4. Design B in detail: phone is the camera, TV is the screen
 
-Fits the MemoryLane pattern already in the repo: the TV shows a QR, each phone joins through
+Fits the Mantelpiece pattern already in the repo: the TV shows a QR, each phone joins through
 a browser page, no install.
 
 ```
@@ -112,7 +112,7 @@ killed if the user later revokes the privilege in Settings. Not for the hackatho
 
 - Do not pitch "FaceTime on Fire TV". Nothing in Vega's public surface supports it, and Amazon
   staff have said so on record for the WebView path.
-- If a call feature is wanted for MemoryLane, scope it as "watch this trip together": phones
+- If a call feature is wanted for Mantelpiece, scope it as "watch this trip together": phones
   carry faces and voices, the TV shows the trip plus a small composited grid of the callers,
   built on IVS Real-Time and server-side composition. Add the lag line to the UI. Budget a
   one-day spike first: hls.js live playback on the Vega Virtual Device, measure glass-to-glass
@@ -211,7 +211,7 @@ handshake, receive RTP, and decode H.264 or H.265.
 FaceTime picture on the TV, phone camera, TV speakers. The TV speakers plus the phone mic
 can echo for the far end; Apple TV avoids that with Continuity Camera and we could not.
 Android callers get nothing (no AirPlay sender). And it is FaceTime's call, not ours: no
-MemoryLane content in the call, no multi-TV join, nothing the Vega primary track can show.
+Mantelpiece content in the call, no multi-TV join, nothing the Vega primary track can show.
 
 **Verdict.** Not for this project. Vega cannot host a receiver, Fire OS could but only as a
 separate GPL Android app outside the hackathon's primary track, and the result is Apple's
@@ -232,7 +232,7 @@ unofficial implementation. Off the table on Vega for the same platform reason as
 
 **The Chromecast experience.** Tap on the phone, the TV plays. Cast's real trick is that the
 media never crosses the LAN: the phone sends a URL and a command, the TV fetches from the
-cloud. That works on Vega with cloud signalling instead of LAN discovery, and MemoryLane
+cloud. That works on Vega with cloud signalling instead of LAN discovery, and Mantelpiece
 already has the plumbing: the TV pairs once by QR, the household feed reaches the TV by HTTP
 long-poll (`packages/tv-ui/src/hooks/useEvents.ts`, F-407), and `play.requested` already
 makes the TV open a trip or playlist (F-405); the owner's trips page already had a

@@ -2,8 +2,8 @@
 //! `narration/`, behind the household's flag. `POST` is the `synthesize_narration` tool;
 //! `GET` presigns the audio for the TV.
 
-use memorylane_core::events::EventKind;
-use memorylane_core::ids::TripId;
+use mantelpiece_core::events::EventKind;
+use mantelpiece_core::ids::TripId;
 use serde::Deserialize;
 use serde_json::json;
 
@@ -13,7 +13,7 @@ use crate::req::{Req, Resp};
 
 pub const VOICE: &str = "Joanna";
 
-fn key(household: &memorylane_core::ids::HouseholdId, trip: &TripId, day: u32) -> String {
+fn key(household: &mantelpiece_core::ids::HouseholdId, trip: &TripId, day: u32) -> String {
     format!("narration/{household}/{trip}/day-{day}.mp3")
 }
 

@@ -4,7 +4,7 @@
 # to skip CloudFormation (e.g. a local dev server).
 set -euo pipefail
 cd "$(dirname "$0")/.."
-STACK="${STACK_NAME:-MemoryLane}"
+STACK="${STACK_NAME:-Mantelpiece}"
 API="${1:-$(aws cloudformation describe-stacks --stack-name "$STACK" --query "Stacks[0].Outputs[?OutputKey=='ApiUrl'].OutputValue" --output text)}"
 node -e '
 const fs = require("fs");

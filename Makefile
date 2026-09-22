@@ -56,9 +56,9 @@ down:
 	@echo "Stack gone. Retained stores: aws dynamodb list-tables; aws cognito-idp list-user-pools --max-results 20; aws s3 ls"
 
 # Vega Virtual Device loop (needs the Vega SDK 0.24 with the `vega` CLI on PATH). Unverified
-# on a device until the week 1 spike; see specs/001-memorylane-baseline/quickstart.md.
+# on a device until the week 1 spike; see specs/001-mantelpiece-baseline/quickstart.md.
 VVD ?= VirtualDevice
-TV_APP_ID ?= com.hanyu.memorylane.main
+TV_APP_ID ?= com.hanyu.mantelpiece.main
 TV_SHOT ?= docs/screens/vvd.png
 
 tv-vvd-start:

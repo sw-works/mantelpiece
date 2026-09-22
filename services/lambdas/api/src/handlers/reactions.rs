@@ -2,9 +2,9 @@
 //! web view. One like per actor per target; comments at most 200 characters. Every
 //! reaction reaches the owner's ticker and, through fan-out, the other member TVs.
 
-use memorylane_core::events::EventKind;
-use memorylane_core::ids::{HouseholdId, TripId};
-use memorylane_core::reaction::{Reaction, ReactionKind, ReactionTarget};
+use mantelpiece_core::events::EventKind;
+use mantelpiece_core::ids::{HouseholdId, TripId};
+use mantelpiece_core::reaction::{Reaction, ReactionKind, ReactionTarget};
 use serde::Deserialize;
 use serde_json::{json, Value};
 
@@ -44,7 +44,7 @@ async fn actor(
                 .storage
                 .get_contributor(&household, &contributor)
                 .await?
-                .filter(memorylane_core::contributor::Contributor::is_active)
+                .filter(mantelpiece_core::contributor::Contributor::is_active)
                 .ok_or_else(|| ApiError::forbidden("contributor removed"))?;
             Ok((household, contributor.to_string(), c.display_name))
         }

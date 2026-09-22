@@ -5,7 +5,7 @@
 // set" (verified 2026-09-14). Falls back to memory when the module is missing, which is
 // what happens under jest or on a platform without it.
 
-import { KeyValueSessionStore, MemorySessionStore, type AsyncStorageLike, type SessionStore } from "@memorylane/tv-ui";
+import { KeyValueSessionStore, MemorySessionStore, type AsyncStorageLike, type SessionStore } from "@mantelpiece/tv-ui";
 
 export function nativeAsyncStorage(): AsyncStorageLike | null {
   let candidate: Partial<AsyncStorageLike> | undefined;

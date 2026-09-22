@@ -1,4 +1,4 @@
-"""The MemoryLane API as the skill sees it. `HttpBackend` speaks to the deployed API with
+"""The Mantelpiece API as the skill sees it. `HttpBackend` speaks to the deployed API with
 the account-linked Cognito token, trading it once per container for an owner session;
 `InMemoryBackend` answers from fixtures for tests."""
 

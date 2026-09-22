@@ -1,8 +1,8 @@
 //! Confirmation tokens minted by the TV's Review Changes modal (F-410, F-504).
 
-use memorylane_core::confirmation::{ConfirmationToken, ConfirmedAction};
-use memorylane_core::contributor::Contributor;
-use memorylane_core::ids::HouseholdId;
+use mantelpiece_core::confirmation::{ConfirmationToken, ConfirmedAction};
+use mantelpiece_core::contributor::Contributor;
+use mantelpiece_core::ids::HouseholdId;
 use serde_json::json;
 
 use crate::app::{App, Caller};
@@ -44,7 +44,7 @@ pub async fn mint(app: &App, req: &Req) -> Result<Resp, ApiError> {
             .storage
             .get_proposal(
                 &household,
-                &memorylane_core::ids::ProposalId::new(pid.as_str()),
+                &mantelpiece_core::ids::ProposalId::new(pid.as_str()),
             )
             .await?
             .ok_or_else(|| ApiError::not_found("no such proposal"))?;

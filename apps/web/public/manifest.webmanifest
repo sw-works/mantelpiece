@@ -1,7 +1,7 @@
 {
   "name": "Mantelpiece",
   "short_name": "Mantelpiece",
-  "description": "Add photos to the trip on your Fire TV.",
+  "description": "Send photos and live video to the family TV.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

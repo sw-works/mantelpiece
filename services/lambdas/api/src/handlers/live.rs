@@ -5,11 +5,11 @@
 //! stream is still winding down, so those wait in `stale_channels` and go on the next
 //! start or stop.
 
-use memorylane_core::events::EventKind;
-use memorylane_core::household::{
+use mantelpiece_core::events::EventKind;
+use mantelpiece_core::household::{
     Household, LiveBroadcast, LiveGrant, LiveRequest, LiveRequestStatus,
 };
-use memorylane_core::ids::{ContributorId, HouseholdId};
+use mantelpiece_core::ids::{ContributorId, HouseholdId};
 use serde_json::{json, Value};
 use time::format_description::well_known::Rfc3339;
 use time::{Duration, OffsetDateTime};

@@ -38,7 +38,7 @@ export const readTools: ToolDefinition[] = [
   tool("get_household", "The household's name and settings: narration, people", { household: HOUSEHOLD }, ["household"]),
   tool("list_trips", "Trip summaries for the household, including trips joined from another TV", { household: HOUSEHOLD }, ["household"]),
   tool("get_trip", "One trip with its days, route, narrative and highlights", { household: HOUSEHOLD, trip_id: TRIP }, ["household", "trip_id"]),
-  tool("get_trip_code", "The trip's join code for another MemoryLane TV", { household: HOUSEHOLD, trip_id: TRIP }, ["household", "trip_id"]),
+  tool("get_trip_code", "The trip's join code for another Mantelpiece TV", { household: HOUSEHOLD, trip_id: TRIP }, ["household", "trip_id"]),
   tool(
     "search_media",
     "Media ids ranked for a natural-language query, optionally inside one trip or filtered by people",

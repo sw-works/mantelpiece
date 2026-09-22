@@ -1,8 +1,8 @@
-# Implementation Plan: MemoryLane Baseline
+# Implementation Plan: Mantelpiece Baseline
 
-**Branch**: `001-memorylane-baseline` | **Date**: 2026-09-09 | **Spec**: [spec.md](spec.md)
+**Branch**: `001-mantelpiece-baseline` | **Date**: 2026-09-09 | **Spec**: [spec.md](spec.md)
 
-**Input**: Feature specification from `/specs/001-memorylane-baseline/spec.md`
+**Input**: Feature specification from `/specs/001-mantelpiece-baseline/spec.md`
 
 ## Summary
 
@@ -37,7 +37,7 @@ Location, Polly) behind the existing traits. Research resolves the ten open ques
 
 **Constraints**: no native module bundled in the TV app, system-deployed `@amazon-devices/*` ports only (constitution II); no `@amazon-devices/*` in `package.json` on `main` until CI can install it; tests without AWS (VI); irreversible tools only with a TV-minted token and Cedar (III); stories checked against metadata (IV); Lambda layer under 250 MB unzipped (libheif, ffmpeg); TV never captures audio.
 
-**Scale/Scope**: households in the tens for the hackathon, archives to 10k photos each; 12 user stories, 11 TV screens and 6 phone pages (mockups: MemoryLane Screens artifact); 6 workflows plus 3 new tools.
+**Scale/Scope**: households in the tens for the hackathon, archives to 10k photos each; 12 user stories, 11 TV screens and 6 phone pages (mockups: Mantelpiece Screens artifact); 6 workflows plus 3 new tools.
 
 ## Constitution Check
 
@@ -59,7 +59,7 @@ No violations. Complexity Tracking left empty.
 ### Documentation (this feature)
 
 ```text
-specs/001-memorylane-baseline/
+specs/001-mantelpiece-baseline/
 ├── plan.md              # This file
 ├── research.md          # Phase 0: ten open questions resolved
 ├── data-model.md        # Phase 1: entities, keys, state transitions
@@ -86,7 +86,7 @@ agents/                         Strands workflows W1 to W6 (exists); add get_now
 infra/                          one CDK stack (exists); add Rekognition and Bedrock permissions, Location, Polly, S3 Vectors (if available), AgentCore Gateway targets, nightly schedule rule, Alexa+ OAuth resource server
   policy/tools.cedar            NEW: Cedar policy for irreversible tools and roles
 packages/tv-ui/                 NEW: screens, hooks, api client, theme, tests moved from apps/tv/src and apps/tv/test (RN core only)
-apps/tv-vega/                   NEW: Vega shell: manifest.toml, app.json, metro, kepler scripts, RN pinned by the SDK; imports @memorylane/tv-ui
+apps/tv-vega/                   NEW: Vega shell: manifest.toml, app.json, metro, kepler scripts, RN pinned by the SDK; imports @mantelpiece/tv-ui
 apps/tv/                        REMOVED after the split (history keeps it)
 apps/web/                       PWA (exists: link, upload); add trip (read-only + reactions), ask (speech), people, uploads-mine, share pages
   lambdas/api handlers          NEW handlers: search, playlists, presence, ask, proposals, memberships, reactions, people, memories, shares, narration, wellknown (OAuth metadata)

@@ -6,7 +6,7 @@ schema-version = 1
 [package]
 title = "Mantelpiece"
 version = "0.1.0"
-id = "com.hanyu.memorylane"
+id = "com.hanyu.mantelpiece"
 
 # Required since Vega SDK 0.24: the OS line the package is built for and the oldest it runs on.
 [os.version]
@@ -15,14 +15,14 @@ min = "1.2"
 
 [components]
 [[components.interactive]]
-id = "com.hanyu.memorylane.main"
+id = "com.hanyu.mantelpiece.main"
 runtime-module = "/com.amazon.kepler.runtime.react_native_kepler_4@IReactNativeKepler_0"
 launch-type = "singleton"
 categories = ["com.amazon.category.main"]
 
 [processes]
 [[processes.group]]
-component-ids = ["com.hanyu.memorylane.main"]
+component-ids = ["com.hanyu.mantelpiece.main"]
 
 # Optional capabilities.
 [wants]
@@ -91,7 +91,7 @@ id = "/com.amazon.kepler.kepler_media_controls_1@IKeplerMediaControls_0"
 
 [offers]
 [[offers.interaction]]
-id = "com.hanyu.memorylane.main"
+id = "com.hanyu.mantelpiece.main"
 
 [[offers.service]]
 id = "com.amazon.gipc.uuid.*"

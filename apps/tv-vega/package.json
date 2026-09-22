@@ -1,8 +1,8 @@
 {
-  "name": "@memorylane/tv-vega",
+  "name": "@mantelpiece/tv-vega",
   "private": true,
   "version": "0.1.0",
-  "description": "Vega OS shell for the MemoryLane Fire TV app. React Native pinned to the Vega SDK line (0.83, @amazon-devices/react-native-kepler 4); all screens come from @memorylane/tv-ui.",
+  "description": "Vega OS shell for the Mantelpiece Fire TV app. React Native pinned to the Vega SDK line (0.83, @amazon-devices/react-native-kepler 4); all screens come from @mantelpiece/tv-ui.",
   "main": "index.js",
   "engines": {
     "node": ">=22.14.0"
@@ -24,7 +24,7 @@
     "@amazon-devices/react-native-kepler": "~4.0.1",
     "@amazon-devices/react-native-w3cmedia": "2.3.4-rn-83",
     "@babel/runtime": "^7.28.0",
-    "@memorylane/tv-ui": "workspace:*",
+    "@mantelpiece/tv-ui": "workspace:*",
     "@xmldom/xmldom": "^0.9.12",
     "babel-plugin-module-resolver": "^5.0.2",
     "base-64": "^1.0.0",
@@ -46,7 +46,7 @@
   },
   "kepler": {
     "projectType": "application",
-    "appName": "MemoryLane",
+    "appName": "Mantelpiece",
     "targets": [
       "tv"
     ]

@@ -337,7 +337,7 @@ def nightly(
 @dataclass
 class ShareResult:
     playlist_id: str | None
-    """A join code for the recipient's own MemoryLane TV, offered before any link (W5)."""
+    """A join code for the recipient's own Mantelpiece TV, offered before any link (W5)."""
     join_code: str | None = None
     link: str | None = None
     recipient: str | None = None
@@ -366,7 +366,7 @@ def trip_named_in(tools: Tools, household: str, request: str) -> str | None:
 
 
 def share(tools: Tools, model: Model, household: str, request: str) -> ShareResult:
-    """W5: "send Kyoto highlights to grandma". A recipient with a MemoryLane TV gets the
+    """W5: "send Kyoto highlights to grandma". A recipient with a Mantelpiece TV gets the
     trip's join code (their TV then shows the whole trip, F-162); anyone else gets an
     expiring link after confirmation, emailed when the address is remembered."""
     contact = known_contact(tools, household, request)

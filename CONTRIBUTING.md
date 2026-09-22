@@ -1,6 +1,6 @@
 # Contributing
 
-MemoryLane is a hackathon entry, but pull requests and issues are welcome.
+Mantelpiece is a hackathon entry, but pull requests and issues are welcome.
 
 ## Before you open a pull request
 

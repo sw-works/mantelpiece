@@ -1,7 +1,7 @@
 # Contract: Gateway Tools (MCP)
 
 Exposed through AgentCore Gateway with the API Lambda as target. Same surface for the
-Concierge (Strands) and Alexa+. Names match `agents/src/memorylane_agents/tools.py`; NEW
+Concierge (Strands) and Alexa+. Names match `agents/src/mantelpiece_agents/tools.py`; NEW
 tools are added by this feature. Every call carries `household`; the Gateway's identity
 maps the caller to a household and role. Alexa+ constraints (R6): every tool answers in
 under 500 ms from stored data.
@@ -78,6 +78,6 @@ action payload.
 
 - Transport: Streamable HTTP, MCP spec 2025-11-25.
 - Auth: OAuth 2.1 with PKCE against Cognito; protected resource metadata at
-  `/.well-known/oauth-authorization-server`; scope `memorylane/tools`.
+  `/.well-known/oauth-authorization-server`; scope `mantelpiece/tools`.
 - Example phrases registered: "what did we do on day two in Kyoto", "show beach days from
   Portugal on the TV", "what's that statue in the photo on my TV".

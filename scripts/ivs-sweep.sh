@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Delete the IVS channels the API made for phone broadcasts (tag memorylane:household).
+# Delete the IVS channels the API made for phone broadcasts (tag mantelpiece:household).
 # The API deletes a channel when its broadcast ends, but IVS refuses while the stream is
 # still winding down; those wait for the household's next start or stop, which may never
 # come. Channels are not part of the CDK stack, so `make down` runs this. An idle channel
@@ -8,7 +8,7 @@ set -euo pipefail
 REGION="${AWS_REGION:-us-west-2}"
 for arn in $(aws ivs list-channels --region "$REGION" --query "channels[].arn" --output text); do
   owned=$(aws ivs list-tags-for-resource --region "$REGION" --resource-arn "$arn" \
-    --query "tags.\"memorylane:household\"" --output text)
+    --query "tags.\"mantelpiece:household\"" --output text)
   [ "$owned" = "None" ] && continue
   if aws ivs delete-channel --region "$REGION" --arn "$arn" 2>/dev/null; then
     echo "deleted $arn"

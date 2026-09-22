@@ -2,7 +2,7 @@
 // behind the hosted UI, so the phone never handles Amazon credentials directly.
 
 export interface AuthConfig {
-  /** e.g. https://memorylane-123.auth.us-east-1.amazoncognito.com */
+  /** e.g. https://mantelpiece-123.auth.us-east-1.amazoncognito.com */
   domain: string;
   clientId: string;
   redirectUri: string;

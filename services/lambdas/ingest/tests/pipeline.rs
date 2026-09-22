@@ -2,22 +2,22 @@
 
 #![allow(clippy::cast_possible_truncation, clippy::too_many_lines)]
 
-use memorylane_core::geo::GeoPoint;
-use memorylane_core::ids::{BatchId, ContributorId, HouseholdId, MediaId};
-use memorylane_core::media::{
+use mantelpiece_core::geo::GeoPoint;
+use mantelpiece_core::ids::{BatchId, ContributorId, HouseholdId, MediaId};
+use mantelpiece_core::media::{
     CaptureTime, Enrichment, MediaItem, MediaKind, ProcessingState, Signals, Tag,
 };
-use memorylane_ingest::checksum::sha256_hex;
-use memorylane_ingest_lambda::{Ingest, Task};
-use memorylane_store::bus::MemoryBus;
-use memorylane_store::encyclopedia::MemoryEncyclopedia;
-use memorylane_store::faces::{FaceMatch, MemoryFaces};
-use memorylane_store::maps::MemoryMaps;
-use memorylane_store::memory::{MemoryBlobs, MemoryStorage};
-use memorylane_store::places::MemoryPlaces;
-use memorylane_store::vectors::MemoryVectors;
-use memorylane_store::vision::MemoryVision;
-use memorylane_store::{Blobs, Faces, Storage, Vectors};
+use mantelpiece_ingest::checksum::sha256_hex;
+use mantelpiece_ingest_lambda::{Ingest, Task};
+use mantelpiece_store::bus::MemoryBus;
+use mantelpiece_store::encyclopedia::MemoryEncyclopedia;
+use mantelpiece_store::faces::{FaceMatch, MemoryFaces};
+use mantelpiece_store::maps::MemoryMaps;
+use mantelpiece_store::memory::{MemoryBlobs, MemoryStorage};
+use mantelpiece_store::places::MemoryPlaces;
+use mantelpiece_store::vectors::MemoryVectors;
+use mantelpiece_store::vision::MemoryVision;
+use mantelpiece_store::{Blobs, Faces, Storage, Vectors};
 use std::collections::BTreeSet;
 use std::sync::Arc;
 use time::macros::datetime;
@@ -71,7 +71,7 @@ fn harness_with(vision: MemoryVision) -> Harness {
             ("Kyoto Station", 34.9858, 135.7588),
         ])),
         encyclopedia: encyclopedia.clone(),
-        cluster: memorylane_trips::cluster::Params::default(),
+        cluster: mantelpiece_trips::cluster::Params::default(),
         clock: Arc::new(|| datetime!(2026-09-08 10:00:00 UTC)),
     };
     Harness {
@@ -211,7 +211,7 @@ async fn signal_computes_signals_and_writes_renditions() {
 async fn signalled_photos_announce_their_arrival_for_the_tv() {
     let h = harness(Enrichment::default());
     h.storage
-        .put_contributor(&memorylane_core::contributor::Contributor::phone(
+        .put_contributor(&mantelpiece_core::contributor::Contributor::phone(
             HouseholdId::new(H),
             "Maya",
             base(),
@@ -257,7 +257,7 @@ async fn signalled_photos_announce_their_arrival_for_the_tv() {
     let arrivals: Vec<_> = events
         .iter()
         .filter_map(|e| match &e.kind {
-            memorylane_core::events::EventKind::PhotosArrived {
+            mantelpiece_core::events::EventKind::PhotosArrived {
                 display_name,
                 batch,
                 media,
@@ -532,15 +532,15 @@ async fn organize_groups_bursts_builds_trip_and_is_idempotent() {
     let g = signalled("g", "ken", 2.0, kyoto, 0xAAAA_BBBB_CCCC_DDDD, 120.0);
     h.storage.put_media(&g).await.unwrap();
     h.storage
-        .put_contributor(&memorylane_core::contributor::Contributor {
+        .put_contributor(&mantelpiece_core::contributor::Contributor {
             id: ContributorId::new("ken"),
             household: HouseholdId::new(H),
             display_name: "Ken".into(),
-            kind: memorylane_core::contributor::ContributorKind::Guest,
+            kind: mantelpiece_core::contributor::ContributorKind::Guest,
             joined_at: base(),
             removed_at: None,
             grace_until: None,
-            role: memorylane_core::contributor::Role::Contributor,
+            role: mantelpiece_core::contributor::Role::Contributor,
             push: None,
             inbox: Vec::new(),
         })
@@ -653,7 +653,7 @@ async fn enrich_runs_on_keepers_and_organize_propagates_to_burst() {
         .vectors
         .query_household(
             &HouseholdId::new(H),
-            &memorylane_ingest::embed::embed_query("temple ichiran"),
+            &mantelpiece_ingest::embed::embed_query("temple ichiran"),
             5,
         )
         .await
@@ -732,7 +732,7 @@ async fn people_are_grouped_only_when_enabled_and_faces_are_matched() {
 
     // On: the first face opens a person, a match on the second photo joins them.
     let mut household =
-        memorylane_core::household::Household::new(house.clone(), "Living room", base());
+        mantelpiece_core::household::Household::new(house.clone(), "Living room", base());
     household.people_enabled = true;
     h.storage.put_household(&household).await.unwrap();
     h.faces.create_collection(&house).await.unwrap();
@@ -789,7 +789,7 @@ async fn every_face_in_a_group_photo_finds_its_own_person() {
     });
     let house = HouseholdId::new(H);
     let mut household =
-        memorylane_core::household::Household::new(house.clone(), "Living room", base());
+        mantelpiece_core::household::Household::new(house.clone(), "Living room", base());
     household.people_enabled = true;
     h.storage.put_household(&household).await.unwrap();
     h.faces.create_collection(&house).await.unwrap();

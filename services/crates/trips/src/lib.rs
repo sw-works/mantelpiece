@@ -14,8 +14,8 @@ pub mod memories;
 pub mod naming;
 pub mod route;
 
-use memorylane_core::geo::GeoPoint;
-use memorylane_core::ids::{ContributorId, MediaId};
+use mantelpiece_core::geo::GeoPoint;
+use mantelpiece_core::ids::{ContributorId, MediaId};
 use time::{OffsetDateTime, UtcOffset};
 
 /// The slice of a media item the trip pipeline needs.

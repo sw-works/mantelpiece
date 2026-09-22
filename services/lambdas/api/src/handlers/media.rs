@@ -1,10 +1,10 @@
 //! Media reads, contributor self-removal (F-157), pin and hide (F-209).
 
-use memorylane_core::confirmation::ConfirmedAction;
-use memorylane_core::events::EventKind;
-use memorylane_core::ids::{HouseholdId, MediaId};
-use memorylane_core::media::{MediaItem, ProcessingState};
-use memorylane_ingest::embed;
+use mantelpiece_core::confirmation::ConfirmedAction;
+use mantelpiece_core::events::EventKind;
+use mantelpiece_core::ids::{HouseholdId, MediaId};
+use mantelpiece_core::media::{MediaItem, ProcessingState};
+use mantelpiece_ingest::embed;
 use serde::Deserialize;
 use serde_json::json;
 
@@ -61,7 +61,7 @@ pub async fn url(app: &App, req: &Req, id: &str) -> Result<Resp, ApiError> {
         ));
     }
     Resp::ok(
-        json!({ "url": app.blobs.presign_get(&key).await?, "expires_in": memorylane_store::blobs::PRESIGN_TTL.whole_seconds() }),
+        json!({ "url": app.blobs.presign_get(&key).await?, "expires_in": mantelpiece_store::blobs::PRESIGN_TTL.whole_seconds() }),
     )
 }
 
@@ -297,7 +297,7 @@ pub async fn cleanup_candidates(app: &App, req: &Req) -> Result<Resp, ApiError> 
     let trip = req
         .query
         .get("trip")
-        .map(|t| memorylane_core::ids::TripId::new(t.as_str()));
+        .map(|t| mantelpiece_core::ids::TripId::new(t.as_str()));
     let rows: Vec<serde_json::Value> = app
         .storage
         .list_media(&household)
@@ -305,7 +305,7 @@ pub async fn cleanup_candidates(app: &App, req: &Req) -> Result<Resp, ApiError> 
         .into_iter()
         .filter(|m| !m.is_removed() && m.cleanup_reason.is_some())
         .filter(|m| trip.as_ref().is_none_or(|t| m.trip.as_ref() == Some(t)))
-        .map(|m| json!({ "media": m.id, "reason": m.cleanup_reason.map(memorylane_core::media::CleanupReason::as_str), "trip": m.trip, "filename": m.original_filename }))
+        .map(|m| json!({ "media": m.id, "reason": m.cleanup_reason.map(mantelpiece_core::media::CleanupReason::as_str), "trip": m.trip, "filename": m.original_filename }))
         .collect();
     Resp::ok(rows)
 }
@@ -395,10 +395,10 @@ pub async fn delete_many(app: &App, req: &Req) -> Result<Resp, ApiError> {
                 .storage
                 .get_contributor(
                     &household,
-                    &memorylane_core::ids::ContributorId::new(by.as_str()),
+                    &mantelpiece_core::ids::ContributorId::new(by.as_str()),
                 )
                 .await?
-                .filter(memorylane_core::contributor::Contributor::can_edit)
+                .filter(mantelpiece_core::contributor::Contributor::can_edit)
                 .ok_or_else(|| ApiError::forbidden("co-editors only"))?;
             if subject.as_deref() != Some(c.id.as_str()) {
                 return Err(ApiError::forbidden(

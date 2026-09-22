@@ -1,5 +1,5 @@
 [package]
-name = "memorylane-trips"
+name = "mantelpiece-trips"
 description = "Trip and event clustering, contributor clock alignment, route building, naming, highlights"
 version.workspace = true
 edition.workspace = true
@@ -7,7 +7,7 @@ license.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-memorylane-core.workspace = true
+mantelpiece-core.workspace = true
 serde.workspace = true
 time.workspace = true
 

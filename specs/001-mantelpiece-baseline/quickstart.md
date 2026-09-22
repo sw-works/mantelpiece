@@ -21,7 +21,7 @@ vega virtual-device start
 vega device start-port-forwarding --device VirtualDevice -p 8081 --forward false
 cd apps/tv-vega && pnpm start &
 pnpm build:vega:debug
-vega run-app build/aarch64-debug/*.vpkg com.hanyu.memorylane.main -d VirtualDevice
+vega run-app build/aarch64-debug/*.vpkg com.hanyu.mantelpiece.main -d VirtualDevice
 vega device start-log-stream --device VirtualDevice
 ```
 

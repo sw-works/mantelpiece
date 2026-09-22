@@ -1,5 +1,5 @@
 {
-  "name": "@memorylane/infra",
+  "name": "@mantelpiece/infra",
   "private": true,
   "type": "module",
   "scripts": {

@@ -1,10 +1,10 @@
 //! Read trips. Owners see all; contributors see the trip their code names (F-159); the
 //! read-only web view opens one trip by its code with no session.
 
-use memorylane_core::events::EventKind;
-use memorylane_core::ids::{HouseholdId, MediaId, TripId};
-use memorylane_core::narrative_check::{check, Allowed};
-use memorylane_core::trip::{Narrative, NarrativeCheck, Trip};
+use mantelpiece_core::events::EventKind;
+use mantelpiece_core::ids::{HouseholdId, MediaId, TripId};
+use mantelpiece_core::narrative_check::{check, Allowed};
+use mantelpiece_core::trip::{Narrative, NarrativeCheck, Trip};
 use serde::Deserialize;
 use serde_json::{json, Value};
 
@@ -109,8 +109,12 @@ pub async fn play(app: &App, req: &Req, trip: &str) -> Result<Resp, ApiError> {
 
 /// Per-household view of the highlights (F-163): this household's pins first, its
 /// hidden items gone, the owner's own flags untouched.
-fn personalise(trip: &mut Trip, viewer: &HouseholdId, media: &[memorylane_core::media::MediaItem]) {
-    let by_id = |id: &memorylane_core::ids::MediaId| media.iter().find(|m| &m.id == id);
+fn personalise(
+    trip: &mut Trip,
+    viewer: &HouseholdId,
+    media: &[mantelpiece_core::media::MediaItem],
+) {
+    let by_id = |id: &mantelpiece_core::ids::MediaId| media.iter().find(|m| &m.id == id);
     let mut pinned: Vec<_> = trip
         .highlights
         .iter()
@@ -163,19 +167,20 @@ pub async fn trip_json_for(
         .map(|c| {
             (
                 c.id.to_string(),
-                json!(
-                    if matches!(c.kind, memorylane_core::contributor::ContributorKind::Owner) {
-                        "owner"
-                    } else if c.can_edit() {
-                        "co_editor"
-                    } else {
-                        "contributor"
-                    }
-                ),
+                json!(if matches!(
+                    c.kind,
+                    mantelpiece_core::contributor::ContributorKind::Owner
+                ) {
+                    "owner"
+                } else if c.can_edit() {
+                    "co_editor"
+                } else {
+                    "contributor"
+                }),
             )
         })
         .collect();
-    let media: Vec<memorylane_core::media::MediaItem> = app
+    let media: Vec<mantelpiece_core::media::MediaItem> = app
         .storage
         .list_media(household)
         .await?
@@ -262,8 +267,8 @@ pub async fn rename(app: &App, req: &Req, id: &str) -> Result<Resp, ApiError> {
 
 #[derive(Deserialize)]
 struct RoleBody {
-    contributor: memorylane_core::ids::ContributorId,
-    role: memorylane_core::contributor::Role,
+    contributor: mantelpiece_core::ids::ContributorId,
+    role: mantelpiece_core::contributor::Role,
 }
 
 /// `POST /trips/{trip}/roles` (F-164): the owner promotes or demotes a contributor.

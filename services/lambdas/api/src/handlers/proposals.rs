@@ -3,10 +3,10 @@
 //! `request_confirmation` tool target; the TV lists them, cancels them, or mints the token
 //! through `/confirmations` with the proposal id.
 
-use memorylane_core::confirmation::ConfirmedAction;
-use memorylane_core::events::EventKind;
-use memorylane_core::ids::{MediaId, ProposalId, TripId};
-use memorylane_core::proposal::{Proposal, ProposalKind, ProposalState, Sample};
+use mantelpiece_core::confirmation::ConfirmedAction;
+use mantelpiece_core::events::EventKind;
+use mantelpiece_core::ids::{MediaId, ProposalId, TripId};
+use mantelpiece_core::proposal::{Proposal, ProposalKind, ProposalState, Sample};
 use serde::Deserialize;
 use serde_json::{json, Value};
 
@@ -249,7 +249,7 @@ pub async fn cancel(app: &App, req: &Req, id: &str) -> Result<Resp, ApiError> {
 /// After a token was redeemed by an irreversible tool, close the proposal it came from.
 pub async fn mark_applied(
     app: &App,
-    household: &memorylane_core::ids::HouseholdId,
+    household: &mantelpiece_core::ids::HouseholdId,
     token: &str,
 ) -> Result<(), ApiError> {
     for mut p in app.storage.list_proposals(household).await? {

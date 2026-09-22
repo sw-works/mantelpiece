@@ -2,25 +2,25 @@
 //! an in-memory map for tests.
 
 use async_trait::async_trait;
-use memorylane_core::audit::AuditEntry;
-use memorylane_core::confirmation::ConfirmationToken;
-use memorylane_core::contributor::Contributor;
-use memorylane_core::device_code::DeviceCode;
-use memorylane_core::events::{Event, EventKind};
-use memorylane_core::household::Household;
-use memorylane_core::ids::{
+use mantelpiece_core::audit::AuditEntry;
+use mantelpiece_core::confirmation::ConfirmationToken;
+use mantelpiece_core::contributor::Contributor;
+use mantelpiece_core::device_code::DeviceCode;
+use mantelpiece_core::events::{Event, EventKind};
+use mantelpiece_core::household::Household;
+use mantelpiece_core::ids::{
     ContributorId, HouseholdId, MediaId, PersonId, PlaylistId, ProposalId, ShareLinkId, TripId,
 };
-use memorylane_core::landmark::LandmarkFacts;
-use memorylane_core::media::MediaItem;
-use memorylane_core::membership::Membership;
-use memorylane_core::person::Person;
-use memorylane_core::presence::Presence;
-use memorylane_core::proposal::Proposal;
-use memorylane_core::reaction::Reaction;
-use memorylane_core::share_link::ShareLink;
-use memorylane_core::trip::{Playlist, Trip};
-use memorylane_core::trip_code::TripCode;
+use mantelpiece_core::landmark::LandmarkFacts;
+use mantelpiece_core::media::MediaItem;
+use mantelpiece_core::membership::Membership;
+use mantelpiece_core::person::Person;
+use mantelpiece_core::presence::Presence;
+use mantelpiece_core::proposal::Proposal;
+use mantelpiece_core::reaction::Reaction;
+use mantelpiece_core::share_link::ShareLink;
+use mantelpiece_core::trip::{Playlist, Trip};
+use mantelpiece_core::trip_code::TripCode;
 use time::OffsetDateTime;
 
 use crate::Result;

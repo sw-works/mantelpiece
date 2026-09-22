@@ -1,7 +1,7 @@
 //! Router and dependencies shared by all handlers.
 
-use memorylane_core::contributor::Contributor;
-use memorylane_core::ids::{ContributorId, HouseholdId, TripId};
+use mantelpiece_core::contributor::Contributor;
+use mantelpiece_core::ids::{ContributorId, HouseholdId, TripId};
 use std::sync::Arc;
 use time::{Duration, OffsetDateTime};
 
@@ -9,7 +9,7 @@ use crate::error::ApiError;
 use crate::handlers;
 use crate::req::{Method, Req, Resp};
 use crate::tokens::{Claims, Session, Signer};
-use memorylane_store::{Blobs, Bus, Faces, Live, Mailer, Maps, Push, Speech, Storage, Vectors};
+use mantelpiece_store::{Blobs, Bus, Faces, Live, Mailer, Maps, Push, Speech, Storage, Vectors};
 
 #[derive(Clone, Debug)]
 pub struct Config {
@@ -25,7 +25,7 @@ pub struct Config {
     pub max_file_bytes: u64,
     /// Cognito issuer, e.g. `https://cognito-idp.us-east-1.amazonaws.com/us-east-1_abc`.
     pub oauth_issuer: String,
-    /// Cognito hosted UI base, e.g. `https://memorylane-123.auth.us-east-1.amazoncognito.com`.
+    /// Cognito hosted UI base, e.g. `https://mantelpiece-123.auth.us-east-1.amazoncognito.com`.
     pub oauth_domain: String,
     /// The AgentCore Gateway MCP endpoint Alexa+ calls (research R6).
     pub gateway_url: String,
@@ -37,14 +37,14 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Self {
         Self {
-            link_base: "https://link.memorylane.test".into(),
-            upload_base: "https://upload.memorylane.test".into(),
+            link_base: "https://link.mantelpiece.test".into(),
+            upload_base: "https://upload.mantelpiece.test".into(),
             poll_hold: Duration::seconds(25),
             part_size: 8 * 1024 * 1024,
             max_file_bytes: 2 * 1024 * 1024 * 1024,
             oauth_issuer: "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_test".into(),
-            oauth_domain: "https://memorylane-test.auth.us-east-1.amazoncognito.com".into(),
-            gateway_url: "https://gateway.memorylane.test/mcp".into(),
+            oauth_domain: "https://mantelpiece-test.auth.us-east-1.amazoncognito.com".into(),
+            gateway_url: "https://gateway.mantelpiece.test/mcp".into(),
             agent_client_id: "concierge-client".into(),
         }
     }
@@ -182,10 +182,10 @@ impl App {
     pub async fn emit(
         &self,
         household: &HouseholdId,
-        kind: memorylane_core::events::EventKind,
-    ) -> Result<memorylane_core::events::Event, ApiError> {
+        kind: mantelpiece_core::events::EventKind,
+    ) -> Result<mantelpiece_core::events::Event, ApiError> {
         Ok(
-            memorylane_store::feed::emit(self.storage.as_ref(), household, self.now(), kind)
+            mantelpiece_store::feed::emit(self.storage.as_ref(), household, self.now(), kind)
                 .await?,
         )
     }
@@ -462,7 +462,7 @@ impl App {
             .query
             .get("code")
             .ok_or_else(|| ApiError::unauthorized("sign in required"))?;
-        let code = memorylane_core::codes::normalize(raw)
+        let code = mantelpiece_core::codes::normalize(raw)
             .ok_or_else(|| ApiError::bad_request("invalid code"))?;
         let code = self
             .storage
@@ -473,8 +473,8 @@ impl App {
             return Err(ApiError::gone("this code was replaced"));
         }
         match code.scope {
-            memorylane_core::trip_code::CodeScope::Trip { trip } => Ok((code.household, trip)),
-            memorylane_core::trip_code::CodeScope::Household => Err(ApiError::forbidden(
+            mantelpiece_core::trip_code::CodeScope::Trip { trip } => Ok((code.household, trip)),
+            mantelpiece_core::trip_code::CodeScope::Household => Err(ApiError::forbidden(
                 "household codes do not open a trip view",
             )),
         }

@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from typing import Any
 
-TOKEN = "memorylane.slideshow"
+TOKEN = "mantelpiece.slideshow"
 PAGER_ID = "slides"
 SECONDS_PER_SLIDE = 8
 # APL settings.idleTimeout is a recommendation the device may bound (documented as such).

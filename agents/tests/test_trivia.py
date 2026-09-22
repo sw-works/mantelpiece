@@ -1,6 +1,6 @@
-from memorylane_agents.model import ScriptedModel
-from memorylane_agents.tools import InMemoryTools, Trip
-from memorylane_agents.workflows import trip_curator, trivia_lines, write_trivia
+from mantelpiece_agents.model import ScriptedModel
+from mantelpiece_agents.tools import InMemoryTools, Trip
+from mantelpiece_agents.workflows import trip_curator, trivia_lines, write_trivia
 
 GOOD_STORY = "Hanyu started at Kinkaku-ji. Maya arrived for Fushimi Inari. The last day was quiet."
 SUMMARY = (

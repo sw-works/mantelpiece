@@ -1,11 +1,11 @@
 ---
 
-description: "Task list for the MemoryLane baseline"
+description: "Task list for the Mantelpiece baseline"
 ---
 
-# Tasks: MemoryLane Baseline
+# Tasks: Mantelpiece Baseline
 
-**Input**: Design documents from `/specs/001-memorylane-baseline/`
+**Input**: Design documents from `/specs/001-mantelpiece-baseline/`
 
 **Prerequisites**: plan.md, spec.md, research.md, data-model.md, contracts/, quickstart.md
 
@@ -30,7 +30,7 @@ identified, plus the structural TV split.
 | FR-030, FR-033, FR-034, FR-036 (keepers, score, clustering, naming, highlights) | `services/crates/ingest/src/quality.rs`, `services/crates/trips/src/{cluster,naming,highlights}.rs` | unit tests in those files |
 | FR-050, FR-051, FR-054, FR-055 (device code, screens, long-poll, Review Changes) | `services/lambdas/api/src/handlers/{device,events,confirmations}.rs`, `packages/tv-ui/src/screens/*` | `services/lambdas/api/tests/api.rs`, `packages/tv-ui/test/screens.test.tsx` |
 | FR-056 (runs on Vega) | `apps/tv-vega/` (Phase 1 done: bundle builds in CI) | T035 on the Virtual Device |
-| FR-060 (governed tools, memory, event workflows) | `agents/src/memorylane_agents/{gateway,workflows,router}.py` | `agents/tests/test_workflows.py` |
+| FR-060 (governed tools, memory, event workflows) | `agents/src/mantelpiece_agents/{gateway,workflows,router}.py` | `agents/tests/test_workflows.py` |
 | FR-071 (per-household isolation) | DynamoDB `pk = household`, `services/lambdas/api/src/app.rs::caller` | `services/lambdas/api/tests/api.rs` |
 
 ## Format: `[ID] [P?] [Story] Description`
@@ -51,13 +51,13 @@ Monorepo per plan.md: `services/` (Rust), `agents/` (Python), `infra/` (CDK),
 **Purpose**: make the TV app buildable for Vega (research R1, R2) and give every later
 task a place to land.
 
-- [X] T001 Create `packages/tv-ui/` with `package.json` (`@memorylane/tv-ui`, React Native core peer dep, jest 30, `test`/`lint`/`typecheck` scripts) and move `apps/tv/src/**` and `apps/tv/test/**` into it unchanged; update import paths in `packages/tv-ui/test/*.test.tsx`
-- [X] T002 Create `apps/tv-vega/` shell: `package.json` with the Vega SDK React Native pin (0.83 if reachable, else 0.72), `kepler` block, `build:vega` and `build:vega:debug` scripts; `index.js` registering `App` from `@memorylane/tv-ui`; move `apps/tv/manifest.toml`, `apps/tv/app.json`, `apps/tv/metro.config.js`, `apps/tv/react-native.config.js` there
+- [X] T001 Create `packages/tv-ui/` with `package.json` (`@mantelpiece/tv-ui`, React Native core peer dep, jest 30, `test`/`lint`/`typecheck` scripts) and move `apps/tv/src/**` and `apps/tv/test/**` into it unchanged; update import paths in `packages/tv-ui/test/*.test.tsx`
+- [X] T002 Create `apps/tv-vega/` shell: `package.json` with the Vega SDK React Native pin (0.83 if reachable, else 0.72), `kepler` block, `build:vega` and `build:vega:debug` scripts; `index.js` registering `App` from `@mantelpiece/tv-ui`; move `apps/tv/manifest.toml`, `apps/tv/app.json`, `apps/tv/metro.config.js`, `apps/tv/react-native.config.js` there
 - [X] T003 Add `[os.version] target = "1.2" min = "1.2"` to `apps/tv-vega/manifest.toml` (research R1)
 - [X] T004 [P] Add `packages/*` to `pnpm-workspace.yaml` and remove `apps/tv` from the workspace once T001 and T002 build; delete `apps/tv/`
 - [X] T005 [P] Add Makefile targets `tv-vvd-start`, `tv-vvd-install`, `tv-vvd-logs`, `tv-vvd-shot` in `Makefile` wrapping the `vega` CLI commands from quickstart.md
 - [X] T006 [P] Add `scripts/tv-walkthrough.sh` that enables Developer Mode, drives `inputd-cli button_press` through Onboarding, Home, Trip and Invite, and saves screenshots to `docs/screens/`
-- [X] T007 Update `README.md` Fire TV section and `.github/workflows/ci.yml` for the new workspace layout. Found during implementation: `@amazon-devices/react-native-kepler` 4.0.1, `kepler-cli-platform` 0.22.14 and the module resolver preset are on public npm, so no `.npmrc`, registry token or `VEGA_NPM_TOKEN` secret is needed; CI runs `pnpm --filter @memorylane/tv-vega bundle:vega` after `pnpm install --frozen-lockfile`, which satisfies constitution VI before T030 lands
+- [X] T007 Update `README.md` Fire TV section and `.github/workflows/ci.yml` for the new workspace layout. Found during implementation: `@amazon-devices/react-native-kepler` 4.0.1, `kepler-cli-platform` 0.22.14 and the module resolver preset are on public npm, so no `.npmrc`, registry token or `VEGA_NPM_TOKEN` secret is needed; CI runs `pnpm --filter @mantelpiece/tv-vega bundle:vega` after `pnpm install --frozen-lockfile`, which satisfies constitution VI before T030 lands
 
 ---
 
@@ -85,9 +85,9 @@ policy that every story builds on.
 - [X] T022 [P] Add `Maps` trait (static route map, pins map) with `MemoryMaps` and an Amazon Location implementation in `services/crates/store/src/maps.rs`
 - [X] T023 [P] Add `Speech` trait (synthesize to S3 key) with `MemorySpeech` and a Polly implementation in `services/crates/store/src/speech.rs` (research R10)
 - [X] T024 Extend `caller()` in `services/lambdas/api/src/app.rs` to resolve `Caller::Member { household, trip }` from memberships and `Caller::CoEditor` from contributor role; add `owner_or_co_editor(trip)` and `member_or_owner(trip)` guards
-- [X] T025 [P] Write the Cedar policy set in `infra/policy/tools.cedar` requiring a confirmation token for `apply_dedup`, `apply_cleanup`, `delete_media`, `share_album`, `remove_contributor`, and role `co_editor` or owner for `RemoveMedia`; load it in `infra/lib/memorylane-stack.ts`
-- [X] T026 [P] Add `pytest` fakes for the new tools (`get_now_showing`, `describe_photo`, `list_cleanup_candidates`, `memories_for`, `apply_cleanup`) to `InMemoryTools` and the `Tools` protocol in `agents/src/memorylane_agents/tools.py`
-- [X] T027 Wire new Gateway tool targets and the nightly `events.Rule` (`nightly.tick`) in `infra/lib/memorylane-stack.ts`; extend `infra/test/stack.test.ts`
+- [X] T025 [P] Write the Cedar policy set in `infra/policy/tools.cedar` requiring a confirmation token for `apply_dedup`, `apply_cleanup`, `delete_media`, `share_album`, `remove_contributor`, and role `co_editor` or owner for `RemoveMedia`; load it in `infra/lib/mantelpiece-stack.ts`
+- [X] T026 [P] Add `pytest` fakes for the new tools (`get_now_showing`, `describe_photo`, `list_cleanup_candidates`, `memories_for`, `apply_cleanup`) to `InMemoryTools` and the `Tools` protocol in `agents/src/mantelpiece_agents/tools.py`
+- [X] T027 Wire new Gateway tool targets and the nightly `events.Rule` (`nightly.tick`) in `infra/lib/mantelpiece-stack.ts`; extend `infra/test/stack.test.ts`
 - [X] T028 Extend `services/lambdas/api/tests/api.rs` with role and membership fixtures (owner, co-editor, guest, member household) used by every later story
 - [X] T029 Run `make test` and tick each row of the "Already built" table above against its named test, recording any row that fails as a new task in this file (2026-09-09: every named test file exists and passes; the FR-056 row stays open until T035 runs on a device)
 
@@ -121,8 +121,8 @@ policy that every story builds on.
 - [X] T036 [P] [US2] Add `GET /uploads/mine` listing the caller's uploads with state in `services/lambdas/api/src/handlers/uploads.rs`; test in `services/lambdas/api/tests/api.rs`
 - [X] T037 [P] [US2] Show "duplicate, skipped" for 409 from `/uploads/init` and a retry state for failed parts in `apps/web/src/pages/upload.ts` and `apps/web/src/upload/queue.ts`; test in `apps/web/test/upload.test.ts`
 - [X] T038 [P] [US2] Emit `upload.progress` per completed file in `services/lambdas/api/src/handlers/uploads.rs` (`done`, `total` per batch) and render it in `packages/tv-ui/src/components/Ticker.tsx`
-- [X] T039 [US2] Add the poster-frame Lambda `services/lambdas/poster/` (ffmpeg layer, h264/hevc/aac only) invoked from the signal task for videos in `services/lambdas/ingest/src/signal.rs`; layer definition in `infra/lib/memorylane-stack.ts` under 250 MB unzipped (research R5)
-- [X] T040 [US2] Replace the inline `sfn.Map` with a Distributed Map over an S3 manifest with a per-household concurrency cap in `infra/lib/memorylane-stack.ts` (F-108); extend `infra/test/stack.test.ts`
+- [X] T039 [US2] Add the poster-frame Lambda `services/lambdas/poster/` (ffmpeg layer, h264/hevc/aac only) invoked from the signal task for videos in `services/lambdas/ingest/src/signal.rs`; layer definition in `infra/lib/mantelpiece-stack.ts` under 250 MB unzipped (research R5)
+- [X] T040 [US2] Replace the inline `sfn.Map` with a Distributed Map over an S3 manifest with a per-household concurrency cap in `infra/lib/mantelpiece-stack.ts` (F-108); extend `infra/test/stack.test.ts`
 - [X] T041 [US2] Prove idempotent re-run: re-executing a completed batch produces no new records in `services/lambdas/ingest/tests/pipeline.rs` (F-106)
 
 **Checkpoint**: uploads visible end to end on phone and TV (code complete 2026-09-09; the ffmpeg layer and Distributed Map are compile- and synth-checked, not deployed)
@@ -159,9 +159,9 @@ policy that every story builds on.
 - [X] T052 [P] [US4] Serve map images via `GET /trips/{trip}/map?day=` (presigned URL for the trip map or one day's map) in `services/lambdas/api/src/handlers/trips.rs`; show them in `packages/tv-ui/src/screens/TripView.tsx`
 - [X] T053 [P] [US4] Build `packages/tv-ui/src/screens/Slideshow.tsx` (play, pause, next and previous day, current media id and paused state exposed for presence) and route it from Trip view in `packages/tv-ui/src/App.tsx`; test in `packages/tv-ui/test/screens.test.tsx` (F-403)
 - [X] T054 [P] [US4] Add `POST /media/{media}/keeper` (owner or co-editor; moves the burst group's keeper, non-keepers re-inherit tags and embedding) in `services/lambdas/api/src/handlers/media.rs` and a Make keeper action in `packages/tv-ui/src/screens/Highlights.tsx`; test in `services/lambdas/api/tests/api.rs` (F-201, F-164)
-- [X] T055 [US4] Enforce `narrative.check` in `save_narrative`: reject and set `Withheld` when `check_narrative` fails after one retry in `agents/src/memorylane_agents/workflows.py::trip_curator` and `services/lambdas/api/src/handlers/trips.rs`; TV shows "being written" (F-301); test in `agents/tests/test_workflows.py`
+- [X] T055 [US4] Enforce `narrative.check` in `save_narrative`: reject and set `Withheld` when `check_narrative` fails after one retry in `agents/src/mantelpiece_agents/workflows.py::trip_curator` and `services/lambdas/api/src/handlers/trips.rs`; TV shows "being written" (F-301); test in `agents/tests/test_workflows.py`
 - [X] T056 [P] [US4] Add `POST /trips/{trip}/narrative/regenerate` in `services/lambdas/api/src/handlers/trips.rs` and a Regenerate action in `packages/tv-ui/src/screens/TripView.tsx` (F-302)
-- [X] T057 [P] [US4] Split narrative into `TripDay.story` paragraphs in `agents/src/memorylane_agents/narrative.py` for narration sync (F-709 prerequisite)
+- [X] T057 [P] [US4] Split narrative into `TripDay.story` paragraphs in `agents/src/mantelpiece_agents/narrative.py` for narration sync (F-709 prerequisite)
 - [X] T058 [US4] Handle the undated-photo edge case (no timestamp, no GPS: placed by upload time at the end of the nearest trip, flagged) in `services/crates/trips/src/cluster.rs`; unit test in the same file
 
 **Checkpoint**: self-organising trip with a checked story (code complete 2026-09-09; descriptions and maps run through in-memory backends, the AWS ones are compile-checked)
@@ -178,7 +178,7 @@ policy that every story builds on.
 - [X] T060 [P] [US5] Add `POST /playlists`, `GET /playlists`, `GET /playlists/{id}` in `services/lambdas/api/src/handlers/playlists.rs`; the `create_playlist` Gateway target maps to it (F-304)
 - [X] T061 [P] [US5] Add `PUT /presence` writing the TV's `now_showing` field (data-model Presence) in `services/lambdas/api/src/handlers/presence.rs`; post it from `packages/tv-ui/src/screens/Slideshow.tsx` on every slide change and pause (research R3; depends on T053)
 - [X] T062 [US5] Add `POST /ask` in `services/lambdas/api/src/handlers/ask.rs`: resolves the target TV from the `tv` parameter, else the household's presence record with the newest `at` (edge case: two TVs); a question with no fresh now-showing goes to search, with now-showing to `describe_photo`; emits `answer.card` to that TV (F-405)
-- [X] T063 [US5] Implement `get_now_showing` and `describe_photo` tools in `agents/src/memorylane_agents/tools.py`, `gateway.py`, and a `describe` workflow in `agents/src/memorylane_agents/workflows.py` that answers from the stored description and runs the place and date check on any live model answer (research R8, constitution IV); test in `agents/tests/test_workflows.py`
+- [X] T063 [US5] Implement `get_now_showing` and `describe_photo` tools in `agents/src/mantelpiece_agents/tools.py`, `gateway.py`, and a `describe` workflow in `agents/src/mantelpiece_agents/workflows.py` that answers from the stored description and runs the place and date check on any live model answer (research R8, constitution IV); test in `agents/tests/test_workflows.py`
 - [X] T064 [P] [US5] Build `packages/tv-ui/src/screens/Ask.tsx`: text input, results as playlist, `answer.card` overlay over the paused photo (mockup: Ask artboard); test in `packages/tv-ui/test/screens.test.tsx`
 - [X] T065 [P] [US5] Build the phone Ask page `apps/web/src/pages/ask.ts` and `apps/web/ask.html` with Web Speech API hold-to-talk, now-showing preview, and `POST /ask`; feature-detect and fall back to text; test in `apps/web/test/ask.test.ts`
 - [X] T066 [US5] Handle "nothing found" (no playlist created) and "nothing on screen" (offer search) paths in `services/lambdas/api/src/handlers/ask.rs`; tests in `services/lambdas/api/tests/api.rs`
@@ -196,7 +196,7 @@ policy that every story builds on.
 - [X] T067 [US6] Add `GET /proposals`, `POST /proposals/{id}/cancel` and proposal creation from `dedup.proposal` and `cleanup.proposal` events in `services/lambdas/api/src/handlers/proposals.rs`; bind `POST /confirmations` to an open proposal and the caller's subject; test in `services/lambdas/api/tests/api.rs`
 - [X] T068 [P] [US6] Make `packages/tv-ui/src/screens/ReviewChanges.tsx` load open proposals, show before/after counts and up to four sample groups with reasons, Keep everything, Apply, Show all (mockup: Review Changes artboard); test in `packages/tv-ui/test/screens.test.tsx`
 - [X] T069 [P] [US6] Flag cleanup candidates (`screenshot` by aspect and no EXIF camera, `document`/`receipt` by text density, `blurry` by sharpness threshold) in `services/lambdas/ingest/src/enrich.rs`, emitting `cleanup.candidates` on EventBridge; test in `services/lambdas/ingest/tests/pipeline.rs` (F-705)
-- [X] T070 [US6] Implement `apply_cleanup` and `list_cleanup_candidates` in `services/lambdas/api/src/handlers/media.rs` and `agents/src/memorylane_agents/gateway.py`; add the `quick_cleanup` workflow in `agents/src/memorylane_agents/workflows.py` routed from `cleanup.candidates` in `router.py`; test in `agents/tests/test_workflows.py`
+- [X] T070 [US6] Implement `apply_cleanup` and `list_cleanup_candidates` in `services/lambdas/api/src/handlers/media.rs` and `agents/src/mantelpiece_agents/gateway.py`; add the `quick_cleanup` workflow in `agents/src/mantelpiece_agents/workflows.py` routed from `cleanup.candidates` in `router.py`; test in `agents/tests/test_workflows.py`
 - [X] T071 [US6] Implement soft removal with `restore_until` (30 days), `POST /media/{media}/restore`, and a `purge_expired` Gateway tool in `services/lambdas/api/src/handlers/media.rs`; the `memories_nightly` workflow (T083) calls `purge_expired` on `nightly.tick` (contracts/events.md)
 - [X] T072 [US6] Verify in `services/lambdas/api/tests/api.rs` that `apply_dedup`, `apply_cleanup`, `delete_media` without a valid token return 403 and that a token cannot be reused (F-504)
 
@@ -231,7 +231,7 @@ policy that every story builds on.
 
 - [X] T081 [US8] Add `services/crates/trips/src/memories.rs`: `on_this_day(date)`, `then_and_now(geohash cell, years apart)`, `best_of(period)` over media and trips; unit tests in the same file (F-701 to F-703)
 - [X] T082 [P] [US8] Add `GET /memories/home` and `GET /map` in `services/lambdas/api/src/handlers/memories.rs`; `Maps::pins_map` for all trips; test in `services/lambdas/api/tests/api.rs` (F-707)
-- [X] T083 [P] [US8] Add the `memories_nightly` workflow (creates On this day and best-of playlists, emits `memories.ready`) in `agents/src/memorylane_agents/workflows.py`, routed from `nightly.tick`; test in `agents/tests/test_workflows.py`
+- [X] T083 [P] [US8] Add the `memories_nightly` workflow (creates On this day and best-of playlists, emits `memories.ready`) in `agents/src/mantelpiece_agents/workflows.py`, routed from `nightly.tick`; test in `agents/tests/test_workflows.py`
 - [X] T084 [P] [US8] Render the On this day row and Then and now card on `packages/tv-ui/src/screens/MemoriesHome.tsx` and build `packages/tv-ui/src/screens/MapView.tsx` (mockups: Memories home and Map view artboards); tests in `packages/tv-ui/test/screens.test.tsx`
 - [X] T085 [US8] Add Ken Burns motion (Animated scale and translate per slide, reduced when a slide is paused) to `packages/tv-ui/src/screens/Slideshow.tsx` (F-708)
 
@@ -277,7 +277,7 @@ policy that every story builds on.
 **Independent Test**: idle TV favours pinned and skips hidden; with the flag on, the day's story plays in sync or shows as captions.
 
 - [X] T095 [US11] Build `packages/tv-ui/src/screens/Ambient.tsx` with an idle timer in `packages/tv-ui/src/App.tsx`, drawing from the W3 ambient playlist and honouring `hidden_by` (mockup: Ambient artboard); test in `packages/tv-ui/test/screens.test.tsx` (F-406)
-- [X] T096 [P] [US11] Add a `synthesize_narration` Gateway tool in `services/lambdas/api/src/handlers/narration.rs` that runs `TripDay.story` through `Speech`, stores `audio_key` and emits `narration.ready`; W1 Trip Curator in `agents/src/memorylane_agents/workflows.py` calls it after `save_narrative` when `household.narration_enabled` (F-709); test in `agents/tests/test_workflows.py`
+- [X] T096 [P] [US11] Add a `synthesize_narration` Gateway tool in `services/lambdas/api/src/handlers/narration.rs` that runs `TripDay.story` through `Speech`, stores `audio_key` and emits `narration.ready`; W1 Trip Curator in `agents/src/mantelpiece_agents/workflows.py` calls it after `save_narrative` when `household.narration_enabled` (F-709); test in `agents/tests/test_workflows.py`
 - [X] T097 [US11] Add `apps/tv-vega/src/audio.kepler.ts` trying the system-deployed W3C media port for playback and a caption-only fallback in `packages/tv-ui/src/screens/Ambient.tsx`; record the Virtual Device result in `specs/decisions-2026-09-09.md` (research R10)
 
 **Checkpoint** (code complete 2026-09-09; audio spike blocked, no Vega SDK): ambient works; narration flag on only if the audio spike passed
@@ -292,8 +292,8 @@ policy that every story builds on.
 
 - [X] T098 [US12] Add `POST /shares` (requires a `ShareAlbum` confirmation; 7-day expiry; optional email via SES) and public `GET /s/{share}` in `services/lambdas/api/src/handlers/shares.rs`; test in `services/lambdas/api/tests/api.rs` (F-601)
 - [X] T099 [P] [US12] Add the public album page `apps/web/src/pages/share.ts` and `apps/web/s.html` (read-only, expired state)
-- [X] T100 [US12] Update the `share` workflow in `agents/src/memorylane_agents/workflows.py` to offer a join code when the recipient household is known (W5); test in `agents/tests/test_workflows.py`
-- [X] T101 [US12] Add SES identity and permissions in `infra/lib/memorylane-stack.ts`; extend `infra/test/stack.test.ts`
+- [X] T100 [US12] Update the `share` workflow in `agents/src/mantelpiece_agents/workflows.py` to offer a join code when the recipient household is known (W5); test in `agents/tests/test_workflows.py`
+- [X] T101 [US12] Add SES identity and permissions in `infra/lib/mantelpiece-stack.ts`; extend `infra/test/stack.test.ts`
 
 **Checkpoint** (code complete 2026-09-09; device and deployed parts still unverified): all twelve stories independently demonstrable
 
@@ -301,12 +301,12 @@ policy that every story builds on.
 
 ## Phase 15: Polish and cross-cutting
 
-- [X] T102 [P] Add the Cognito resource server (`memorylane/tools` scope), OAuth 2.1 PKCE client, and the protected resource metadata document at `/.well-known/oauth-authorization-server` in `infra/lib/memorylane-stack.ts` and `services/lambdas/api/src/handlers/wellknown.rs` (research R6)
+- [X] T102 [P] Add the Cognito resource server (`mantelpiece/tools` scope), OAuth 2.1 PKCE client, and the protected resource metadata document at `/.well-known/oauth-authorization-server` in `infra/lib/mantelpiece-stack.ts` and `services/lambdas/api/src/handlers/wellknown.rs` (research R6)
 - [X] T103 [P] Register the Alexa+ MCP add-on with example phrases from contracts/tools.md; document steps in `docs/alexa-plus.md`
-- [X] T104 [P] Ensure every agent run and Gateway tool call is traced in AgentCore Observability with household and workflow tags in `agents/src/memorylane_agents/runtime.py` (F-506)
+- [X] T104 [P] Ensure every agent run and Gateway tool call is traced in AgentCore Observability with household and workflow tags in `agents/src/mantelpiece_agents/runtime.py` (F-506)
 - [X] T105 [P] Audit log entries for auth, share, delete and tool calls in `services/lambdas/api/src/app.rs` (F-605); test in `services/lambdas/api/tests/api.rs`
 - [X] T106 [P] Add `docs/diagrams/src/08-planned-2026-09-09.mjs` showing the member TV, phone reactions and voice, the Alexa+ context path and the widened token gate; update `docs/diagrams/README.md`
-- [ ] T107 (2026-09-14: US1, US2 and US4 pass on the deployed stack and the Virtual Device, decision 31; other scenarios and the SC-003 timing not run) (partial 2026-09-09: `make lint` and `make test` green; Virtual Device and deployed-stack scenarios blocked, no Vega SDK and no deploy) Run `make lint` and `make test`, then every scenario in `specs/001-memorylane-baseline/quickstart.md` on the Virtual Device and the deployed stack, timing the US4 scenario from last upload to `memory.ready` against the 15-minute target (SC-003); record outcomes in `specs/decisions-2026-09-09.md`
+- [ ] T107 (2026-09-14: US1, US2 and US4 pass on the deployed stack and the Virtual Device, decision 31; other scenarios and the SC-003 timing not run) (partial 2026-09-09: `make lint` and `make test` green; Virtual Device and deployed-stack scenarios blocked, no Vega SDK and no deploy) Run `make lint` and `make test`, then every scenario in `specs/001-mantelpiece-baseline/quickstart.md` on the Virtual Device and the deployed stack, timing the US4 scenario from last upload to `memory.ready` against the 15-minute target (SC-003); record outcomes in `specs/decisions-2026-09-09.md`
 - [X] T108 [P] Update `README.md`, `docs/devpost-overview.md` and the friction log with what shipped and what stayed unverified
 
 ---

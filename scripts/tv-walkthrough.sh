@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Drive the MemoryLane TV app on a Vega device with remote key presses and save a screenshot
+# Drive the Mantelpiece TV app on a Vega device with remote key presses and save a screenshot
 # of each screen to docs/screens/. Needs the Vega SDK `vega` CLI, a connected device with
 # the app installed (`make tv-vvd-install`), and Developer Mode in the device shell. Key
 # names follow inputd-cli; the sequence assumes the app is on Onboarding after a fresh

@@ -1,4 +1,4 @@
-use memorylane_store::StorageError;
+use mantelpiece_store::StorageError;
 use serde_json::json;
 use thiserror::Error;
 

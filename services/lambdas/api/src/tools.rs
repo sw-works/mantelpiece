@@ -16,8 +16,8 @@ use std::collections::HashMap;
 
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine;
-use memorylane_core::events::EventKind;
-use memorylane_core::ids::HouseholdId;
+use mantelpiece_core::events::EventKind;
+use mantelpiece_core::ids::HouseholdId;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use time::{Duration, OffsetDateTime};
@@ -262,11 +262,11 @@ pub async fn call(app: &App, tool: &str, args: &Value) -> Result<Value, ApiError
             route(app, h, Method::Get, "/media/cleanup".into(), &q, None).await
         }
         "get_landmark_facts" => {
-            let key = memorylane_core::landmark::key(arg(args, "landmark")?);
+            let key = mantelpiece_core::landmark::key(arg(args, "landmark")?);
             route(app, h, Method::Get, format!("/landmarks/{key}"), &[], None).await
         }
         "save_landmark_trivia" => {
-            let key = memorylane_core::landmark::key(arg(args, "landmark")?);
+            let key = mantelpiece_core::landmark::key(arg(args, "landmark")?);
             let body = json!({ "lines": args["lines"] });
             route(
                 app,

@@ -1,17 +1,15 @@
 # Mantelpiece
 
-> Named MemoryLane until 2026-09-22. The repository, crates, npm packages and the Vega
-> app id (`com.hanyu.memorylane.main`) keep the old name: changing the app id would mean a
-> new store listing and would drop every paired phone.
-
-Turn a family trip into a shared album that builds itself, on the living-room TV.
+The family TV, shared with everyone's phones: photos the moment they land, the trip that builds itself, and a live camera from wherever they are.
 
 Mantelpiece is a Fire TV app plus a hosted backend. Install the app, scan the QR on the TV,
 pick photos on your phone. Everyone on the trip scans the same QR and adds theirs; after
 that the phone remembers the trip, and on Android the page sits in the share sheet. The
 backend groups bursts, scores highlights, reconstructs the route, writes a day-by-day story,
 and an agent keeps the archive tidy. Ask about any trip from the TV or from Alexa+, or play
-one as a slideshow on an Echo Show.
+one as a slideshow on an Echo Show. Photos from a phone take over the TV as they land, and
+one button on the remote tells the sender they were loved; a phone can ask to go live, and
+once someone on the TV says yes its camera plays on the big screen a few seconds behind.
 
 Entry for Build, Ship, Shape: Amazon Developer Hackathon 2026.
 Tracks: Fire TV (primary), Alexa+ (secondary). Mini-challenges: AWS Builder, Open Source.
@@ -83,7 +81,7 @@ compile-checked only until the stack is deployed.
 
 ### What shipped (2026-09-09)
 
-The baseline in `specs/001-memorylane-baseline/` is code-complete with in-memory tests:
+The baseline in `specs/001-mantelpiece-baseline/` is code-complete with in-memory tests:
 TV sign-in and persisted sessions, contributor and member-household codes, resumable
 uploads, ingest with bursts, clocks, trips, routes and keepers, stories checked against
 metadata, search and playlists, Ask by voice with `describe_photo`, dedup and quick-cleanup

@@ -1,6 +1,6 @@
 import { createElement, useEffect, useState } from "react";
 import { AppRegistry } from "react-native";
-import { App } from "@memorylane/tv-ui";
+import { App } from "@mantelpiece/tv-ui";
 import { apiBase, name } from "./app.json";
 import { audioPlayer } from "./src/audio";
 import { deviceName } from "./src/deviceName";

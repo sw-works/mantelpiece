@@ -1,6 +1,6 @@
-from memorylane_agents import workflows
-from memorylane_agents.model import ScriptedModel
-from memorylane_agents.tools import InMemoryTools
+from mantelpiece_agents import workflows
+from mantelpiece_agents.model import ScriptedModel
+from mantelpiece_agents.tools import InMemoryTools
 
 GOOD = "Hanyu started at Kinkaku-ji. Maya arrived for Fushimi Inari. The last day was quiet."
 

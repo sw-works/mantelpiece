@@ -8,7 +8,7 @@ Sync Impact Report
 - Follow-up TODOs: none
 -->
 
-# MemoryLane Constitution
+# Mantelpiece Constitution
 
 ## Core Principles
 

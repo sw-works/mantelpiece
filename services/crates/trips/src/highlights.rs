@@ -2,7 +2,7 @@
 //! days so a long trip is not represented by its single busiest afternoon.
 
 use crate::Sample;
-use memorylane_core::ids::MediaId;
+use mantelpiece_core::ids::MediaId;
 use std::collections::BTreeSet;
 use time::Date;
 

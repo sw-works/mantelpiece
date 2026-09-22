@@ -36,7 +36,7 @@ export interface AsyncStorageLike {
   removeItem(key: string): Promise<void>;
 }
 
-export const SESSION_KEY = "memorylane.session.v1";
+export const SESSION_KEY = "mantelpiece.session.v1";
 
 /** Persists the session as JSON under one key. Corrupt or partial records read as signed out. */
 export class KeyValueSessionStore implements SessionStore {

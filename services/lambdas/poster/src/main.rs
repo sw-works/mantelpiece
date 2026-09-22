@@ -2,9 +2,9 @@
 //! machine after a video's signal step.
 
 use lambda_runtime::{run, service_fn, Error, LambdaEvent};
-use memorylane_poster::{FfmpegFrames, Input, Poster};
-use memorylane_store::dynamo::DynamoStorage;
-use memorylane_store::s3::S3Blobs;
+use mantelpiece_poster::{FfmpegFrames, Input, Poster};
+use mantelpiece_store::dynamo::DynamoStorage;
+use mantelpiece_store::s3::S3Blobs;
 use std::sync::Arc;
 use time::OffsetDateTime;
 
@@ -28,7 +28,7 @@ async fn main() -> Result<(), Error> {
     run(service_fn(move |event: LambdaEvent<Input>| {
         let poster = poster.clone();
         async move {
-            memorylane_poster::run(&poster, event.payload)
+            mantelpiece_poster::run(&poster, event.payload)
                 .await
                 .map_err(|e| Error::from(e.to_string()))
         }

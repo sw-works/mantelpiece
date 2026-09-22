@@ -4,7 +4,7 @@
 //! the deployed stack.
 
 use async_trait::async_trait;
-use memorylane_core::geo::GeoPoint;
+use mantelpiece_core::geo::GeoPoint;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Mutex;
@@ -178,7 +178,7 @@ impl WikipediaPlaces {
     pub fn new(endpoint: impl Into<String>) -> Self {
         Self {
             endpoint: endpoint.into(),
-            user_agent: "Mantelpiece/0.1 (https://github.com/hanyuxiao/memory-lane)".into(),
+            user_agent: "Mantelpiece/0.1 (https://github.com/hanyuxiao/mantelpiece)".into(),
             cache: Mutex::default(),
             last_call: Mutex::default(),
         }

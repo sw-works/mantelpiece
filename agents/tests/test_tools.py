@@ -2,7 +2,7 @@
 
 import pytest
 
-from memorylane_agents.tools import (
+from mantelpiece_agents.tools import (
     CleanupCandidate,
     ConfirmationRequired,
     InMemoryTools,

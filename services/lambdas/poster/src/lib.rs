@@ -6,11 +6,11 @@
 //! a video like a still. Frame extraction sits behind [`Frames`] so the pipeline test runs
 //! without ffmpeg.
 
-use memorylane_core::ids::{HouseholdId, MediaId};
-use memorylane_core::media::{MediaKind, ProcessingState};
-use memorylane_ingest::renditions::{self, Rendition};
-use memorylane_ingest::{decode, quality};
-use memorylane_store::{Blobs, Storage, StorageError};
+use mantelpiece_core::ids::{HouseholdId, MediaId};
+use mantelpiece_core::media::{MediaKind, ProcessingState};
+use mantelpiece_ingest::renditions::{self, Rendition};
+use mantelpiece_ingest::{decode, quality};
+use mantelpiece_store::{Blobs, Storage, StorageError};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::Arc;

@@ -1,8 +1,8 @@
 //! Owner's view of who is in the household, and removal (F-158).
 
-use memorylane_core::confirmation::ConfirmedAction;
-use memorylane_core::events::EventKind;
-use memorylane_core::ids::ContributorId;
+use mantelpiece_core::confirmation::ConfirmedAction;
+use mantelpiece_core::events::EventKind;
+use mantelpiece_core::ids::ContributorId;
 use serde_json::json;
 use time::Duration;
 

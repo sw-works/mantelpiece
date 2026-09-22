@@ -2,8 +2,8 @@
 //! while the household says so, unnamed clusters named from the phone, merges, and a
 //! search filter. Turning it off deletes the collection and every person record.
 
-use memorylane_core::ids::PersonId;
-use memorylane_core::person::Person;
+use mantelpiece_core::ids::PersonId;
+use mantelpiece_core::person::Person;
 use serde::Deserialize;
 use serde_json::json;
 
@@ -13,7 +13,7 @@ use crate::req::{Req, Resp};
 
 /// Whether faces are grouped is the household's call, and the household is the TV: a
 /// paired phone names and merges people but cannot switch the feature.
-fn switch_holder(app: &App, req: &Req) -> Result<memorylane_core::ids::HouseholdId, ApiError> {
+fn switch_holder(app: &App, req: &Req) -> Result<mantelpiece_core::ids::HouseholdId, ApiError> {
     let caller = app.caller(req)?;
     if caller.paired_phone().is_some() {
         return Err(ApiError::forbidden("only the TV can turn People on or off"));
@@ -28,7 +28,7 @@ pub async fn enable(app: &App, req: &Req) -> Result<Resp, ApiError> {
         .get_household(&household)
         .await?
         .unwrap_or_else(|| {
-            memorylane_core::household::Household::new(household.clone(), "My TV", app.now())
+            mantelpiece_core::household::Household::new(household.clone(), "My TV", app.now())
         });
     if !record.people_enabled {
         app.faces.create_collection(&household).await?;
@@ -51,7 +51,7 @@ pub async fn disable(app: &App, req: &Req) -> Result<Resp, ApiError> {
 
 pub async fn forget_people(
     app: &App,
-    household: &memorylane_core::ids::HouseholdId,
+    household: &mantelpiece_core::ids::HouseholdId,
 ) -> Result<(), ApiError> {
     app.faces.delete_collection(household).await?;
     app.storage.delete_people(household).await?;
@@ -146,7 +146,7 @@ pub async fn update(app: &App, req: &Req, id: &str) -> Result<Resp, ApiError> {
 /// Resolve names to person ids for the search filter, following merges.
 pub async fn resolve_names(
     app: &App,
-    household: &memorylane_core::ids::HouseholdId,
+    household: &mantelpiece_core::ids::HouseholdId,
     names: &[String],
 ) -> Result<Vec<PersonId>, ApiError> {
     let people = app.storage.list_people(household).await?;
@@ -171,8 +171,8 @@ pub async fn resolve_names(
 /// People in these photos, named first, then by how often they appear (F-704).
 pub async fn in_trip(
     app: &App,
-    household: &memorylane_core::ids::HouseholdId,
-    media: &[memorylane_core::media::MediaItem],
+    household: &mantelpiece_core::ids::HouseholdId,
+    media: &[mantelpiece_core::media::MediaItem],
 ) -> Result<Vec<serde_json::Value>, ApiError> {
     let mut counts: std::collections::BTreeMap<&PersonId, usize> =
         std::collections::BTreeMap::new();

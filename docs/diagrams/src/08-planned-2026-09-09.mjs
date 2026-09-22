@@ -1,5 +1,5 @@
 import { diagram, node } from "./svg.mjs";
-// Planned delta over 01-topology — specs/001-memorylane-baseline (plan, contracts). Drawn 2026-09-09
+// Planned delta over 01-topology — specs/001-mantelpiece-baseline (plan, contracts). Drawn 2026-09-09
 // from the spec, not from device runs: what the baseline adds around the built topology.
 const W = 200, GAP = 36, H = 64;
 const X = (i) => 40 + i * (W + GAP);
@@ -8,7 +8,7 @@ const mid = (i) => X(i) + W / 2;
 
 export default () => diagram({
   width: 1460, height: 900,
-  title: "MemoryLane · Baseline delta 2026-09-09 — a second TV, reactions and voice from the phone, Alexa+ context, a wider token gate",
+  title: "Mantelpiece · Baseline delta 2026-09-09 — a second TV, reactions and voice from the phone, Alexa+ context, a wider token gate",
   subtitle: "New clients on the left, new paths in red and blue. The Gateway is still the only way an agent or Alexa+ touches data; the token gate now covers co-editors and quick cleanup.",
   groups: [
     { x: X(0) - 18, y: R0 - 44, w: 3 * W + 2 * GAP + 36, h: H + 66, label: "Clients · new in the baseline" },
@@ -29,7 +29,7 @@ export default () => diagram({
     node("cedar",    X(1), R3, W, H, "Cedar policy",       { kind: "security", sub: "+ apply_cleanup\n+ RemoveMedia by role" }),
     node("gateway",  X(3), R3, W, H, "Gateway (MCP)",      { kind: "security", sub: "22 tools · CUSTOM_JWT\nallowed clients: web, AlexaPlus" }),
     node("agent",    X(4), R3, W, H, "Concierge",          { kind: "llm", sub: "+ describe_photo · quick_cleanup\n+ memories_nightly · spans per run and tool" }),
-    node("alexa",    X(5), R3, W, H, "Alexa+",             { kind: "ext", sub: "OAuth 2.1 PKCE · memorylane/tools\nget_now_showing → describe_photo" }),
+    node("alexa",    X(5), R3, W, H, "Alexa+",             { kind: "ext", sub: "OAuth 2.1 PKCE · mantelpiece/tools\nget_now_showing → describe_photo" }),
   ],
   edges: [
     { from: "tv2", to: "api", label: "join · leave · reactions", at: [mid(0) + 30, R0 + H + 16] },

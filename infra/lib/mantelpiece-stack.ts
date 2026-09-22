@@ -26,7 +26,7 @@ import * as sfnTasks from "aws-cdk-lib/aws-stepfunctions-tasks";
 import type { Construct } from "constructs";
 import { toolDefinitions } from "./tools.js";
 
-export interface MemoryLaneStackProps extends StackProps {
+export interface MantelpieceStackProps extends StackProps {
   /**
    * Base URL of the sign-in approval page, e.g. https://link.example.com. Omit to serve the
    * page from the stack's own CloudFront distribution (no domain needed).
@@ -93,7 +93,7 @@ const skillAssetDir = path.resolve(here, "..", "..", "agents", "src");
 const agentPackageDefault = path.resolve(here, "..", "..", "agents", "build", "runtime");
 const webDistDefault = path.resolve(here, "..", "..", "apps", "web", "dist");
 
-export class MemoryLaneStack extends Stack {
+export class MantelpieceStack extends Stack {
   readonly table: dynamodb.Table;
   readonly bucket: s3.Bucket;
   readonly bus: events.EventBus;
@@ -101,7 +101,7 @@ export class MemoryLaneStack extends Stack {
   readonly api: apigw.HttpApi;
   readonly gateway: agentcore.CfnGateway;
 
-  constructor(scope: Construct, id: string, props: MemoryLaneStackProps) {
+  constructor(scope: Construct, id: string, props: MantelpieceStackProps) {
     super(scope, id, props);
     const retain = props.retainData ?? true;
     const dataRemoval = retain ? RemovalPolicy.RETAIN : RemovalPolicy.DESTROY;
@@ -130,7 +130,7 @@ export class MemoryLaneStack extends Stack {
         errorResponses: [403, 404].map((httpStatus) => ({ httpStatus, responseHttpStatus: 200, responsePagePath: `/${root}`, ttl: Duration.minutes(1) })),
         httpVersion: cloudfront.HttpVersion.HTTP2_AND_3,
         priceClass: cloudfront.PriceClass.PRICE_CLASS_100,
-        comment: `MemoryLane ${root}`,
+        comment: `Mantelpiece ${root}`,
       });
     const linkSite = site("LinkSite", "link.html");
     const uploadSite = site("UploadSite", "index.html");
@@ -215,14 +215,14 @@ export class MemoryLaneStack extends Stack {
     });
     if (amazonProvider) client.node.addDependency(amazonProvider);
     const domain = this.userPool.addDomain("Domain", {
-      cognitoDomain: { domainPrefix: `memorylane-${this.account}` },
+      cognitoDomain: { domainPrefix: `mantelpiece-${this.account}` },
     });
 
     // Alexa+ MCP add-on (research R6): OAuth 2.1 with PKCE against the same user pool. The
     // resource server declares the one scope the Gateway checks; the public client has no
     // secret, so Cognito requires PKCE on the authorization-code grant.
-    const toolsScope = new cognito.ResourceServerScope({ scopeName: "tools", scopeDescription: "Call MemoryLane tools on the household's behalf" });
-    const resourceServer = this.userPool.addResourceServer("Tools", { identifier: "memorylane", scopes: [toolsScope] });
+    const toolsScope = new cognito.ResourceServerScope({ scopeName: "tools", scopeDescription: "Call Mantelpiece tools on the household's behalf" });
+    const resourceServer = this.userPool.addResourceServer("Tools", { identifier: "mantelpiece", scopes: [toolsScope] });
     const alexaClient = this.userPool.addClient("AlexaPlus", {
       supportedIdentityProviders: providers,
       generateSecret: false,
@@ -238,7 +238,7 @@ export class MemoryLaneStack extends Stack {
     if (amazonProvider) alexaClient.node.addDependency(amazonProvider);
 
     // The Concierge agent's own identity at the Gateway: client credentials, the same
-    // `memorylane/tools` scope, no user. It works for whichever household an event names.
+    // `mantelpiece/tools` scope, no user. It works for whichever household an event names.
     const agentClient = this.userPool.addClient("Concierge", {
       generateSecret: true,
       oAuth: {
@@ -523,7 +523,7 @@ export class MemoryLaneStack extends Stack {
     const skillFn = new lambda.Function(this, "SkillFn", {
       runtime: lambda.Runtime.PYTHON_3_13,
       architecture: lambda.Architecture.ARM_64,
-      handler: "memorylane_skill.handler.lambda_handler",
+      handler: "mantelpiece_skill.handler.lambda_handler",
       code: lambda.Code.fromAsset(skillAssetDir, { exclude: ["**/__pycache__", "**/*.pyc"] }),
       memorySize: 256,
       timeout: Duration.seconds(8),
@@ -540,8 +540,8 @@ export class MemoryLaneStack extends Stack {
     // Policy Engine first: the Gateway points at it. The rules themselves come after the
     // Gateway, since tool-specific Cedar must name the Gateway's ARN.
     const policyEngine = new agentcore.CfnPolicyEngine(this, "ToolPolicyEngine", {
-      name: "memorylane_tools",
-      description: "Confirmation tokens for irreversible MemoryLane tools",
+      name: "mantelpiece_tools",
+      description: "Confirmation tokens for irreversible Mantelpiece tools",
     });
     const gatewayRole = new iam.Role(this, "GatewayRole", {
       assumedBy: new iam.ServicePrincipal("bedrock-agentcore.amazonaws.com"),
@@ -568,8 +568,8 @@ export class MemoryLaneStack extends Stack {
     // CreateGateway checks GetPolicyEngine with the role at once, so the role's policy
     // must exist first; without these the Gateway raced its own permissions.
     this.gateway = new agentcore.CfnGateway(this, "ToolGateway", {
-      name: "memorylane-tools",
-      description: "MemoryLane tools over MCP for the Concierge and Alexa+",
+      name: "mantelpiece-tools",
+      description: "Mantelpiece tools over MCP for the Concierge and Alexa+",
       roleArn: gatewayRole.roleArn,
       protocolType: "MCP",
       protocolConfiguration: { mcp: { supportedVersions: ["2025-11-25"], searchType: "SEMANTIC" } },
@@ -664,8 +664,8 @@ export class MemoryLaneStack extends Stack {
         }),
       );
       const runtime = new agentcore.CfnRuntime(this, "Concierge", {
-        agentRuntimeName: "memorylane_concierge",
-        description: "Trip Curator and the other MemoryLane workflows",
+        agentRuntimeName: "mantelpiece_concierge",
+        description: "Trip Curator and the other Mantelpiece workflows",
         roleArn: runtimeRole.roleArn,
         networkConfiguration: { networkMode: "PUBLIC" },
         agentRuntimeArtifact: {
@@ -718,7 +718,7 @@ export class MemoryLaneStack extends Stack {
       // The events the Concierge can act on today: a new or grown trip gets its story.
       new events.Rule(this, "ConciergeEvents", {
         eventBus: this.bus,
-        eventPattern: { source: ["memorylane"], detailType: ["trip.detected"] },
+        eventPattern: { source: ["mantelpiece"], detailType: ["trip.detected"] },
         targets: [new targets.LambdaFunction(forwardFn, { retryAttempts: 1 })],
       });
       new CfnOutput(this, "ConciergeRuntimeArn", { value: runtime.attrAgentRuntimeArn });
@@ -732,7 +732,7 @@ export class MemoryLaneStack extends Stack {
       schedule: scheduler.ScheduleExpression.cron({ minute: "0", hour: "3" }),
       target: new schedulerTargets.EventBridgePutEvents({
         eventBus: this.bus,
-        source: "memorylane.schedule",
+        source: "mantelpiece.schedule",
         detailType: "nightly.tick",
         detail: scheduler.ScheduleTargetInput.fromObject({ reason: "nightly" }),
       }),

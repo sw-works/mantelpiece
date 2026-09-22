@@ -6,15 +6,15 @@ members = ["crates/*", "lambdas/*", "tools/*"]
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
-repository = "https://github.com/hanyuxiao/memory-lane"
+repository = "https://github.com/hanyuxiao/mantelpiece"
 rust-version = "1.93"
 
 [workspace.dependencies]
-memorylane-core = { path = "crates/core" }
-memorylane-ingest = { path = "crates/ingest" }
-memorylane-trips = { path = "crates/trips" }
-memorylane-store = { path = "crates/store" }
-memorylane-poster = { path = "lambdas/poster" }
+mantelpiece-core = { path = "crates/core" }
+mantelpiece-ingest = { path = "crates/ingest" }
+mantelpiece-trips = { path = "crates/trips" }
+mantelpiece-store = { path = "crates/store" }
+mantelpiece-poster = { path = "lambdas/poster" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2"

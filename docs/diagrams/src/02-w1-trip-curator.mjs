@@ -1,6 +1,6 @@
 import { diagram, node } from "./svg.mjs";
 import { W, GAP, H, X, R, mid, WIDTH } from "./_grid.mjs";
-// Workflow #1 Trip Curator — agents/src/memorylane_agents/workflows.py::trip_curator, narrative.py. Drawn 2026-09-08.
+// Workflow #1 Trip Curator — agents/src/mantelpiece_agents/workflows.py::trip_curator, narrative.py. Drawn 2026-09-08.
 export default () => diagram({
   width: WIDTH, height: 500,
   title: "Workflow #1 · Trip Curator — the story is checked against the metadata before it is saved",

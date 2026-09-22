@@ -39,7 +39,7 @@ and the app bundle never touch this directory.
    AppRegistry.registerComponent(name, () => () => createElement(LiveSpike, { uri: "<playbackUrl from the channel json>" }));
    ```
 
-4. `pnpm build:vega:debug`, `vega run-app build/aarch64-debug/*.vpkg com.hanyu.memorylane.main -d VirtualDevice`,
+4. `pnpm build:vega:debug`, `vega run-app build/aarch64-debug/*.vpkg com.hanyu.mantelpiece.main -d VirtualDevice`,
    then `scripts/vvd-screenshot.sh out.png`. Select on the remote
    (`vega exec vda -s emulator-5554 shell "inputd-cli button_press KEY_ENTER"`) cycles the
    hls.js live-sync modes in `LiveSpike.tsx`.

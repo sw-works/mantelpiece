@@ -2,9 +2,9 @@
 //! keyword fallback so a query still answers before embeddings exist. Single pass, no
 //! model call, so the warm path stays inside the 300 ms budget (constitution V).
 
-use memorylane_core::ids::{ContributorId, HouseholdId, MediaId, TripId};
-use memorylane_core::media::MediaItem;
-use memorylane_ingest::embed;
+use mantelpiece_core::ids::{ContributorId, HouseholdId, MediaId, TripId};
+use mantelpiece_core::media::MediaItem;
+use mantelpiece_ingest::embed;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 

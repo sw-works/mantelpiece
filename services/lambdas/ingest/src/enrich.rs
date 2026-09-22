@@ -2,16 +2,16 @@
 //! keepers whose landmark is unknown (research R8), and the embedding for Ask (F-303).
 //! Non-keepers inherit from their keeper in `organize`.
 
-use memorylane_core::events::{Event, EventKind};
-use memorylane_core::ids::{HouseholdId, MediaId};
-use memorylane_core::media::{
+use mantelpiece_core::events::{Event, EventKind};
+use mantelpiece_core::ids::{HouseholdId, MediaId};
+use mantelpiece_core::media::{
     cleanup_reason, Description, Enrichment, MediaItem, ProcessingState, Tag,
 };
-use memorylane_core::narrative_check::{check, Allowed};
-use memorylane_core::person::Person;
-use memorylane_ingest::embed;
-use memorylane_ingest::renditions::Rendition;
-use memorylane_store::places::Place;
+use mantelpiece_core::narrative_check::{check, Allowed};
+use mantelpiece_core::person::Person;
+use mantelpiece_ingest::embed;
+use mantelpiece_ingest::renditions::Rendition;
+use mantelpiece_store::places::Place;
 use serde::Serialize;
 use std::fmt::Write as _;
 
@@ -257,7 +257,7 @@ async fn group_faces(
     household: &HouseholdId,
     media: &MediaId,
     jpeg: &[u8],
-) -> Result<Vec<memorylane_core::ids::PersonId>> {
+) -> Result<Vec<mantelpiece_core::ids::PersonId>> {
     let indexed = ingest.faces.index(household, media, jpeg).await?;
     let mut people = ingest.storage.list_people(household).await?;
     let mut out = Vec::new();
@@ -308,7 +308,7 @@ mod tests {
 
     #[test]
     fn the_prompt_offers_the_sights_that_are_really_there() {
-        use memorylane_core::geo::GeoPoint;
+        use mantelpiece_core::geo::GeoPoint;
         let sight = |name: &str| Place {
             name: name.into(),
             at: GeoPoint::new(63.53, -19.51),

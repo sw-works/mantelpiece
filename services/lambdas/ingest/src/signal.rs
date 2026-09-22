@@ -1,10 +1,10 @@
 //! Per-file task: checksum, EXIF, signals, renditions.
 
-use memorylane_core::events::{EventKind, ARRIVAL_MEDIA};
-use memorylane_core::ids::MediaId;
-use memorylane_core::media::{MediaItem, MediaKind, ProcessingState};
-use memorylane_ingest::renditions::{self, Rendition};
-use memorylane_ingest::{checksum, decode, exif, quality};
+use mantelpiece_core::events::{EventKind, ARRIVAL_MEDIA};
+use mantelpiece_core::ids::MediaId;
+use mantelpiece_core::media::{MediaItem, MediaKind, ProcessingState};
+use mantelpiece_ingest::renditions::{self, Rendition};
+use mantelpiece_ingest::{checksum, decode, exif, quality};
 use serde::Serialize;
 
 use crate::{parse_original_key, Ingest, IngestError, Result};
@@ -126,7 +126,7 @@ async fn announce_arrival(ingest: &Ingest, media: &MediaItem) -> Result<()> {
         .get_contributor(&media.household, &media.contributor)
         .await?
         .map_or_else(|| "Someone".to_owned(), |c| c.display_name);
-    let event = memorylane_store::feed::emit(
+    let event = mantelpiece_store::feed::emit(
         ingest.storage.as_ref(),
         &media.household,
         ingest.now(),
