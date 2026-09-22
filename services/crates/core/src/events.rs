@@ -122,7 +122,7 @@ pub enum EventKind {
         answer: String,
         media: Option<MediaId>,
     },
-    /// The share workflow found the recipient has a MemoryLane TV: show the trip's join
+    /// The share workflow found the recipient has a Mantelpiece TV: show the trip's join
     /// code instead of a link (F-601, W5).
     #[serde(rename = "share.join_code")]
     ShareJoinCode {

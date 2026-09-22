@@ -180,7 +180,7 @@ export function TripView({
                       }}
                     />
                   )}
-                  <Meta size={theme.credit}>Written by MemoryLane from the day's photos</Meta>
+                  <Meta size={theme.credit}>Written by Mantelpiece from the day's photos</Meta>
                 </View>
               </View>
             ) : (

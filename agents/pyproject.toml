@@ -1,7 +1,7 @@
 [project]
 name = "memorylane-agents"
 version = "0.1.0"
-description = "MemoryLane Concierge agent and event-driven workflows for AgentCore Runtime"
+description = "Mantelpiece Concierge agent and event-driven workflows for AgentCore Runtime"
 requires-python = ">=3.12"
 license = "MIT"
 dependencies = []

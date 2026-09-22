@@ -77,7 +77,7 @@ what would have helped. Dates are when we hit it.
   Experience and the Vega screensaver have no public API (staff, 2025-01-15 and
   2026-07-07). The 2026-05 Amazon Photos redesign added Alexa+ voice search, first party
   only; the Alexa+ add-on categories and the hackathon resources page do not mention
-  Photos. Only an unofficial cookie-based scraper exists, against the terms. MemoryLane
+  Photos. Only an unofficial cookie-based scraper exists, against the terms. Mantelpiece
   treats Amazon Photos as closed: camera roll in, nothing pulled.
 - **2026-09-08, device sign-in.** Cognito has no OAuth device grant. The TV shows a code,
   the phone approves it, the TV polls; a small custom flow that every TV app rebuilds.

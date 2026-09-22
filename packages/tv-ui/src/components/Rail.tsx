@@ -38,7 +38,7 @@ export function Rail({ items, active, tvName }: { items: RailItem[]; active: str
         <View style={{ width: 44, height: 44, borderRadius: 10, backgroundColor: theme.panel, justifyContent: "center", alignItems: "center" }}>
           <View style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 4, borderColor: theme.accent }} />
         </View>
-        <Text style={{ color: theme.fg, fontSize: 28, fontWeight: "600" }}>MemoryLane</Text>
+        <Text style={{ color: theme.fg, fontSize: 28, fontWeight: "600" }}>Mantelpiece</Text>
       </View>
       {items.map((item) => (
         <RailButton key={item.key} item={item} active={item.key === active} />

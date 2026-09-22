@@ -30,7 +30,7 @@ export async function main(root: HTMLElement, location: Location): Promise<void>
   const api = new Api(config.apiBase);
   const id = new URL(location.href).searchParams.get("s");
   if (!id) {
-    mount(root, topbar(), el("div", { class: "stack" }, el("h1", {}, "MemoryLane"), el("p", { class: "lead" }, "Open the link you were sent to see the album.")));
+    mount(root, topbar(), el("div", { class: "stack" }, el("h1", {}, "Mantelpiece"), el("p", { class: "lead" }, "Open the link you were sent to see the album.")));
     return;
   }
   mount(root, topbar(), el("h1", {}, "Opening the album…"));

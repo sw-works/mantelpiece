@@ -99,7 +99,7 @@ export async function main(root: HTMLElement, location: Location, storage: Stora
 
   if (!session) {
     if (!code) {
-      notice(root, "MemoryLane", "Scan the Invite code on the TV to add your photos.");
+      notice(root, "Mantelpiece", "Scan the Invite code on the TV to add your photos.");
       return;
     }
     renderJoin(root, code, async (name) => {
@@ -240,7 +240,7 @@ function renderUploader(root: HTMLElement, api: Api, session: Session, storage: 
   const leave = link("Switch trip");
   leave.onclick = () => {
     storage.removeItem(SESSION);
-    notice(root, "MemoryLane", "Scan the Invite code on the TV to join another trip.");
+    notice(root, "Mantelpiece", "Scan the Invite code on the TV to join another trip.");
   };
   const where = el(
     "div",
@@ -274,7 +274,7 @@ function renderUploader(root: HTMLElement, api: Api, session: Session, storage: 
       topbar({ right: chip() }),
       el("div", { class: "stack" }, el("h1", {}, "Pick photos"), el("p", { class: "lead" }, "Choose a trip's worth. Big batches are fine; uploads resume if you lose signal.")),
       picker,
-      el("div", { class: "note" }, icon("share", 20), el("p", {}, "Or share straight from your camera roll: on Android, add this page to your home screen and MemoryLane appears in the share sheet.")),
+      el("div", { class: "note" }, icon("share", 20), el("p", {}, "Or share straight from your camera roll: on Android, add this page to your home screen and Mantelpiece appears in the share sheet.")),
       where,
       familyCard(api, session.token, session.place ? { tvName: session.place } : {}),
       ...footer,

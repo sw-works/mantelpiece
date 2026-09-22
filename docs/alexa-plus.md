@@ -1,6 +1,6 @@
 # Alexa+ add-on
 
-MemoryLane's tools reach Alexa+ through the same AgentCore Gateway the Concierge uses
+Mantelpiece's tools reach Alexa+ through the same AgentCore Gateway the Concierge uses
 (research R6, `specs/001-memorylane-baseline/contracts/tools.md`). Nothing Alexa-specific
 runs in the backend: the add-on is an MCP client with an OAuth token for one household.
 

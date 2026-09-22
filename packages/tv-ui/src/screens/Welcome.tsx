@@ -40,7 +40,7 @@ export function Welcome({
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.bg, paddingHorizontal: theme.safe.x, paddingVertical: theme.safe.y }}>
-      <Text style={{ color: theme.fg, fontSize: 30, fontWeight: "600" }}>MemoryLane</Text>
+      <Text style={{ color: theme.fg, fontSize: 30, fontWeight: "600" }}>Mantelpiece</Text>
       <View style={{ flex: 1, justifyContent: "center", gap: 28, maxWidth: 1300 }}>
         <Eyebrow>First time on this TV</Eyebrow>
         <Title size={84}>Your trips, on the big screen.</Title>

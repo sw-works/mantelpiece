@@ -41,7 +41,7 @@ export function answerText(status: string, tvName: string, replacing: string | n
     case "declined":
       return `${tvName} said not now.`;
     case "expired":
-      return `${tvName} did not answer. Make sure MemoryLane is open on it, then try again.`;
+      return `${tvName} did not answer. Make sure Mantelpiece is open on it, then try again.`;
     case "cancelled":
       return "Request cancelled.";
     case "ended":

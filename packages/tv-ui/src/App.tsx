@@ -70,7 +70,7 @@ export interface AppProps {
   livePlayer?: LivePlayer;
 }
 
-const DEFAULT_API = "https://api.memorylane.test";
+const DEFAULT_API = "https://api.mantelpiece.test";
 
 /** State-based router: no navigation library, no native screens module. */
 export function App({ apiBase, api: injectedApi, sessionStore, tvName, audio = null, narration = false, idleMs = 5 * 60 * 1000, livePlayer }: AppProps) {

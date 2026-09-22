@@ -798,3 +798,21 @@ compile-checked only.
   ffmpeg clock then played), and Not now leaving Sam on screen
   (`docs/screens/vvd-live-request-2026-09-21.png`). After the prompt closes, focus returns
   on the first arrow press, not by itself.
+
+## 33. The app is called Mantelpiece (2026-09-22)
+
+- Why rename: "MemoryLane" is about looking back, and the app now carries what is happening
+  now: photos that take over the TV as they land, one-button reactions to the phone, and a
+  phone's live camera on the TV. The mantelpiece is the shelf under the TV where a family's
+  photos already stand.
+- Checked before settling: hearth.tv, homecast.tv, mantel.tv, porchlight.tv, postcard.tv and
+  every matching `.app` are taken. mantelpiece.tv is free, and no competing app or trademark
+  turned up in a web search (not a legal clearance). Rejected on the way: PhoneHome ("phoning
+  home" is telemetry and spyware jargon, plus the E.T. association), HomeSync (Samsung shipped
+  one, and it sounds like file sync), Homeport (an existing software trademark), Doorstep (a
+  crowd of delivery apps), Photo Shelf (descriptive, undersells live video, .com and .app gone),
+  Mantelshelf (more British-sounding than mantelpiece, not less).
+- What changed: only the name people see, on the TV, the phone pages, the web manifest, the
+  Alexa skill (invocation name "mantelpiece") and the docs. The repository, crate names, npm
+  packages, CloudFormation stack name and the Vega app id `com.hanyu.memorylane.main` keep
+  the old name; changing the app id means a new store listing and drops every paired phone.

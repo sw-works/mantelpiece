@@ -4,7 +4,7 @@ Submission: https://devpost.com/submit-to/30992-build-ship-shape-amazon-develope
 
 ## Project name
 
-MemoryLane
+Mantelpiece
 
 ## Tagline
 
@@ -19,7 +19,7 @@ Mini-challenges: AWS Builder, Open Source.
 
 ### What it does
 
-Install MemoryLane on a Fire TV and it shows a code and a QR. Scan it with your phone,
+Install Mantelpiece on a Fire TV and it shows a code and a QR. Scan it with your phone,
 sign in with your Amazon account, and pick photos from your camera roll. Everyone on the
 trip scans the same QR from their own phone and their photos land in the same trip,
 credited to them. The TV shows uploads arriving live. The same code works on another Fire TV:

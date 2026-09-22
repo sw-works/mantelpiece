@@ -1,8 +1,12 @@
-# MemoryLane
+# Mantelpiece
+
+> Named MemoryLane until 2026-09-22. The repository, crates, npm packages and the Vega
+> app id (`com.hanyu.memorylane.main`) keep the old name: changing the app id would mean a
+> new store listing and would drop every paired phone.
 
 Turn a family trip into a shared album that builds itself, on the living-room TV.
 
-MemoryLane is a Fire TV app plus a hosted backend. Install the app, scan the QR on the TV,
+Mantelpiece is a Fire TV app plus a hosted backend. Install the app, scan the QR on the TV,
 pick photos on your phone. Everyone on the trip scans the same QR and adds theirs; after
 that the phone remembers the trip, and on Android the page sits in the share sheet. The
 backend groups bursts, scores highlights, reconstructs the route, writes a day-by-day story,

@@ -77,13 +77,13 @@ pub async fn create(app: &App, req: &Req) -> Result<Resp, ApiError> {
             .storage
             .get_household(&household)
             .await?
-            .map_or_else(|| "A MemoryLane TV".to_owned(), |h| h.name);
+            .map_or_else(|| "A Mantelpiece TV".to_owned(), |h| h.name);
         app.mailer
             .send(Mail {
                 to: email.clone(),
                 subject: format!("{owner} shared \"{}\" with you", link.name),
                 text: format!(
-                    "{owner} shared photos with you on MemoryLane.\n\n{}\n\nThe link works for 7 days.",
+                    "{owner} shared photos with you on Mantelpiece.\n\n{}\n\nThe link works for 7 days.",
                     link_for(app, &link.id)
                 ),
             })

@@ -49,7 +49,7 @@ self.addEventListener("fetch", (event) => {
 });
 
 self.addEventListener("push", (event) => {
-  let message = { title: "MemoryLane", body: "The TV reacted to your photos", url: "/?inbox=1" };
+  let message = { title: "Mantelpiece", body: "The TV reacted to your photos", url: "/?inbox=1" };
   try {
     message = { ...message, ...event.data.json() };
   } catch {

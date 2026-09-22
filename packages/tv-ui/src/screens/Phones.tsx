@@ -34,7 +34,7 @@ export function Phones({
   const waiting = queue.pending.length;
   return (
     <View style={{ flex: 1, backgroundColor: theme.bg, paddingHorizontal: theme.safe.x, paddingVertical: theme.safe.y }}>
-      <Text style={{ color: theme.fg, fontSize: 30, fontWeight: "600" }}>MemoryLane</Text>
+      <Text style={{ color: theme.fg, fontSize: 30, fontWeight: "600" }}>Mantelpiece</Text>
       <View style={{ flex: 1, flexDirection: "row", gap: 72, alignItems: "center" }}>
         <View style={{ flex: 1, gap: 22 }}>
           <Eyebrow>{householdName}</Eyebrow>

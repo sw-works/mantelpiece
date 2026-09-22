@@ -1,7 +1,8 @@
-# MemoryLane: Architecture and Requirements
+# Mantelpiece: Architecture and Requirements
 
 Status: Draft for hackathon execution
-App name: MemoryLane
+App name: Mantelpiece (mantelpiece.tv; called MemoryLane until 2026-09-22, still the
+repository, crate and package id names)
 Companion: `hackathon.md` (entry strategy, rules, timeline, demo plan), `decisions-2026-09-09.md` (Fire TV research log)
 Goal: zero infrastructure for the user. Install one Fire TV app, upload from phone, done.
 Created: 2026-09-08
@@ -65,7 +66,7 @@ DynamoDB (media, trips, albums, playlists,   S3 Vectors (embeddings, durable)
    ▲
    │ Lambda targets (no OpenAPI, no tunnel)
 AgentCore Gateway + Identity (Cognito) + Policy (Cedar)
-   ├─ AgentCore Runtime: Strands "MemoryLane Concierge", Claude on Bedrock, AgentCore Memory
+   ├─ AgentCore Runtime: Strands "Mantelpiece Concierge", Claude on Bedrock, AgentCore Memory
    └─ Alexa+ MCP add-on (same endpoint)
 ```
 
@@ -196,7 +197,7 @@ account or guest, can add and remove their own photos, view, react), **member ho
 
 | ID | Requirement |
 |----|-------------|
-| F-162 | **Join a trip from another TV (headline with F-151).** The trip code on the Invite QR also works on any other Fire TV running MemoryLane: "Join a trip" on the Memories home takes the code typed on the remote or scanned from the phone page while that TV's session is linked. The trip appears in that household's rows with live updates, narrative, route and highlights, credited contributors, reactions. Grandma's TV shows the Kyoto trip the evening it happens. Trip stays owned and stored by the creating household; the member household holds a membership record, no copy |
+| F-162 | **Join a trip from another TV (headline with F-151).** The trip code on the Invite QR also works on any other Fire TV running Mantelpiece: "Join a trip" on the Memories home takes the code typed on the remote or scanned from the phone page while that TV's session is linked. The trip appears in that household's rows with live updates, narrative, route and highlights, credited contributors, reactions. Grandma's TV shows the Kyoto trip the evening it happens. Trip stays owned and stored by the creating household; the member household holds a membership record, no copy |
 | F-163 | Pin and hide are per household on shared trips: a member household's highlights differ from the owner's without changing the trip. Owner and co-editor edits (F-164) are shared |
 | F-164 | Co-editor role: owner promotes a contributor with an Amazon account from the TV. Co-editors can rename the trip, choose keepers, remove any photo, run dedup and cleanup on that trip, each through their own Review Changes modal (F-410) with a confirmation token bound to their identity; Cedar policy at the Gateway checks the role per tool call (F-504). Removing another contributor's photo notifies that contributor and is reversible for the grace period in F-158 |
 | F-165 | Guests (no Amazon account) never edit; the web view (F-159) never edits. Editing happens only on a TV with a signed-in owner or co-editor session |

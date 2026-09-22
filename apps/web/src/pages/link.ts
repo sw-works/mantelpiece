@@ -149,7 +149,7 @@ export async function main(root: HTMLElement, location: Location, storage: Stora
 
   const code = url.searchParams.get("c");
   if (!code) {
-    mount(root, ...page("MemoryLane", el("p", { class: "lead" }, "Open this page by scanning the code on your TV.")));
+    mount(root, ...page("Mantelpiece", el("p", { class: "lead" }, "Open this page by scanning the code on your TV.")));
     return;
   }
 

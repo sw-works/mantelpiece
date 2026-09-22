@@ -72,7 +72,7 @@ export function logo(size = 32): SVGSVGElement {
  * instead when `back` is a URL), and an optional slot on the right for the context chip.
  */
 export function topbar(opts: { right?: Node; back?: string } = {}): HTMLElement {
-  const wordmark = el("span", { class: "wordmark" }, "MemoryLane");
+  const wordmark = el("span", { class: "wordmark" }, "Mantelpiece");
   const brand = opts.back ? el("a", { class: "brand", href: opts.back, "aria-label": "Back" }, icon("back"), wordmark) : el("span", { class: "brand" }, logo(), wordmark);
   return el("header", { class: "topbar" }, brand, opts.right ?? el("span"));
 }

@@ -1,5 +1,5 @@
 // 10-foot UI: photo-first, near-black chrome, amber for focus and anything live.
-// The design canvas this follows: MemoryLane Fire TV (2026-09-16).
+// The design canvas this follows: Mantelpiece Fire TV (2026-09-16).
 
 export const theme = {
   bg: "#0b0b0f",

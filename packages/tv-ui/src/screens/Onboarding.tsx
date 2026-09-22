@@ -35,7 +35,7 @@ export function Onboarding({
   }, [approved?.token]);
   return (
     <View style={{ flex: 1, backgroundColor: theme.bg, paddingHorizontal: theme.safe.x, paddingVertical: theme.safe.y }}>
-      <Text style={{ color: theme.fg, fontSize: 30, fontWeight: "600" }}>MemoryLane</Text>
+      <Text style={{ color: theme.fg, fontSize: 30, fontWeight: "600" }}>Mantelpiece</Text>
       <View style={{ flex: 1, flexDirection: "row", gap: 64, alignItems: "center" }}>
         <View style={{ flex: 1, gap: 26 }}>
           <Eyebrow>First time on this TV</Eyebrow>

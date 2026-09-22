@@ -102,7 +102,7 @@ export function describe(event: FeedEvent): string | null {
     case "membership.joined":
       return `${String(event.member_name)} joined`;
     case "share.join_code":
-      return `${String(event.recipient)} has a MemoryLane TV: they can join with code ${String(event.code)}`;
+      return `${String(event.recipient)} has a Mantelpiece TV: they can join with code ${String(event.code)}`;
     case "memories.ready":
       return "New memories for today";
     case "answer.card":

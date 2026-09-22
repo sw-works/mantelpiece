@@ -1,4 +1,4 @@
-# MemoryLane
+# Mantelpiece
 
 Fire TV app (Vega OS primary, Fire OS secondary) plus AWS backend for the Build, Ship, Shape:
 Amazon Developer Hackathon 2026. Layout, build and test commands: [README.md](README.md).

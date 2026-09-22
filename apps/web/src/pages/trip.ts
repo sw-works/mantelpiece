@@ -48,7 +48,7 @@ export async function main(root: HTMLElement, location: Location, storage: Stora
   const api = new Api(config.apiBase);
   const code = new URL(location.href).searchParams.get("t");
   if (!code) {
-    notice(root, "MemoryLane", "Scan the code on the TV to see the trip.");
+    notice(root, "Mantelpiece", "Scan the code on the TV to see the trip.");
     return;
   }
   notice(root, "Opening the trip…");

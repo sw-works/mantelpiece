@@ -178,7 +178,7 @@ impl WikipediaPlaces {
     pub fn new(endpoint: impl Into<String>) -> Self {
         Self {
             endpoint: endpoint.into(),
-            user_agent: "MemoryLane/0.1 (https://github.com/hanyuxiao/memory-lane)".into(),
+            user_agent: "Mantelpiece/0.1 (https://github.com/hanyuxiao/memory-lane)".into(),
             cache: Mutex::default(),
             last_call: Mutex::default(),
         }

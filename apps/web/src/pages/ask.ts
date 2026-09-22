@@ -25,7 +25,7 @@ export async function main(root: HTMLElement, _location: Location, storage: Stor
   const now = el("div", { class: "card compact" }, nowBox, el("div", { class: "titles" }, nowTitle, status));
 
   const answer = el("p", { class: "answer" });
-  const answerLabel = el("span", { class: "label small" }, "MemoryLane");
+  const answerLabel = el("span", { class: "label small" }, "Mantelpiece");
   const also = el("p", { class: "small ok" });
   const answerBlock = el("div", { class: "field" }, answerLabel, answer, also);
   answerBlock.hidden = true;

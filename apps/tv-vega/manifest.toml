@@ -4,7 +4,7 @@
 schema-version = 1
 
 [package]
-title = "MemoryLane"
+title = "Mantelpiece"
 version = "0.1.0"
 id = "com.hanyu.memorylane"
 

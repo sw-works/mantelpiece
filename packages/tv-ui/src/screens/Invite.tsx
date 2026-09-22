@@ -38,7 +38,7 @@ export function Invite({
   return (
     <View style={{ flex: 1, backgroundColor: theme.bg, paddingHorizontal: theme.safe.x, paddingVertical: theme.safe.y, gap: 40 }}>
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-        <Text style={{ color: theme.fg, fontSize: 30, fontWeight: "600" }}>MemoryLane</Text>
+        <Text style={{ color: theme.fg, fontSize: 30, fontWeight: "600" }}>Mantelpiece</Text>
         <FocusButton label="Done" variant="ghost" onPress={onBack} preferred testID="done" />
       </View>
       <View style={{ flex: 1, flexDirection: "row", gap: 64 }}>
