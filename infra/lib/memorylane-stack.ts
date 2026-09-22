@@ -488,6 +488,19 @@ export class MemoryLaneStack extends Stack {
       );
     }
 
+    // Live from the event: one IVS channel per phone broadcast, made and deleted by the API
+    // (handlers/live.rs). Channels are runtime resources outside this stack; `make down`
+    // leaves none behind once every broadcast ended, and idle channels cost nothing.
+    apiFn.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["ivs:CreateChannel", "ivs:DeleteChannel", "ivs:StopStream", "ivs:TagResource", "ivs:GetChannel"],
+        resources: [
+          `arn:aws:ivs:${this.region}:${this.account}:channel/*`,
+          `arn:aws:ivs:${this.region}:${this.account}:stream-key/*`,
+        ],
+      }),
+    );
+
     // HTTP API. Everything routes to the API Lambda; two routes require a Cognito JWT.
     this.api = new apigw.HttpApi(this, "Api", {
       corsPreflight: {

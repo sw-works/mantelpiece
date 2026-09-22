@@ -173,6 +173,16 @@ describe("MemoryLane stack", () => {
     });
   });
 
+  it("lets the API make and delete IVS channels for phone broadcasts, and nothing wider", () => {
+    const policies = Object.values(template.findResources("AWS::IAM::Policy"));
+    const statements = policies.flatMap((p) => p.Properties.PolicyDocument.Statement as Array<{ Action: string | string[]; Resource: unknown }>);
+    const ivs = statements.find((st) => ([] as string[]).concat(st.Action).includes("ivs:CreateChannel"));
+    if (!ivs) throw new Error("no IVS statement");
+    expect(([] as string[]).concat(ivs.Action)).toEqual(expect.arrayContaining(["ivs:DeleteChannel", "ivs:StopStream", "ivs:TagResource"]));
+    expect(JSON.stringify(ivs.Resource)).toContain(":channel/*");
+    expect(JSON.stringify(ivs.Resource)).not.toContain('"*"');
+  });
+
   it("exposes every contract tool through one MCP Gateway target on the API Lambda", () => {
     template.resourceCountIs("AWS::BedrockAgentCore::Gateway", 1);
     template.hasResourceProperties("AWS::BedrockAgentCore::Gateway", {
