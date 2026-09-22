@@ -121,6 +121,13 @@ pulls the bundle from Metro over the forwarded port. Not yet verified: a physica
 and every screen past Onboarding, which needs a deployed API (the shell has no API base
 yet, so sign-in shows "Network request failed").
 
+Live video from a phone plays through hls.js with Amazon's Vega patches on the system W3C
+media port. Those files are Amazon-licensed and not committed: run `scripts/vega-hls.sh`
+once to build them into `apps/tv-vega/vendor/vega-hls`; without it the app still builds
+and the Live screen says the TV cannot play live video. If every live session on the
+Virtual Device freezes on its first seek, restart the device (`vega virtual-device stop`,
+then `start`); its media service stays wedged after a run of failed sessions.
+
 Platform-specific code goes in `.kepler.ts` files next to the default implementation (see
 `packages/tv-ui/src/hooks/useRemoteKeys.kepler.ts`); Metro picks them on Vega and falls back
 to the plain file elsewhere. Screens keep text inside the 1080p title-safe margin defined in

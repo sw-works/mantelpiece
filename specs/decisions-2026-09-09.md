@@ -736,3 +736,54 @@ compile-checked only.
 - Not run: US3, US5 to US12 of the quickstart, the 15-minute SC-003 timing, Alexa skill
   registration. Sign-in used `ADMIN_USER_PASSWORD_AUTH` added by hand to the web client
   (no LWA client in this account); the hosted-UI phone path itself is untested.
+
+## 32. Family channel and live from the event (2026-09-21)
+
+- Scope: the "killer feature" pass. Phones send photos and the TV shows them the moment they
+  land ("Just arrived", taking over Memories home or the idle slideshow, never a show
+  someone chose); the TV answers with one button ("Love it") and the sender's phone hears
+  about it by web push, or in its inbox when push is off. A paired phone can go live from
+  its browser and the TV plays it. The nightly memory episode was left out on purpose.
+- Arrivals: Signal emits `photos.arrived` per photo up to 12, then one per dozen, with the
+  last 12 media ids. Web push is RFC 8291/8292 in Rust (`web-push-native`), the VAPID key
+  derived from `TOKEN_SECRET`, so no new secret; a 404 or 410 from the push service drops
+  the subscription. iPhone gets push only from a Home Screen web app (iOS 16.4+); the page
+  says so instead of offering a switch that cannot work.
+- Live: one IVS BASIC low-latency channel per broadcast, created by the API, deleted when
+  it ends; only the phone sees the stream key, the TV gets the playback URL on the feed.
+  Phone side is the IVS web broadcast SDK (WebRTC ingest, lazy 649 kB chunk on
+  `live.html`). TV side is hls.js with Amazon's Vega patches on the system W3C media port
+  (`scripts/vega-hls.sh` builds it into the gitignored `apps/tv-vega/vendor/`).
+- Verified on the deployed stack and the Virtual Device (screens
+  `docs/screens/vvd-arrived*-2026-09-21.png`, `vvd-live-*-2026-09-21.png`): six photos
+  took over the TV as they landed, each `photos.arrived` 0.9 to 3.0 s after its upload
+  completed (server event time against this Mac's clock; the TV's own poll adds up to one
+  interval, not measured). Love it wrote the inbox note and a real Chrome profile received
+  the encrypted push through FCM and showed "Fire TV · loved your 1 photo" under a second
+  after the button. Chrome with a fake camera went live on the TV twice in a row; End
+  broadcast on the TV ended it on the phone too.
+- What it took on the TV, in the order it bit:
+  1. `live.started` reaches the TV before IVS has a playlist; the 404 is not retried by
+     hls.js. Rebuilding hls.js on each retry re-attached MediaSource, which Vega's media
+     element does not survive. The player polls the playlist, then attaches once.
+  2. hls.js forces HE-AAC for any user agent that is neither Firefox nor Android (a Chrome
+     workaround); with IVS sending AAC-LC that is a `changeType` Vega errors on. The vendor
+     entry appends "Android" to the polyfilled user agent (`AFTCA001`), which keeps AAC-LC.
+  3. After a string of failed sessions the Virtual Device's media service stays wedged:
+     every later session, the known-good spike included, froze on its first seek with
+     `novaaudiosink ... InvalidArgumentError: Bad Value`, even on a video-only stream.
+     `vega virtual-device stop` and `start` cleared it. The earlier spike screenshot of
+     that afternoon was a frozen frame; judge playback by two screenshots, not one.
+- The web broadcast SDK does not report the disconnect when the TV ends a broadcast (IVS
+  StopStream), so the live phone checks `GET /live` every 5 s and stops itself.
+- IVS refuses to delete a channel whose stream is still winding down; the API parks it and
+  sweeps it on the household's next start or stop, which may never come. Channels are not
+  in the stack, so `make down` runs `scripts/ivs-sweep.sh` (deletes channels tagged
+  `memorylane:household`). An idle channel costs nothing.
+- Not verified: a real Fire TV, a real phone camera (iOS Safari or Android Chrome), the
+  glass-to-glass lag for the web broadcast path (the ffmpeg path measured 7.9 s on
+  2026-09-15, about 10 s today), push to iOS, and whether the release build carries the
+  vendor hls.js or the stub. The "ac-3 is not supported by platform" console error is
+  hls.js probing codecs at start; the stream has no AC-3. The "forwardRef render functions
+  accept exactly two parameters" console error comes from inside the Live screen's video
+  surface, not from this code; both show only in debug builds.
