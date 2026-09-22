@@ -11,8 +11,18 @@ use crate::app::App;
 use crate::error::ApiError;
 use crate::req::{Req, Resp};
 
+/// Whether faces are grouped is the household's call, and the household is the TV: a
+/// paired phone names and merges people but cannot switch the feature.
+fn switch_holder(app: &App, req: &Req) -> Result<memorylane_core::ids::HouseholdId, ApiError> {
+    let caller = app.caller(req)?;
+    if caller.paired_phone().is_some() {
+        return Err(ApiError::forbidden("only the TV can turn People on or off"));
+    }
+    app.owner(req)
+}
+
 pub async fn enable(app: &App, req: &Req) -> Result<Resp, ApiError> {
-    let household = app.owner(req)?;
+    let household = switch_holder(app, req)?;
     let mut record = app
         .storage
         .get_household(&household)
@@ -30,7 +40,7 @@ pub async fn enable(app: &App, req: &Req) -> Result<Resp, ApiError> {
 
 /// Everything learned about faces goes: the collection, the people, the links on media.
 pub async fn disable(app: &App, req: &Req) -> Result<Resp, ApiError> {
-    let household = app.owner(req)?;
+    let household = switch_holder(app, req)?;
     forget_people(app, &household).await?;
     if let Some(mut record) = app.storage.get_household(&household).await? {
         record.people_enabled = false;

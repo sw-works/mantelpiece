@@ -4,10 +4,8 @@
 import type { PersonView } from "./api.js";
 
 export const CONSENT = {
-  off: "Face grouping is off. Nothing about faces is stored.",
-  on: "Face grouping is on. Face signatures from your trips are kept in a private collection for this household only, are never used to train anything, and are deleted the moment you turn this off or delete the account.",
-  turnOn: "Turn on face grouping",
-  turnOff: "Turn off and delete face data",
+  off: "Face grouping is off and nothing about faces is stored. Turn it on from People on your TV.",
+  on: "Face grouping is on. Face signatures from your trips are kept in a private collection for this household only, are never used to train anything, and are deleted the moment it is turned off on the TV.",
 } as const;
 
 /** "Maya · 12 photos" or "Unnamed · 3 photos". */

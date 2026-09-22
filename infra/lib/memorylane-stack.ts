@@ -311,7 +311,7 @@ export class MemoryLaneStack extends Stack {
           "rekognition:DetectFaces",
           "rekognition:DetectText",
           "rekognition:IndexFaces",
-          "rekognition:SearchFacesByImage",
+          "rekognition:SearchFaces",
           "bedrock:InvokeModel",
           "geo-maps:GetStaticMap",
           // Place names for days and trips (PLACES_PROVIDER "aws"); without it every
@@ -467,7 +467,7 @@ export class MemoryLaneStack extends Stack {
           "rekognition:CreateCollection",
           "rekognition:DeleteCollection",
           "rekognition:IndexFaces",
-          "rekognition:SearchFacesByImage",
+          "rekognition:SearchFaces",
           "bedrock:InvokeModel",
           "polly:SynthesizeSpeech",
           "geo-maps:GetStaticMap",

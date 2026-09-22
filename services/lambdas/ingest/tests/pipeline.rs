@@ -657,10 +657,13 @@ async fn people_are_grouped_only_when_enabled_and_faces_are_matched() {
     let people = h.storage.list_people(&house).await.unwrap();
     assert_eq!(people.len(), 1);
     assert_eq!(people[0].face_ids, vec!["face-1"]);
-    h.faces.matches.lock().unwrap().push_back(vec![FaceMatch {
-        face_id: "face-1".into(),
-        similarity: 0.97,
-    }]);
+    h.faces.matches.lock().unwrap().insert(
+        "face-2".into(),
+        vec![FaceMatch {
+            face_id: "face-1".into(),
+            similarity: 0.97,
+        }],
+    );
     h.ingest
         .run(Task::Enrich {
             household: house.clone(),
@@ -679,4 +682,72 @@ async fn people_are_grouped_only_when_enabled_and_faces_are_matched() {
         .unwrap()
         .unwrap();
     assert_eq!(p2.people, vec![people[0].id.clone()]);
+}
+
+#[tokio::test]
+async fn every_face_in_a_group_photo_finds_its_own_person() {
+    let h = harness(Enrichment {
+        face_count: 2,
+        ..Enrichment::default()
+    });
+    let house = HouseholdId::new(H);
+    let mut household =
+        memorylane_core::household::Household::new(house.clone(), "Living room", base());
+    household.people_enabled = true;
+    h.storage.put_household(&household).await.unwrap();
+    h.faces.create_collection(&house).await.unwrap();
+    for (id, hash) in [
+        ("solo-a", 0x1111_0000_0000_0000),
+        ("solo-b", 0x2222_0000_0000_0000),
+        ("both", 0x3333_0000_0000_0000),
+    ] {
+        let mut m = signalled(id, "owner", 0.0, None, hash, 100.0);
+        m.is_keeper = true;
+        h.storage.put_media(&m).await.unwrap();
+        h.blobs
+            .put(
+                &format!("renditions/house/{id}/tv.jpg"),
+                jpeg(64, 64, 5),
+                "image/jpeg",
+            )
+            .await
+            .unwrap();
+    }
+    let enrich = |id: &'static str| {
+        h.ingest.run(Task::Enrich {
+            household: house.clone(),
+            media_id: MediaId::new(id),
+        })
+    };
+    // Two portraits open two people: face-1 and face-2.
+    *h.faces.faces_per_image.lock().unwrap() = 1;
+    enrich("solo-a").await.unwrap();
+    enrich("solo-b").await.unwrap();
+    // The group photo indexes face-3 and face-4; the smaller face is the first person.
+    *h.faces.faces_per_image.lock().unwrap() = 2;
+    {
+        let mut matches = h.faces.matches.lock().unwrap();
+        let hit = |face: &str| {
+            vec![FaceMatch {
+                face_id: face.into(),
+                similarity: 0.95,
+            }]
+        };
+        matches.insert("face-3".into(), hit("face-2"));
+        matches.insert("face-4".into(), hit("face-1"));
+    }
+    enrich("both").await.unwrap();
+
+    let people = h.storage.list_people(&house).await.unwrap();
+    assert_eq!(people.len(), 2, "nobody new: both faces were known");
+    let of = |face: &str| people.iter().find(|p| p.face_ids[0] == face).unwrap();
+    assert_eq!(of("face-1").face_ids, vec!["face-1", "face-4"]);
+    assert_eq!(of("face-2").face_ids, vec!["face-2", "face-3"]);
+    let both = h
+        .storage
+        .get_media(&house, &MediaId::new("both"))
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(both.people.len(), 2);
 }

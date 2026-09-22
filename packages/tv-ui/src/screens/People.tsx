@@ -8,9 +8,9 @@ import { Heading, Meta } from "../components/Type";
 import { theme } from "../theme";
 
 /**
- * F-704: the household's people, opt-in. Clusters with a sample face, a best-of row for
- * the person in focus, and Turn off, which deletes every face record. Naming happens on
- * the phone, where typing is easy.
+ * F-704: the household's people, opt-in. The switch lives here and only here, because the
+ * TV is the household: On starts grouping, Off deletes every face record. Naming happens
+ * on a paired phone, where typing is easy.
  */
 export function People({ api, token, onPlay, onBack, nav }: { api: TvApi; token: string; onPlay?: (trip: Trip) => void; onBack: () => void; nav?: Nav }) {
   const [state, setState] = useState<{ enabled: boolean; people: PersonView[] } | null>(null);
@@ -34,9 +34,21 @@ export function People({ api, token, onPlay, onBack, nav }: { api: TvApi; token:
       title="People"
       actions={
         <>
+          {state && !state.enabled && (
+            <FocusButton
+              label="Turn on face grouping"
+              testID="turn-on"
+              onPress={() => {
+                api
+                  .setPeople(token, true)
+                  .then(() => setState({ enabled: true, people: [] }))
+                  .catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)));
+              }}
+            />
+          )}
           {state?.enabled && (
             <FocusButton
-              label="Turn off face grouping"
+              label="Turn off and delete face data"
               variant="ghost"
               testID="turn-off"
               onPress={() => {
@@ -54,10 +66,10 @@ export function People({ api, token, onPlay, onBack, nav }: { api: TvApi; token:
       {error && <Text testID="error" style={{ color: theme.bad, fontSize: theme.body }}>{error}</Text>}
       {state && !state.enabled && (
         <Meta testID="off" size={theme.body}>
-          Face grouping is off. Turn it on from the People page on your phone; nothing about faces is stored until you do.
+          Face grouping is off and nothing about faces is stored. Turn it on to find everyone's photos by person. Face signatures stay in a private collection for this household, and turning it off deletes them.
         </Meta>
       )}
-      {state?.enabled && <Meta size={theme.body}>Grouped on this household's photos only. Names come from the People page on your phone.</Meta>}
+      {state?.enabled && <Meta size={theme.body}>Grouped on this household's photos only. Name people from the People page on a paired phone.</Meta>}
       {state?.enabled && state.people.length === 0 && (
         <Meta testID="empty" size={theme.body}>
           Groups appear as trips are organised.

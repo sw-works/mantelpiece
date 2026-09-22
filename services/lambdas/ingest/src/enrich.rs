@@ -210,23 +210,24 @@ pub async fn run(ingest: &Ingest, household: &HouseholdId, media_id: &MediaId) -
     })
 }
 
-/// Index the faces on this keeper and attach each to an existing person when the
-/// collection already knows the face, else open a new unnamed person.
+/// Index the faces on this keeper, then ask about each new face on its own: a known face
+/// joins its person, an unknown one opens a new unnamed person. One person per photo at
+/// most once, so two lookalikes in a frame never double-count.
 async fn group_faces(
     ingest: &Ingest,
     household: &HouseholdId,
     media: &MediaId,
     jpeg: &[u8],
 ) -> Result<Vec<memorylane_core::ids::PersonId>> {
-    let matches = ingest.faces.search(household, jpeg).await?;
     let indexed = ingest.faces.index(household, media, jpeg).await?;
     let mut people = ingest.storage.list_people(household).await?;
     let mut out = Vec::new();
-    for (i, face_id) in indexed.into_iter().enumerate() {
-        let known = matches.get(i).and_then(|m| {
-            people
-                .iter()
-                .position(|p| p.face_ids.contains(&m.face_id) && !p.is_merged())
+    for face_id in indexed {
+        let matches = ingest.faces.search(household, &face_id).await?;
+        let known = matches.iter().find_map(|m| {
+            people.iter().position(|p| {
+                p.face_ids.contains(&m.face_id) && !p.is_merged() && !out.contains(&p.id)
+            })
         });
         if let Some(pos) = known {
             let person = &mut people[pos];

@@ -4,7 +4,7 @@
 
 use async_trait::async_trait;
 use memorylane_core::ids::{HouseholdId, MediaId};
-use std::collections::VecDeque;
+use std::collections::HashMap;
 use std::sync::Mutex;
 
 use crate::{Result, StorageError};
@@ -27,17 +27,18 @@ pub trait Faces: Send + Sync {
         media: &MediaId,
         jpeg: &[u8],
     ) -> Result<Vec<String>>;
-    /// Faces in the collection that match the largest face in `jpeg`.
-    async fn search(&self, household: &HouseholdId, jpeg: &[u8]) -> Result<Vec<FaceMatch>>;
+    /// Other faces in the collection that match the indexed face `face_id`, best first.
+    /// Asked once per face, so every person in a group photo is matched on their own face.
+    async fn search(&self, household: &HouseholdId, face_id: &str) -> Result<Vec<FaceMatch>>;
 }
 
-/// Scripted fake: `index` hands out sequential face ids, `search` answers from a queue so a
-/// test decides which faces match.
+/// Scripted fake: `index` hands out sequential face ids, `search` answers from a map keyed
+/// by the face asked about, so a test decides which faces match.
 #[derive(Debug, Default)]
 pub struct MemoryFaces {
     pub collections: Mutex<Vec<HouseholdId>>,
     pub faces_per_image: Mutex<usize>,
-    pub matches: Mutex<VecDeque<Vec<FaceMatch>>>,
+    pub matches: Mutex<HashMap<String, Vec<FaceMatch>>>,
     next: Mutex<u32>,
     pub log: Mutex<Vec<String>>,
 }
@@ -85,8 +86,14 @@ impl Faces for MemoryFaces {
             .push(format!("index {media} {}", ids.len()));
         Ok(ids)
     }
-    async fn search(&self, _household: &HouseholdId, _jpeg: &[u8]) -> Result<Vec<FaceMatch>> {
-        Ok(self.matches.lock().unwrap().pop_front().unwrap_or_default())
+    async fn search(&self, _household: &HouseholdId, face_id: &str) -> Result<Vec<FaceMatch>> {
+        Ok(self
+            .matches
+            .lock()
+            .unwrap()
+            .get(face_id)
+            .cloned()
+            .unwrap_or_default())
     }
 }
 
@@ -174,12 +181,12 @@ impl Faces for RekognitionFaces {
             .filter_map(|r| r.face()?.face_id().map(str::to_owned))
             .collect())
     }
-    async fn search(&self, household: &HouseholdId, jpeg: &[u8]) -> Result<Vec<FaceMatch>> {
+    async fn search(&self, household: &HouseholdId, face_id: &str) -> Result<Vec<FaceMatch>> {
         let out = self
             .client
-            .search_faces_by_image()
+            .search_faces()
             .collection_id(Self::collection_id(household))
-            .image(Self::image(jpeg))
+            .face_id(face_id)
             .face_match_threshold(Self::MATCH_THRESHOLD)
             .max_faces(Self::MAX_FACES)
             .send()
@@ -212,12 +219,15 @@ mod tests {
             f.index(&h, &MediaId::new("m"), b"jpg").await.unwrap(),
             ["face-1", "face-2"]
         );
-        f.matches.lock().unwrap().push_back(vec![FaceMatch {
-            face_id: "face-1".into(),
-            similarity: 0.97,
-        }]);
-        assert_eq!(f.search(&h, b"jpg").await.unwrap().len(), 1);
-        assert!(f.search(&h, b"jpg").await.unwrap().is_empty());
+        f.matches.lock().unwrap().insert(
+            "face-2".into(),
+            vec![FaceMatch {
+                face_id: "face-1".into(),
+                similarity: 0.97,
+            }],
+        );
+        assert_eq!(f.search(&h, "face-2").await.unwrap().len(), 1);
+        assert!(f.search(&h, "face-1").await.unwrap().is_empty());
         assert_eq!(
             RekognitionFaces::collection_id(&HouseholdId::new("a.b|c")),
             "memorylane-a_b_c"

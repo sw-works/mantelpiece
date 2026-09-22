@@ -211,6 +211,10 @@ describe("screens", () => {
     await fireEvent.press(screen.getByTestId("turn-off"));
     await waitFor(() => expect(screen.getByTestId("off")).toBeTruthy());
     expect(api.calls).toContain("people off");
+    // The switch lives on the TV: from off, the same screen turns it back on.
+    await fireEvent.press(screen.getByTestId("turn-on"));
+    await waitFor(() => expect(screen.getByTestId("empty")).toBeTruthy());
+    expect(api.calls).toContain("people on");
   });
 
   it("MemoriesHome shows photos arriving, then the trip being organised", async () => {

@@ -1,11 +1,11 @@
-// upload.<domain>/people.html: People opt-in with consent copy, naming and merging, and
+// upload.<domain>/people.html: who is who (naming and merging; the TV holds the switch), and
 // My uploads with Remove (F-704, US9).
 
 import { Api, type PersonView } from "../api.js";
 import { OWNER_TOKEN_KEY } from "../auth.js";
 import { loadConfig } from "../config.js";
 import { CONSENT, mergeTargets, personLabel, sortPeople } from "../people.js";
-import { button, el, eyebrow, link, mount, photo, topbar } from "../ui.js";
+import { el, eyebrow, link, mount, photo, topbar } from "../ui.js";
 
 const BACK = "/?owner=1";
 
@@ -19,16 +19,6 @@ export async function main(root: HTMLElement, _location: Location, storage: Stor
   }
   const render = async () => {
     const [state, uploads] = await Promise.all([api.people(token), api.myUploads(token).catch(() => [])]);
-    const toggle = button(state.people_enabled ? CONSENT.turnOff : CONSENT.turnOn, { secondary: state.people_enabled });
-    toggle.onclick = async () => {
-      toggle.disabled = true;
-      if (state.people_enabled && !confirm("Delete all face data for this household?")) {
-        toggle.disabled = false;
-        return;
-      }
-      await api.setPeople(token, !state.people_enabled);
-      await render();
-    };
     const list = el("ul", { class: "people" });
     for (const p of sortPeople(state.people)) list.append(personRow(api, token, p, state.people, render));
     const mine = el("ul", { class: "mine" });
@@ -51,7 +41,6 @@ export async function main(root: HTMLElement, _location: Location, storage: Stor
       root,
       topbar({ back: BACK }),
       el("div", { class: "stack" }, el("h1", {}, "People"), el("p", { class: "lead" }, state.people_enabled ? CONSENT.on : CONSENT.off)),
-      toggle,
       ...(state.people_enabled ? [el("div", { class: "stack" }, eyebrow("Who is who"), state.people.length ? list : el("p", {}, "Groups appear as trips are organised."))] : []),
       el("div", { class: "stack" }, eyebrow("My uploads"), uploads.length ? mine : el("p", {}, "Nothing uploaded from this phone yet.")),
     );

@@ -3584,6 +3584,22 @@ async fn a_phone_pairs_with_the_tv_by_name_and_waits_for_approval() {
         .await;
     assert!(init.status < 300, "{:?}", init.body);
 
+    // Grouping faces is the household's call: the phone may look, only the TV switches.
+    for path in ["/people/enable", "/people/disable"] {
+        let refused = h.call(Method::Post, path, None, Some(&phone), None).await;
+        assert_eq!(refused.status, 403, "{:?}", refused.body);
+    }
+    assert_eq!(
+        h.call(Method::Get, "/people", None, Some(&phone), None)
+            .await
+            .status,
+        200
+    );
+    let on = h
+        .call(Method::Post, "/people/enable", None, Some(&tv), None)
+        .await;
+    assert_eq!(on.body["people_enabled"], true, "{:?}", on.body);
+
     // Phones never rename the household, approve other phones, or delete everything.
     assert_eq!(
         h.call(

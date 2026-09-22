@@ -151,10 +151,6 @@ export class Api {
     return this.call<{ people_enabled: boolean; people: PersonView[] }>("GET", "/people", undefined, { bearer });
   }
 
-  setPeople(bearer: string, enabled: boolean) {
-    return this.call<{ people_enabled: boolean }>("POST", enabled ? "/people/enable" : "/people/disable", undefined, { bearer });
-  }
-
   updatePerson(bearer: string, id: string, body: { name?: string; merge_into?: string }) {
     return this.call<PersonView>("PATCH", `/people/${id}`, body, { bearer });
   }
