@@ -1,5 +1,5 @@
 import { createElement, useEffect, useState } from "react";
-import { AppRegistry } from "react-native";
+import { AppRegistry, LogBox } from "react-native";
 import { App } from "@mantelpiece/tv-ui";
 import { apiBase, name } from "./app.json";
 import { audioPlayer } from "./src/audio";
@@ -13,6 +13,12 @@ import { sessionStore } from "./src/sessionStore";
 // Narration (F-709) plays through the system media port when the platform has one and
 // falls back to captions when it does not; the flag itself lives on the household. Live
 // video from a phone plays through the W3C media port when scripts/vega-hls.sh has run.
+// Debug builds only: the system media bundle trips two React warnings of its own the
+// moment the live player loads, and their full-screen LogBox sits over the TV. Neither
+// comes from this app: a forwardRef component inside the video surface, and hls.js asking
+// whether the platform decodes AC-3, which it does not.
+LogBox?.ignoreLogs?.(["forwardRef render functions accept exactly two parameters", "ac-3"]);
+
 const store = sessionStore();
 const audio = audioPlayer();
 const player = livePlayer();
