@@ -207,6 +207,14 @@ class GatewayTools:
             )
         )
 
+    def save_landmark_trivia(self, household: str, landmark: str, lines: list[str]) -> list[str]:
+        try:
+            self._call("save_landmark_trivia", household=household, landmark=landmark, lines=lines)
+        except ToolError as refused:
+            # 422 from the fact check: the reasons are what the retry needs.
+            return [str(refused)]
+        return []
+
     def get_trip_code(self, household: str, trip_id: str) -> str:
         issued = self._call("get_trip_code", household=household, trip_id=trip_id)
         return str(issued["code"]) if isinstance(issued, dict) else str(issued)

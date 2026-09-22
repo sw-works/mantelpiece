@@ -149,3 +149,22 @@ def test_gateway_errors_and_denials_raise():
         gateway.purge_expired("tv-1")
     with pytest.raises(ToolError, match="403"):
         gateway.list_trips("tv-1")
+
+
+def test_refused_trivia_comes_back_as_reasons_not_an_exception():
+    wire = Wire(
+        {
+            "save_landmark_trivia": text_result(
+                {"error": "trivia refused: number 1234 not in the source"}
+            )
+        }
+    )
+    problems = tools(wire).save_landmark_trivia("tv-1", "kinkaku-ji", ["Built in 1234."])
+    assert problems and "1234" in problems[0]
+    assert wire.seen[0][2] == {
+        "household": "tv-1",
+        "landmark": "kinkaku-ji",
+        "lines": ["Built in 1234."],
+    }
+    kept = Wire({"save_landmark_trivia": text_result({"key": "kinkaku-ji", "has_trivia": True})})
+    assert tools(kept).save_landmark_trivia("tv-1", "kinkaku-ji", ["Gold leaf."]) == []

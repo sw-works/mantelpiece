@@ -27,6 +27,8 @@ class Trip:
     narrative: dict[str, Any] | None = None
     landmarks: list[str] = field(default_factory=list)
     contributor_names: dict[str, str] = field(default_factory=dict)
+    # F-210: what an encyclopedia says about each landmark, keyed by landmark key.
+    landmark_facts: dict[str, dict[str, Any]] = field(default_factory=dict)
 
 
 @dataclass
@@ -135,6 +137,10 @@ class Tools(Protocol):
         """One day's story to audio; returns the audio key. Only when narration is on."""
         ...
 
+    def save_landmark_trivia(self, household: str, landmark: str, lines: list[str]) -> list[str]:
+        """Store trivia for a landmark. Returns why it was refused; empty means stored."""
+        ...
+
 
 @dataclass
 class InMemoryTools:
@@ -153,6 +159,9 @@ class InMemoryTools:
     cleanup: list[CleanupCandidate] = field(default_factory=list)
     memories: dict[str, Memories] = field(default_factory=dict)
     removed: list[str] = field(default_factory=list)
+    # Scripted refusals for save_landmark_trivia, used in order; then everything is kept.
+    trivia_refusals: list[list[str]] = field(default_factory=list)
+    trivia: dict[str, list[str]] = field(default_factory=dict)
 
     def list_trips(self, household: str) -> list[Trip]:
         self.log.append(f"list_trips {household}")
@@ -299,3 +308,10 @@ class InMemoryTools:
         self.cleanup = [c for c in self.cleanup if c.media not in media_ids]
         self.removed.extend(media_ids)
         return before - len(self.cleanup)
+
+    def save_landmark_trivia(self, household: str, landmark: str, lines: list[str]) -> list[str]:
+        self.log.append(f"save_landmark_trivia {landmark} {len(lines)}")
+        if self.trivia_refusals:
+            return self.trivia_refusals.pop(0)
+        self.trivia[landmark] = list(lines)
+        return []

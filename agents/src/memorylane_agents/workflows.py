@@ -60,12 +60,62 @@ def trip_curator(tools: Tools, model: Model, household: str, trip_id: str) -> Cu
         trip.highlights[:HIGHLIGHTS_IN_PLAYLIST],
         source=f"trip_curator:{trip_id}",
     )
+    # F-210: trivia for the places the trip went, before the TV hears it is ready.
+    write_trivia(tools, model, household, trip)
     tools.push_event(household, {"type": "memory.ready", "trip": trip_id})
     tools.push_event(
         household,
         {"type": "playlist.created", "playlist": playlist, "name": f"{trip.name} highlights"},
     )
     return CuratorResult(trip_id, playlist, ok, problems)
+
+
+TRIVIA_SYSTEM = (
+    "You write trivia cards shown on a TV while a family watches their holiday photos. "
+    "Use only facts stated in the summary you are given. Answer with one to three lines, "
+    "one fact per line, each under 140 characters, no numbering, no preamble. Keep every "
+    "number, date and name exactly as the summary has it."
+)
+TRIVIA_ATTEMPTS = 2
+TRIVIA_PER_TRIP = 6
+
+
+def trivia_lines(raw: str) -> list[str]:
+    """Model answer to card lines: bullets and numbering dropped, at most three."""
+    lines = []
+    for line in raw.splitlines():
+        line = re.sub(r"^\s*(?:[-*\u2022]|\d+[.)])\s*", "", line).strip()
+        if line:
+            lines.append(line)
+    return lines[:3]
+
+
+def write_trivia(tools: Tools, model: Model, household: str, trip: Trip) -> dict[str, bool]:
+    """Trivia for each landmark that has facts but no trivia yet. The API checks every
+    line against the summary; a refused draft is retried once with the reasons, then left
+    to the summary's own opening lines. Returns which landmarks got trivia."""
+    done: dict[str, bool] = {}
+    pending = [
+        (key, facts)
+        for key, facts in trip.landmark_facts.items()
+        if not facts.get("has_trivia") and facts.get("summary")
+    ]
+    for key, facts in pending[:TRIVIA_PER_TRIP]:
+        prompt = f"Landmark: {facts.get('title') or key}\nSummary: {facts['summary']}"
+        problems: list[str] = []
+        done[key] = False
+        for attempt in range(TRIVIA_ATTEMPTS):
+            ask = prompt
+            if attempt:
+                ask += "\n\nYour previous lines were refused: " + "; ".join(problems)
+            lines = trivia_lines(model.complete(TRIVIA_SYSTEM, ask))
+            if not lines:
+                break
+            problems = tools.save_landmark_trivia(household, key, lines)
+            if not problems:
+                done[key] = True
+                break
+    return done
 
 
 INTENT_SYSTEM = (
