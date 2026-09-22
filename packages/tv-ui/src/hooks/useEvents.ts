@@ -17,6 +17,31 @@ export interface FeedState {
   upload?: UploadProgress | null;
   /** Bumped when a phone asks to pair; the approval queue refetches on it. */
   phonesVersion?: number;
+  /** The newest batch of photos a phone sent that the TV can show (family channel). */
+  arrival?: Arrival | null;
+  /** A phone broadcasting to this TV right now (live from the event). */
+  live?: LiveNow | null;
+}
+
+export interface Arrival {
+  seq: number;
+  /** Event time, so a cold start's replay does not pop old arrivals up. */
+  at: string;
+  batch: string;
+  contributor: string;
+  from: string;
+  media: string[];
+  count: number;
+  /** The batch size the phone announced, when its upload progress said so. */
+  expected: number | null;
+}
+
+export interface LiveNow {
+  seq: number;
+  at: string;
+  id: string;
+  from: string;
+  url: string;
 }
 
 export interface UploadProgress {
@@ -43,6 +68,12 @@ export function describe(event: FeedEvent): string | null {
       return `${String(event.display_name)} added ${String(event.count)} photos`;
     // phone.requested has no ticker line: the approval queue opens instead, and a replayed
     // request would otherwise sit on the home screen long after it was answered.
+    case "photos.arrived":
+      return `${String(event.display_name)} sent ${String(event.count)} photo${Number(event.count) === 1 ? "" : "s"}`;
+    case "live.started":
+      return `${String(event.display_name)} is live`;
+    case "live.ended":
+      return "Live broadcast ended";
     case "upload.progress":
       return Number(event.done) >= Number(event.total) ? `Uploaded ${String(event.total)}, organising…` : `Uploading ${String(event.done)} of ${String(event.total)}`;
     case "trip.detected":
@@ -94,6 +125,8 @@ export function reduce(state: FeedState, events: FeedEvent[], next: number): Fee
     : state.play;
   return {
     since: next,
+    arrival: nextArrival(state.arrival ?? null, events, recent),
+    live: nextLive(state.live ?? null, events),
     recent,
     ticker: describe(last) ?? state.ticker,
     tripsVersion: touchesTrips ? state.tripsVersion + 1 : state.tripsVersion,
@@ -101,6 +134,49 @@ export function reduce(state: FeedState, events: FeedEvent[], next: number): Fee
     play,
     phonesVersion: (state.phonesVersion ?? 0) + (events.some((e) => e.type === "phone.requested") ? 1 : 0),
   };
+}
+
+/**
+ * Signal runs per photo in parallel, so one batch can announce the same count twice or out
+ * of order: keep the larger one. A different batch replaces it. Upload progress from the
+ * same phone says how big the batch will be.
+ */
+function nextArrival(current: Arrival | null, events: FeedEvent[], recent: FeedEvent[]): Arrival | null {
+  // The API reports progress as each upload completes, before Signal announces the photo.
+  const announced = (contributor: string): number | null => {
+    const p = [...recent].reverse().find((e) => e.type === "upload.progress" && String(e.contributor) === contributor);
+    return p ? Number(p.total) : null;
+  };
+  let arrival = current;
+  for (const e of events) {
+    if (e.type === "photos.arrived") {
+      const contributor = String(e.contributor);
+      const next: Arrival = {
+        seq: e.seq,
+        at: e.at,
+        batch: String(e.batch),
+        contributor,
+        from: String(e.display_name),
+        media: Array.isArray(e.media) ? e.media.map(String) : [],
+        count: Number(e.count),
+        expected: announced(contributor),
+      };
+      if (arrival && arrival.batch === next.batch && arrival.count > next.count) continue;
+      arrival = next;
+    } else if (e.type === "upload.progress" && arrival && String(e.contributor) === arrival.contributor) {
+      arrival = { ...arrival, expected: Number(e.total) };
+    }
+  }
+  return arrival;
+}
+
+function nextLive(current: LiveNow | null, events: FeedEvent[]): LiveNow | null {
+  let live = current;
+  for (const e of events) {
+    if (e.type === "live.started") live = { seq: e.seq, at: e.at, id: String(e.broadcast), from: String(e.display_name), url: String(e.playback_url) };
+    else if (e.type === "live.ended" && live && live.id === String(e.broadcast)) live = null;
+  }
+  return live;
 }
 
 export function useEvents(api: TvApi, token: string | null, opts: { errorBackoffMs?: number; sleep?: (ms: number) => Promise<void> } = {}): FeedState {

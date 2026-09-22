@@ -4,6 +4,7 @@ export { App } from "./App";
 export type { AppProps, Route } from "./App";
 export { TvApi, clockHints, creditFor, slides, storyOf } from "./api/client";
 export type { AudioPlayer } from "./audio";
+export type { LivePlayer, LivePlayerProps, LivePlayerState } from "./live";
 export { Ambient } from "./screens/Ambient";
 export { Ask } from "./screens/Ask";
 export { JoinTrip } from "./screens/JoinTrip";

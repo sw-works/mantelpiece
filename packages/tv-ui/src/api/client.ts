@@ -346,6 +346,15 @@ export class TvApi {
     return this.call<DevicePoll>("GET", `/device/poll?${q.toString()}`);
   }
 
+  /** Family channel: the TV loved a phone's photos; the phone hears about it. */
+  loveArrival(token: string, body: { contributor: string; count: number; cover?: string }) {
+    return this.call<{ pushed: boolean; noted: boolean }>("POST", "/arrivals/love", body, token);
+  }
+
+  stopLive(token: string) {
+    return this.call<{ ended: boolean }>("POST", "/live/stop", undefined, token);
+  }
+
   events(token: string, since: number) {
     return this.call<{ events: FeedEvent[]; next: number }>("GET", `/events?since=${since}`, undefined, token);
   }

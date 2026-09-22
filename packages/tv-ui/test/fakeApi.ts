@@ -166,4 +166,14 @@ export class FakeApi extends TvApi {
     };
     return { id, name: phone.name, approved: allow };
   }
+  loveError: Error | null = null;
+  override async loveArrival(_token: string, body: { contributor: string; count: number; cover?: string }) {
+    this.calls.push(`love ${body.contributor} ${body.count}${body.cover ? ` ${body.cover}` : ""}`);
+    if (this.loveError) throw this.loveError;
+    return { pushed: true, noted: true };
+  }
+  override async stopLive() {
+    this.calls.push("stop live");
+    return { ended: true };
+  }
 }

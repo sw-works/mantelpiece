@@ -7,11 +7,14 @@ import { Ticker } from "./components/Ticker";
 import { useEvents } from "./hooks/useEvents";
 import { useRemoteKeys } from "./hooks/useRemoteKeys";
 import { type AudioPlayer } from "./audio";
+import { type LivePlayer } from "./live";
 import { Ambient } from "./screens/Ambient";
+import { Arrived } from "./screens/Arrived";
 import { Ask } from "./screens/Ask";
 import { Highlights } from "./screens/Highlights";
 import { Invite } from "./screens/Invite";
 import { JoinTrip } from "./screens/JoinTrip";
+import { Live } from "./screens/Live";
 import { MapView } from "./screens/MapView";
 import { MemoriesHome } from "./screens/MemoriesHome";
 import { People } from "./screens/People";
@@ -34,7 +37,21 @@ export type Route =
   | { name: "ask" }
   | { name: "review" }
   | { name: "phones"; first?: boolean }
-  | { name: "invite"; tripId: string | null };
+  | { name: "invite"; tripId: string | null }
+  /** A phone's photos just landed; `back` is where the TV was (family channel). */
+  | { name: "arrived"; back: Route }
+  /** A phone is broadcasting; `back` is where the TV was (live from the event). */
+  | { name: "live"; back: Route; from: string };
+
+/** Shows made on the spot rather than a stored trip: no presence trip, no trip to go back to. */
+function isAdHoc(tripId: string): boolean {
+  return tripId.startsWith("playlist:") || tripId.startsWith("arrival:");
+}
+
+/** Replays after a cold start must not pop old photos or a finished broadcast up. */
+const FRESH_ARRIVAL_MS = 10 * 60 * 1000;
+const FRESH_LIVE_MS = 4 * 60 * 60 * 1000;
+const fresh = (at: string, windowMs: number) => Date.now() - Date.parse(at) < windowMs;
 
 export interface AppProps {
   apiBase?: string;
@@ -48,12 +65,14 @@ export interface AppProps {
   narration?: boolean;
   /** Minutes of stillness on Memories home before the ambient slideshow (F-406). */
   idleMs?: number;
+  /** Plays a phone's live broadcast; the platform shell supplies it. */
+  livePlayer?: LivePlayer;
 }
 
 const DEFAULT_API = "https://api.memorylane.test";
 
 /** State-based router: no navigation library, no native screens module. */
-export function App({ apiBase, api: injectedApi, sessionStore, tvName, audio = null, narration = false, idleMs = 5 * 60 * 1000 }: AppProps) {
+export function App({ apiBase, api: injectedApi, sessionStore, tvName, audio = null, narration = false, idleMs = 5 * 60 * 1000, livePlayer }: AppProps) {
   const api = useMemo(() => injectedApi ?? new TvApi(apiBase ?? DEFAULT_API), [injectedApi, apiBase]);
   const store = useMemo(() => sessionStore ?? new MemorySessionStore(), [sessionStore]);
   const [deviceId] = useState(() => newDeviceId());
@@ -67,7 +86,8 @@ export function App({ apiBase, api: injectedApi, sessionStore, tvName, audio = n
     setRoute((r) => {
       if (r.name === "trip") return { name: "home" };
       if (r.name === "highlights") return { name: "trip", id: r.id };
-      if (r.name === "slideshow") return r.trip.id.startsWith("playlist:") ? { name: "ask" } : { name: "trip", id: r.trip.id };
+      if (r.name === "slideshow") return r.trip.id.startsWith("playlist:") ? { name: "ask" } : r.trip.id.startsWith("arrival:") ? { name: "home" } : { name: "trip", id: r.trip.id };
+      if (r.name === "arrived" || r.name === "live") return r.back;
       if (r.name === "ask" || r.name === "review" || r.name === "phones" || r.name === "join" || r.name === "map" || r.name === "people" || r.name === "ambient")
         return { name: "home" };
       if (r.name === "invite") return r.tripId ? { name: "trip", id: r.tripId } : { name: "home" };
@@ -75,7 +95,7 @@ export function App({ apiBase, api: injectedApi, sessionStore, tvName, audio = n
     });
   }, []);
   // The slideshow owns the remote while it is up.
-  useRemoteKeys({ onBack: route.name === "home" || route.name === "slideshow" || route.name === "ambient" ? undefined : goBack });
+  useRemoteKeys({ onBack: route.name === "home" || route.name === "slideshow" || route.name === "ambient" || route.name === "arrived" || route.name === "live" ? undefined : goBack });
 
   useEffect(() => {
     store.load().then((s) => setSession(s ? { token: s.token, household: s.household, ...(s.name ? { name: s.name } : {}) } : null));
@@ -108,12 +128,34 @@ export function App({ apiBase, api: injectedApi, sessionStore, tvName, audio = n
     };
   }, [feed.play, session, api]);
 
+  // Family channel: a phone's photos take over the idle screens as they land, once each.
+  const arrivedSeq = useRef(0);
+  useEffect(() => {
+    const a = feed.arrival;
+    if (!a || !session || a.seq <= arrivedSeq.current) return;
+    arrivedSeq.current = a.seq;
+    if (!fresh(a.at, FRESH_ARRIVAL_MS)) return;
+    setRoute((r) => (r.name === "ambient" || r.name === "home" ? { name: "arrived", back: r } : r));
+  }, [feed.arrival, session]);
+
+  // Live from the event: a broadcast interrupts anything passive, a show included.
+  const liveSeq = useRef(0);
+  useEffect(() => {
+    const l = feed.live;
+    if (!l || !session || l.seq <= liveSeq.current) return;
+    liveSeq.current = l.seq;
+    if (!fresh(l.at, FRESH_LIVE_MS)) return;
+    setRoute((r) =>
+      r.name === "home" || r.name === "ambient" || r.name === "slideshow" ? { name: "live", back: r, from: l.from } : r.name === "arrived" ? { name: "live", back: r.back, from: l.from } : r,
+    );
+  }, [feed.live, session]);
+
   // What is on screen, for "what's that statue" from the phone or Alexa+ (research R3).
   const token = session?.token;
   const onPresence = useCallback(
     (now: { media: string; day: number; paused: boolean }) => {
       if (!token) return;
-      const trip = route.name === "slideshow" && !route.trip.id.startsWith("playlist:") ? route.trip.id : null;
+      const trip = route.name === "slideshow" && !isAdHoc(route.trip.id) ? route.trip.id : null;
       api.putPresence(token, { device_id: deviceId, media: now.media, trip, day: now.day, paused: now.paused }).catch(() => undefined);
     },
     [api, token, deviceId, route],
@@ -143,10 +185,12 @@ export function App({ apiBase, api: injectedApi, sessionStore, tvName, audio = n
   const lastAnswer = [...feed.recent].reverse().find((e) => e.type === "answer.card");
   const answer = lastAnswer ? { question: String(lastAnswer.question), answer: String(lastAnswer.answer), media: lastAnswer.media as string | null } : null;
   // The rail every screen shares: the household's places, with the review count.
+  const liveNow = feed.live ?? null;
   const nav: Nav = useMemo(
     () => ({
       tvName: householdName,
       items: [
+        ...(liveNow ? [{ key: "live", label: `Live · ${liveNow.from}`, onPress: () => setRoute({ name: "live", back: { name: "home" }, from: liveNow.from }), testID: "live-now" }] : []),
         { key: "home", label: "Memories", onPress: () => setRoute({ name: "home" }), testID: "home" },
         { key: "map", label: "Map", onPress: () => setRoute({ name: "map" }), testID: "map" },
         { key: "people", label: "People", onPress: () => setRoute({ name: "people" }), testID: "people" },
@@ -157,7 +201,7 @@ export function App({ apiBase, api: injectedApi, sessionStore, tvName, audio = n
         { key: "review", label: "Review", onPress: () => setRoute({ name: "review" }), testID: "review", badge: pendingReviews },
       ],
     }),
-    [householdName, pendingReviews, waitingPhones],
+    [householdName, pendingReviews, waitingPhones, liveNow],
   );
 
   if (session === undefined) return <View style={{ flex: 1, backgroundColor: "#0b0b0f" }} />;
@@ -273,6 +317,28 @@ export function App({ apiBase, api: injectedApi, sessionStore, tvName, audio = n
           onBack={() => setRoute({ name: "trip", id: route.id })}
           onPlay={(trip) => setRoute({ name: "slideshow", trip })}
           nav={nav}
+        />
+      );
+      break;
+    case "arrived":
+      screen = feed.arrival ? (
+        <Arrived
+          api={api}
+          token={session.token}
+          arrival={feed.arrival}
+          onPlayAll={(media, from) => setRoute({ name: "slideshow", trip: { ...playlistAsTrip(`From ${from}`, media), id: `arrival:${feed.arrival?.batch ?? ""}` } })}
+          onClose={goBack}
+        />
+      ) : null;
+      break;
+    case "live":
+      screen = (
+        <Live
+          live={feed.live ?? null}
+          from={feed.live?.from ?? route.from}
+          player={livePlayer}
+          onBack={goBack}
+          onEnd={() => void api.stopLive(session.token).catch(() => undefined)}
         />
       );
       break;

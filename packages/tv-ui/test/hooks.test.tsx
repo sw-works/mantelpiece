@@ -109,6 +109,31 @@ describe("events feed", () => {
     expect(s4.upload).toBeNull();
   });
 
+  it("keeps the newest arrival per batch, with the size the phone announced", () => {
+    const s0 = { since: 0, recent: [], ticker: null, tripsVersion: 0, play: null };
+    const arrived = (seq: number, count: number, batch = "b1") => ({ seq, at: "2026-09-21T10:00:00Z", type: "photos.arrived", contributor: "maya", display_name: "Maya", batch, media: Array.from({ length: count }, (_, i) => `m${i}`), count });
+    const s1 = reduce(s0, [{ seq: 1, at: "", type: "upload.progress", contributor: "maya", done: 1, total: 14 }, arrived(2, 1)], 2);
+    expect(s1.arrival).toMatchObject({ batch: "b1", from: "Maya", count: 1, expected: 14, media: ["m0"] });
+    expect(s1.ticker).toBe("Maya sent 1 photo");
+    // Parallel Signal runs can announce out of order; the larger count wins.
+    const s2 = reduce(s1, [arrived(3, 3), arrived(4, 2)], 4);
+    expect(s2.arrival?.count).toBe(3);
+    const s3 = reduce(s2, [arrived(5, 1, "b2")], 5);
+    expect(s3.arrival).toMatchObject({ batch: "b2", count: 1 });
+  });
+
+  it("tracks the live broadcast until it ends", () => {
+    const s0 = { since: 0, recent: [], ticker: null, tripsVersion: 0, play: null };
+    const s1 = reduce(s0, [{ seq: 1, at: "2026-09-21T10:00:00Z", type: "live.started", broadcast: "l1", display_name: "Maya", playback_url: "https://p/x.m3u8" }], 1);
+    expect(s1.live).toEqual({ seq: 1, at: "2026-09-21T10:00:00Z", id: "l1", from: "Maya", url: "https://p/x.m3u8" });
+    expect(s1.ticker).toBe("Maya is live");
+    // An end for some other broadcast changes nothing.
+    const s2 = reduce(s1, [{ seq: 2, at: "", type: "live.ended", broadcast: "l0" }], 2);
+    expect(s2.live?.id).toBe("l1");
+    const s3 = reduce(s2, [{ seq: 3, at: "", type: "live.ended", broadcast: "l1" }], 3);
+    expect(s3.live).toBeNull();
+  });
+
   it("keeps the newest play request and its ticker line", () => {
     const s0 = { since: 0, recent: [], ticker: null, tripsVersion: 0, play: null };
     const s1 = reduce(
