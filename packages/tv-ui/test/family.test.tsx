@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react-native";
+import { useEffect } from "react";
 import { Text } from "react-native";
 import { App } from "../src/App";
 import { type Arrival, type LiveNow } from "../src/hooks/useEvents";
@@ -169,5 +170,32 @@ describe("family channel on the TV", () => {
     // Ben's request ran out before the TV saw it: no prompt for it.
     await waitFor(() => expect(screen.queryByTestId("live-request")).toBeNull());
     expect(screen.getByTestId("player").props.children).toBe("https://play.test/l1.m3u8");
+  });
+
+  it("Live builds the player again when the picture stops, then gives up", async () => {
+    // A player that always fails: every fresh one reports the wedged pipeline.
+    let mounts = 0;
+    function BrokenPlayer({ uri, onState }: LivePlayerProps) {
+      useEffect(() => {
+        mounts += 1;
+        onState?.("error");
+      }, [onState]);
+      return <Text testID="player">{uri}</Text>;
+    }
+    jest.useFakeTimers();
+    try {
+      await render(<Live live={broadcast} from="Maya" player={BrokenPlayer} onBack={jest.fn()} onEnd={jest.fn()} endedCloseMs={0} retryMs={10} />);
+      expect(screen.getByTestId("live-state").props.children).toMatch(/Trying again/);
+      for (let i = 0; i < 5; i++) {
+        await act(async () => {
+          jest.advanceTimersByTime(20);
+        });
+      }
+      // The first player plus three retries, no more, and then it says what to do.
+      expect(mounts).toBe(4);
+      expect(screen.getByTestId("live-state").props.children).toMatch(/Press Back/);
+    } finally {
+      jest.useRealTimers();
+    }
   });
 });

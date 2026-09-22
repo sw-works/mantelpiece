@@ -12,6 +12,10 @@ import { theme } from "../theme";
  * the platform's player; this screen adds who is live, how far behind it runs, and a way
  * to end it. When the phone stops, it says so and goes back.
  */
+/** A picture that stopped: build the player again, this often, this many times. */
+export const RETRY_MS = 3000;
+export const MAX_RETRIES = 3;
+
 export function Live({
   live,
   from,
@@ -19,6 +23,7 @@ export function Live({
   onBack,
   onEnd,
   endedCloseMs = 6000,
+  retryMs = RETRY_MS,
 }: {
   /** The broadcast, or null once it ended. */
   live: LiveNow | null;
@@ -28,10 +33,24 @@ export function Live({
   onBack: () => void;
   onEnd: () => void;
   endedCloseMs?: number;
+  retryMs?: number;
 }) {
   const [state, setState] = useState<LivePlayerState>("starting");
   // Ended from this TV, so the phone did not end it.
   const [endedHere, setEndedHere] = useState(false);
+  // The platform player can wedge: its pipeline stops taking video while the stream is
+  // still running. A fresh player picks the broadcast up again; the old one never recovers.
+  const [attempt, setAttempt] = useState(0);
+  useEffect(() => {
+    if (state !== "error" || attempt >= MAX_RETRIES) return;
+    const t = setTimeout(() => {
+      setState("starting");
+      setAttempt((n) => n + 1);
+    }, retryMs);
+    return () => clearTimeout(t);
+  }, [state, attempt, retryMs]);
+  // A new broadcast starts its own count.
+  useEffect(() => setAttempt(0), [live?.id]);
   useRemoteKeys({ onBack });
   useEffect(() => {
     if (live || endedCloseMs <= 0) return;
@@ -48,11 +67,12 @@ export function Live({
       </View>
     );
   }
-  const line = { starting: "Connecting…", playing: "A few seconds behind the room", stalled: "Waiting for the picture…", error: "The picture stopped. It may come back." }[state];
+  const stopped = attempt >= MAX_RETRIES ? "The picture stopped. Press Back and open Live again." : "The picture stopped. Trying again…";
+  const line = { starting: attempt > 0 ? "Reconnecting…" : "Connecting…", playing: "A few seconds behind the room", stalled: "Waiting for the picture…", error: stopped }[state];
   return (
     <View testID="live" style={{ flex: 1, backgroundColor: "#000" }}>
       {Player ? (
-        <Player uri={live.url} onState={setState} />
+        <Player key={`${live.id}:${attempt}`} uri={live.url} onState={setState} />
       ) : (
         <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
           <Meta testID="no-player" size={theme.body}>This TV cannot play live video yet.</Meta>
