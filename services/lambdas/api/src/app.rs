@@ -273,6 +273,10 @@ impl App {
             (Method::Post, ["people", "enable"]) => handlers::people::enable(self, req).await,
             (Method::Post, ["people", "disable"]) => handlers::people::disable(self, req).await,
             (Method::Get, ["people"]) => handlers::people::list(self, req).await,
+            (Method::Get, ["landmarks", key]) => handlers::landmarks::get(self, req, key).await,
+            (Method::Post, ["landmarks", key, "trivia"]) => {
+                handlers::landmarks::save_trivia(self, req, key).await
+            }
             (Method::Patch, ["people", id]) => handlers::people::update(self, req, id).await,
             // `/join/amazon` sits behind the Cognito JWT authorizer; `/join` is open for guests.
             (Method::Post, ["join"] | ["join", "amazon"]) => handlers::codes::join(self, req).await,

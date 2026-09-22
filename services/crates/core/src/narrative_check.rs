@@ -114,6 +114,39 @@ pub fn check(text: &str, allowed: &Allowed) -> Vec<String> {
     problems
 }
 
+/// Problems in `text` when `source` is all it may draw on (landmark trivia against its
+/// encyclopedia summary): every number and every name must come from the source.
+pub fn check_against_source(text: &str, source: &str) -> Vec<String> {
+    let lower = source.to_lowercase();
+    let source_tokens: BTreeSet<&str> = lower
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|t| !t.is_empty())
+        .collect();
+    let mut allowed = Allowed::new();
+    allowed.name(source);
+    // Dates count as numbers here: a year or month is fine exactly when the source has it.
+    for t in &source_tokens {
+        if let Ok(y) = t.parse::<i32>() {
+            allowed.years.insert(y);
+        }
+        if let Some(i) = MONTHS.iter().position(|m| m == t) {
+            allowed.months.insert(u8::try_from(i + 1).unwrap_or(1));
+        }
+    }
+    let mut problems = check(text, &allowed);
+    let text_lower = text.to_lowercase();
+    for t in text_lower
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|t| t.chars().any(|c| c.is_ascii_digit()))
+    {
+        let problem = format!("number {t} not in the source");
+        if !source_tokens.contains(t) && !problems.iter().any(|p| p.contains(t)) {
+            problems.push(problem);
+        }
+    }
+    problems
+}
+
 /// "icelandic" from "iceland", "scottish" from "scotland": a form of an allowed name, not a
 /// new one. The shared opening must be at least four letters and most of the shorter word.
 fn derived(word: &str, known: &BTreeSet<String>) -> bool {

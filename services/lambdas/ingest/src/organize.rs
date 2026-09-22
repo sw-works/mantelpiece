@@ -446,6 +446,10 @@ async fn attach_landmarks(
                 .collect();
         }
         day.landmarks = keep_ranked(found);
+        // Facts for what the day shows (F-210): what the route passed, looked up once.
+        for l in &day.landmarks {
+            crate::landmarks::ensure_facts(ingest, &l.name, Some(l.at)).await;
+        }
         let unnamed = day.title.as_deref().is_none_or(|t| !t.contains(':'));
         if unnamed {
             if let Some(best) = Landmark::best_name(&day.landmarks) {

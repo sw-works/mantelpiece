@@ -226,6 +226,12 @@ async fn main() {
         } else {
             Arc::new(NoPlaces)
         },
+        encyclopedia: if args.places {
+            Arc::new(memorylane_store::encyclopedia::Wikipedia::default())
+                as Arc<dyn memorylane_store::Encyclopedia>
+        } else {
+            Arc::new(memorylane_store::encyclopedia::NoEncyclopedia)
+        },
         cluster: memorylane_trips::cluster::Params {
             min_trip_days: args.min_trip_days,
             ..memorylane_trips::cluster::Params::default()

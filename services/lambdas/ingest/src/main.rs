@@ -45,6 +45,10 @@ async fn main() -> Result<(), Error> {
             Ok("none") => Arc::new(memorylane_store::places::NoPlaces),
             _ => Arc::new(memorylane_store::places::AwsPlaces::from_config(&aws)),
         },
+        encyclopedia: match std::env::var("ENCYCLOPEDIA").as_deref() {
+            Ok("none") => Arc::new(memorylane_store::encyclopedia::NoEncyclopedia),
+            _ => Arc::new(memorylane_store::encyclopedia::Wikipedia::default()),
+        },
         cluster: memorylane_trips::cluster::Params::default(),
         clock: Arc::new(OffsetDateTime::now_utc),
     });

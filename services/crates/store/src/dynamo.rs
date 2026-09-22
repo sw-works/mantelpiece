@@ -22,6 +22,7 @@ use memorylane_core::household::Household;
 use memorylane_core::ids::{
     ContributorId, HouseholdId, MediaId, PersonId, PlaylistId, ProposalId, ShareLinkId, TripId,
 };
+use memorylane_core::landmark::LandmarkFacts;
 use memorylane_core::media::MediaItem;
 use memorylane_core::membership::Membership;
 use memorylane_core::person::Person;
@@ -262,6 +263,21 @@ impl Storage for DynamoStorage {
     }
     async fn get_device_code(&self, code: &str) -> Result<Option<DeviceCode>> {
         self.get(format!("DC#{code}"), "DC".into()).await
+    }
+
+    async fn put_landmark_facts(&self, facts: &LandmarkFacts) -> Result<()> {
+        self.put(Row {
+            pk: format!("LM#{}", facts.key),
+            sk: "LM".into(),
+            gsi1pk: None,
+            gsi1sk: None,
+            ttl: None,
+            data: facts,
+        })
+        .await
+    }
+    async fn get_landmark_facts(&self, key: &str) -> Result<Option<LandmarkFacts>> {
+        self.get(format!("LM#{key}"), "LM".into()).await
     }
 
     async fn put_trip_code(&self, code: &TripCode) -> Result<()> {

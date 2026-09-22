@@ -5,6 +5,7 @@ pub mod confirmations;
 pub mod contributors;
 pub mod device;
 pub mod events;
+pub mod landmarks;
 pub mod media;
 pub mod memberships;
 pub mod memories;

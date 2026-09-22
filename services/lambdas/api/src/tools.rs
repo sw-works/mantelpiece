@@ -261,6 +261,23 @@ pub async fn call(app: &App, tool: &str, args: &Value) -> Result<Value, ApiError
             let q = [("trip", opt(args, "trip_id"))];
             route(app, h, Method::Get, "/media/cleanup".into(), &q, None).await
         }
+        "get_landmark_facts" => {
+            let key = memorylane_core::landmark::key(arg(args, "landmark")?);
+            route(app, h, Method::Get, format!("/landmarks/{key}"), &[], None).await
+        }
+        "save_landmark_trivia" => {
+            let key = memorylane_core::landmark::key(arg(args, "landmark")?);
+            let body = json!({ "lines": args["lines"] });
+            route(
+                app,
+                h,
+                Method::Post,
+                format!("/landmarks/{key}/trivia"),
+                &[],
+                Some(body),
+            )
+            .await
+        }
         "memories_for" => {
             let q = [("date", opt(args, "date"))];
             route(app, h, Method::Get, "/memories/home".into(), &q, None).await

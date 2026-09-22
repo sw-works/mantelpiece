@@ -92,9 +92,17 @@ sessions) or Cognito JWTs (`/join/amazon`). Errors are `{ "error": "<message>" }
 
 | Method | Path | Caller | Notes |
 |--------|------|--------|-------|
-| POST | /people/enable, /people/disable | owner | NEW; disable deletes the collection |
+| POST | /people/enable, /people/disable | TV session (a paired phone gets 403) | NEW; disable deletes the collection |
 | GET | /people | owner | NEW clusters with samples |
 | PATCH | /people/{id} | owner (phone) | NEW `{name}` or `{merge_into}` |
+
+## Landmarks (F-210)
+
+| Method | Path | Caller | Notes |
+|--------|------|--------|-------|
+| GET | /trips/{trip} also carries `landmark_facts` `{key: {key, name, title, tagline?, lines[], summary, has_trivia, credit, url}}`, per-day `landmark_keys[]`, `media_tags` `{media: {landmark?, people[]}}` and `people` `[{id, name?, media_count}]` | as the trip | people and people tags only for the trip's own household |
+| GET | /landmarks/{key} | owner | facts for a landmark the household has a photo or route at, else 404 |
+| POST | /landmarks/{key}/trivia | owner (the Concierge through the Gateway) | `{lines[]}`, one to three lines of at most 160 characters; 422 with the reasons when a line names a number, date or name the summary does not |
 
 ## Memories (US8)
 

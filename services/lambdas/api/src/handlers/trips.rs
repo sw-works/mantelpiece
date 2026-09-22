@@ -203,6 +203,15 @@ pub async fn trip_json_for(
         }
     }
     v["landmarks"] = json!(places);
+    // What a viewer can learn about the places (F-210) and filter by (F-704).
+    let own = viewer == household;
+    super::landmarks::annotate(app, &trip, &media, own, &mut v).await?;
+    v["people"] = if own {
+        json!(super::people::in_trip(app, household, &media).await?)
+    } else {
+        // Faces are the household's own business; a joined household does not see them.
+        json!([])
+    };
     v["contributor_names"] = Value::Object(names);
     v["contributor_roles"] = Value::Object(roles);
     v["media_credits"] = Value::Object(credits);

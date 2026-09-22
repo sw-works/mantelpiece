@@ -7,6 +7,7 @@
 pub mod blobs;
 pub mod bus;
 pub mod dynamo;
+pub mod encyclopedia;
 pub mod faces;
 pub mod feed;
 pub mod mailer;
@@ -21,6 +22,7 @@ pub mod vision;
 
 pub use blobs::{Blobs, CompletedPart};
 pub use bus::Bus;
+pub use encyclopedia::Encyclopedia;
 pub use faces::Faces;
 pub use mailer::Mailer;
 pub use maps::Maps;

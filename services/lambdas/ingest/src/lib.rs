@@ -13,6 +13,7 @@
 #![allow(clippy::cast_precision_loss)]
 
 pub mod enrich;
+pub mod landmarks;
 pub mod organize;
 pub mod signal;
 
@@ -63,6 +64,8 @@ pub struct Ingest {
     pub bus: Arc<dyn Bus>,
     /// Named places along routes (F-206); `NoPlaces` turns lookups off.
     pub places: Arc<dyn memorylane_store::Places>,
+    /// What is known about a landmark (F-210); `NoEncyclopedia` leaves them plain names.
+    pub encyclopedia: Arc<dyn memorylane_store::Encyclopedia>,
     /// Clustering thresholds; the defaults are the product rules, tools may relax them.
     pub cluster: memorylane_trips::cluster::Params,
     pub clock: Clock,

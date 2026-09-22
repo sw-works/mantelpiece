@@ -11,6 +11,7 @@ use memorylane_core::household::Household;
 use memorylane_core::ids::{
     ContributorId, HouseholdId, MediaId, PersonId, PlaylistId, ProposalId, ShareLinkId, TripId,
 };
+use memorylane_core::landmark::LandmarkFacts;
 use memorylane_core::media::MediaItem;
 use memorylane_core::membership::Membership;
 use memorylane_core::person::Person;
@@ -34,6 +35,10 @@ pub trait Storage: Send + Sync {
 
     async fn put_device_code(&self, code: &DeviceCode) -> Result<()>;
     async fn get_device_code(&self, code: &str) -> Result<Option<DeviceCode>>;
+
+    /// Landmark facts are public knowledge, shared by every household (F-210).
+    async fn put_landmark_facts(&self, facts: &LandmarkFacts) -> Result<()>;
+    async fn get_landmark_facts(&self, key: &str) -> Result<Option<LandmarkFacts>>;
 
     async fn put_trip_code(&self, code: &TripCode) -> Result<()>;
     async fn get_trip_code(&self, code: &str) -> Result<Option<TripCode>>;

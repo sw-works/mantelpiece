@@ -65,6 +65,25 @@ pub async fn describe(
             s
         }
     };
+    // F-210: what the encyclopedia says about the place, when it knows it.
+    let about = match media
+        .enrichment
+        .landmark
+        .as_ref()
+        .map(|t| t.name.as_str())
+        .or(landmark.as_deref())
+    {
+        Some(name) => app
+            .storage
+            .get_landmark_facts(&memorylane_core::landmark::key(name))
+            .await?
+            .map(|f| super::landmarks::view(&f)),
+        None => None,
+    };
+    let answer = match about.as_ref().and_then(|a| a["lines"][0].as_str()) {
+        Some(line) => format!("{answer} {line}"),
+        None => answer,
+    };
     let related: Vec<MediaId> = match &media.trip {
         Some(t) => app
             .storage
@@ -89,6 +108,7 @@ pub async fn describe(
     Ok(json!({
         "answer": answer,
         "landmark": landmark,
+        "about": about,
         "taken_by": taken_by,
         "when": when,
         "related": related,

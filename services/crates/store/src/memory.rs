@@ -10,6 +10,7 @@ use memorylane_core::household::Household;
 use memorylane_core::ids::{
     ContributorId, HouseholdId, MediaId, PersonId, PlaylistId, ProposalId, ShareLinkId, TripId,
 };
+use memorylane_core::landmark::LandmarkFacts;
 use memorylane_core::media::MediaItem;
 use memorylane_core::membership::Membership;
 use memorylane_core::person::Person;
@@ -30,6 +31,7 @@ use crate::{Result, StorageError};
 #[derive(Debug, Default)]
 struct Tables {
     device_codes: HashMap<String, DeviceCode>,
+    landmarks: HashMap<String, LandmarkFacts>,
     trip_codes: HashMap<String, TripCode>,
     contributors: HashMap<(HouseholdId, ContributorId), Contributor>,
     media: HashMap<(HouseholdId, MediaId), MediaItem>,
@@ -103,6 +105,18 @@ impl Storage for MemoryStorage {
     }
     async fn get_device_code(&self, code: &str) -> Result<Option<DeviceCode>> {
         Ok(self.tables.lock().unwrap().device_codes.get(code).cloned())
+    }
+
+    async fn put_landmark_facts(&self, facts: &LandmarkFacts) -> Result<()> {
+        self.tables
+            .lock()
+            .unwrap()
+            .landmarks
+            .insert(facts.key.clone(), facts.clone());
+        Ok(())
+    }
+    async fn get_landmark_facts(&self, key: &str) -> Result<Option<LandmarkFacts>> {
+        Ok(self.tables.lock().unwrap().landmarks.get(key).cloned())
     }
 
     async fn put_trip_code(&self, code: &TripCode) -> Result<()> {

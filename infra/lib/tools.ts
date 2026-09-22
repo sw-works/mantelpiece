@@ -60,11 +60,23 @@ export const readTools: ToolDefinition[] = [
     ["household", "media_id", "question"],
   ),
   tool("list_cleanup_candidates", "Screenshots, documents, receipts and blurry frames flagged for quick cleanup", { household: HOUSEHOLD, trip_id: TRIP }, ["household"]),
+  tool(
+    "get_landmark_facts",
+    "What an encyclopedia says about a landmark in the household's photos: summary, trivia lines, credit. Keys come from get_trip's landmark_facts or media_tags; a name works too",
+    { household: HOUSEHOLD, landmark: str("Landmark key or name, e.g. kinkaku-ji") },
+    ["household", "landmark"],
+  ),
   tool("memories_for", "On this day, then and now, and best-of sets for a date", { household: HOUSEHOLD, date: str("ISO date; defaults to today") }, ["household"]),
 ];
 
 /** Reversible writes. */
 export const writeTools: ToolDefinition[] = [
+  tool(
+    "save_landmark_trivia",
+    "Store up to three short trivia lines (160 characters each) for a landmark, written only from its summary. Refused with the reasons when a line names a number, date or name the summary does not",
+    { household: HOUSEHOLD, landmark: str("Landmark key"), lines: strings("One to three trivia lines") },
+    ["household", "landmark", "lines"],
+  ),
   tool(
     "create_playlist",
     "Save a playlist of media ids; returns the playlist id",

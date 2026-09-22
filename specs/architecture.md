@@ -214,6 +214,7 @@ account or guest, can add and remove their own photos, view, react), **member ho
 | F-207 | Route rendered as a static map image per trip and per day |
 | F-208 | Auto-named albums per trip and per event |
 | F-209 | Highlights: top N per trip, user can pin or hide |
+| F-210 | Landmark facts: recognition picks from the sights near the photo's position; each recognised landmark gets its encyclopedia summary (Wikipedia, credited on screen), cached once for all households; the Concierge writes up to three trivia lines, stored only when every number, date and name is in the summary. Shown on the first slideshow photo of a place, in the day panel, and in "what's that?" answers |
 
 ### 4.4 Narrative and Search
 

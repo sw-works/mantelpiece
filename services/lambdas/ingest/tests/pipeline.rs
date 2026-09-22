@@ -10,6 +10,7 @@ use memorylane_core::media::{
 use memorylane_ingest::checksum::sha256_hex;
 use memorylane_ingest_lambda::{Ingest, Task};
 use memorylane_store::bus::MemoryBus;
+use memorylane_store::encyclopedia::MemoryEncyclopedia;
 use memorylane_store::faces::{FaceMatch, MemoryFaces};
 use memorylane_store::maps::MemoryMaps;
 use memorylane_store::memory::{MemoryBlobs, MemoryStorage};
@@ -30,6 +31,7 @@ struct Harness {
     vectors: Arc<MemoryVectors>,
     maps: Arc<MemoryMaps>,
     faces: Arc<MemoryFaces>,
+    encyclopedia: Arc<MemoryEncyclopedia>,
 }
 
 fn harness(enrichment: Enrichment) -> Harness {
@@ -43,6 +45,18 @@ fn harness_with(vision: MemoryVision) -> Harness {
     let vectors = Arc::new(MemoryVectors::default());
     let maps = Arc::new(MemoryMaps::default());
     let faces = Arc::new(MemoryFaces::with_faces_per_image(1));
+    let encyclopedia = Arc::new(MemoryEncyclopedia::with(vec![
+        (
+            "Kinkaku-ji",
+            "Kinkaku-ji is a Zen Buddhist temple in Kyoto, Japan. Its top two floors are covered in gold leaf.",
+            Some((35.0394, 135.7292)),
+        ),
+        (
+            "Tōdai-ji",
+            "Tōdai-ji is a Buddhist temple complex in Nara, Japan.",
+            Some((34.6890, 135.8398)),
+        ),
+    ]));
     let ingest = Ingest {
         storage: storage.clone(),
         blobs: blobs.clone(),
@@ -56,6 +70,7 @@ fn harness_with(vision: MemoryVision) -> Harness {
             ("Fushimi Inari-taisha", 34.9671, 135.7727),
             ("Kyoto Station", 34.9858, 135.7588),
         ])),
+        encyclopedia: encyclopedia.clone(),
         cluster: memorylane_trips::cluster::Params::default(),
         clock: Arc::new(|| datetime!(2026-09-08 10:00:00 UTC)),
     };
@@ -67,6 +82,7 @@ fn harness_with(vision: MemoryVision) -> Harness {
         vectors,
         maps,
         faces,
+        encyclopedia,
     }
 }
 
@@ -750,4 +766,64 @@ async fn every_face_in_a_group_photo_finds_its_own_person() {
         .unwrap()
         .unwrap();
     assert_eq!(both.people.len(), 2);
+}
+
+#[tokio::test]
+async fn a_landmark_is_picked_from_the_sights_nearby_and_gets_its_facts() {
+    let h = harness_with(MemoryVision {
+        enrichment: Enrichment {
+            scene_tags: vec![Tag {
+                name: "Temple".into(),
+                confidence: 0.9,
+            }],
+            ..Enrichment::default()
+        },
+        text: vec![],
+        description: "Landmark: kinkaku-ji\nA golden pavilion over a still pond.".into(),
+        prompts: std::sync::Mutex::new(vec![]),
+    });
+    let house = HouseholdId::new(H);
+    let mut m = signalled(
+        "gold",
+        "owner",
+        0.0,
+        Some((35.0396, 135.7290)),
+        0x1111_0000_0000_0000,
+        100.0,
+    );
+    m.is_keeper = true;
+    h.storage.put_media(&m).await.unwrap();
+    h.blobs
+        .put(
+            "renditions/house/gold/tv.jpg",
+            jpeg(64, 64, 5),
+            "image/jpeg",
+        )
+        .await
+        .unwrap();
+    h.ingest
+        .run(Task::Enrich {
+            household: house.clone(),
+            media_id: MediaId::new("gold"),
+        })
+        .await
+        .unwrap();
+
+    let gold = h
+        .storage
+        .get_media(&house, &MediaId::new("gold"))
+        .await
+        .unwrap()
+        .unwrap();
+    let tag = gold.enrichment.landmark.expect("landmark kept");
+    assert_eq!(tag.name, "Kinkaku-ji", "the sight's own spelling");
+    assert!((tag.confidence - 0.85).abs() < f32::EPSILON);
+    let facts = h
+        .storage
+        .get_landmark_facts("kinkaku-ji")
+        .await
+        .unwrap()
+        .expect("facts stored once");
+    assert!(facts.summary.contains("gold leaf"));
+    assert_eq!(h.encyclopedia.calls.lock().unwrap().len(), 1);
 }

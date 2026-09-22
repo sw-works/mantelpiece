@@ -41,7 +41,8 @@ NEW: name and settings, used by the Trip Curator for narration.
 | list_duplicates | household, trip_id? | DedupGroup[] |
 | read_memory | household | preferences and patterns |
 | get_now_showing | household, tv? | NEW `{media, trip, day, paused, at}` or none (R3) |
-| describe_photo | household, media_id, question | NEW `{answer, landmark?, taken_by, when, related[]}`; answer checked against metadata (R8) |
+| describe_photo | household, media_id, question | NEW `{answer, landmark?, about?, taken_by, when, related[]}`; answer checked against metadata (R8); `about` is the landmark's facts and the answer ends with its first line (F-210) |
+| get_landmark_facts | household, landmark | NEW summary, trivia lines and credit for a landmark key or name (F-210) |
 | list_cleanup_candidates | household, trip_id? | NEW media with `cleanup_reason` (F-705) |
 | memories_for | household, date? | NEW on-this-day, then-and-now, best-of sets (F-701 to F-703) |
 
@@ -51,6 +52,7 @@ NEW: name and settings, used by the Trip Curator for narration.
 |------|------|-------|
 | create_playlist | household, name, media, source | returns playlist id |
 | save_narrative | household, trip_id, text, model_id | rejected when the fact check fails |
+| save_landmark_trivia | household, landmark, lines | NEW stored only when every line stays inside the summary; the refusal carries the reasons (F-210) |
 | write_memory | household, key, value | |
 | push_event | household, event | kinds in events.md |
 | set_keeper | household, media_id | NEW owner or co-editor; moves a burst group's keeper |

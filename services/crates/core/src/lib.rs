@@ -12,6 +12,7 @@ pub mod events;
 pub mod geo;
 pub mod household;
 pub mod ids;
+pub mod landmark;
 pub mod media;
 pub mod membership;
 pub mod narrative_check;

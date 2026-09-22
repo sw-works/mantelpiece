@@ -167,3 +167,36 @@ pub async fn resolve_names(
     }
     Ok(ids)
 }
+
+/// People in these photos, named first, then by how often they appear (F-704).
+pub async fn in_trip(
+    app: &App,
+    household: &memorylane_core::ids::HouseholdId,
+    media: &[memorylane_core::media::MediaItem],
+) -> Result<Vec<serde_json::Value>, ApiError> {
+    let mut counts: std::collections::BTreeMap<&PersonId, usize> =
+        std::collections::BTreeMap::new();
+    for m in media {
+        for p in &m.people {
+            *counts.entry(p).or_default() += 1;
+        }
+    }
+    let mut listed: Vec<(Person, usize)> = app
+        .storage
+        .list_people(household)
+        .await?
+        .into_iter()
+        .filter(|p| !p.is_merged())
+        .filter_map(|p| counts.get(&p.id).map(|c| (p.clone(), *c)))
+        .collect();
+    listed.sort_by(|a, b| {
+        b.0.name
+            .is_some()
+            .cmp(&a.0.name.is_some())
+            .then(b.1.cmp(&a.1))
+    });
+    Ok(listed
+        .into_iter()
+        .map(|(p, count)| json!({ "id": p.id, "name": p.name, "media_count": count }))
+        .collect())
+}

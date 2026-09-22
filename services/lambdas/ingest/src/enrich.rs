@@ -11,13 +11,21 @@ use memorylane_core::narrative_check::{check, Allowed};
 use memorylane_core::person::Person;
 use memorylane_ingest::embed;
 use memorylane_ingest::renditions::Rendition;
+use memorylane_store::places::Place;
 use serde::Serialize;
 use std::fmt::Write as _;
 
+use crate::landmarks::{ensure_facts, grounded, sights_near};
 use crate::{Ingest, IngestError, Result};
 
 /// Landmarks below this confidence get a description with a GPS hint.
 pub const LANDMARK_CONFIDENCE: f32 = 0.7;
+/// The model picked one of the sights known to be near the photo.
+pub const GROUNDED_CONFIDENCE: f32 = 0.85;
+/// A free answer, but the encyclopedia has that landmark where the photo was taken.
+pub const PLACED_CONFIDENCE: f32 = 0.75;
+/// A free answer nothing backs up.
+pub const GUESSED_CONFIDENCE: f32 = 0.5;
 
 #[derive(Debug, Serialize, PartialEq, Eq)]
 pub struct Output {
@@ -30,12 +38,13 @@ pub struct Output {
 
 /// The question put to the multimodal model. The answer's first line names the landmark
 /// or says "none"; the rest is the description.
-pub fn describe_prompt(media: &MediaItem, enrichment: &Enrichment) -> String {
+pub fn describe_prompt(media: &MediaItem, enrichment: &Enrichment, sights: &[Place]) -> String {
     let mut p = String::from(
         "Describe this family photo in two short sentences for a photo album. \
          First line: 'Landmark: <name>' if a known landmark is clearly visible, else 'Landmark: none'. \
          Then the description. Do not guess dates or people's names.",
     );
+    p.push_str(&sights_hint(sights));
     if let Some(gps) = media.gps {
         let _ = write!(
             p,
@@ -52,6 +61,20 @@ pub fn describe_prompt(media: &MediaItem, enrichment: &Enrichment) -> String {
         let _ = write!(p, "\nLabels: {}.", labels.join(", "));
     }
     p
+}
+
+/// Grounded recognition: the model chooses among sights that are really there.
+pub fn sights_hint(sights: &[Place]) -> String {
+    if sights.is_empty() {
+        return String::new();
+    }
+    let names: Vec<&str> = sights.iter().map(|s| s.name.as_str()).collect();
+    format!(
+        "\nSights near where this was taken: {}. If one of them is what the photo shows, \
+         answer with that name exactly as written. Name a landmark outside this list only \
+         if it is unmistakable.",
+        names.join("; ")
+    )
 }
 
 /// Split the model's answer into landmark and text.
@@ -135,15 +158,19 @@ pub async fn run(ingest: &Ingest, household: &HouseholdId, media_id: &MediaId) -
         .as_ref()
         .is_none_or(|l| l.confidence < LANDMARK_CONFIDENCE);
     if weak_landmark && (media.gps.is_some() || !enrichment.scene_tags.is_empty()) {
+        let sights = match media.gps {
+            Some(at) => sights_near(ingest, at).await,
+            None => vec![],
+        };
         let raw = ingest
             .vision
-            .describe(&jpeg, &describe_prompt(&media, &enrichment))
+            .describe(&jpeg, &describe_prompt(&media, &enrichment, &sights))
             .await?;
         let (landmark, text) = parse_description(&raw);
         if !text.is_empty() {
             // Constitution IV: a description naming a date the photo does not carry is
-            // withheld. Places cannot be checked without a gazetteer, so the landmark is
-            // kept as a low-confidence tag.
+            // withheld. The landmark's weight depends on what backs it: a sight known to
+            // be there, an encyclopedia article at that position, or nothing.
             let mut allowed = Allowed::new();
             if let Some(c) = media.captured {
                 let local = c.local();
@@ -168,13 +195,25 @@ pub async fn run(ingest: &Ingest, household: &HouseholdId, media_id: &MediaId) -
                 });
                 described = true;
                 if let (Some(l), None) = (landmark, &enrichment.landmark) {
-                    enrichment.landmark = Some(Tag {
-                        name: l,
-                        confidence: 0.6,
-                    });
+                    let sight = grounded(&l, &sights);
+                    let near = sight.map(|s| s.at).or(media.gps);
+                    // The sight's own spelling wins, so photos and routes agree on a name.
+                    let name = sight.map_or(l, |s| s.name.clone());
+                    let placed = ensure_facts(ingest, &name, near).await.is_some();
+                    let confidence = match (sight.is_some(), placed && media.gps.is_some()) {
+                        (true, _) => GROUNDED_CONFIDENCE,
+                        (false, true) => PLACED_CONFIDENCE,
+                        (false, false) => GUESSED_CONFIDENCE,
+                    };
+                    enrichment.landmark = Some(Tag { name, confidence });
                 }
             }
         }
+    }
+
+    // A landmark Vision itself was sure of has no description pass; it still gets its facts.
+    if let Some(l) = enrichment.landmark.as_ref().filter(|_| !described) {
+        ensure_facts(ingest, &l.name, media.gps).await;
     }
 
     // F-704: opt-in face grouping on keepers only (research R9).
@@ -265,5 +304,23 @@ mod tests {
             parse_description("Just prose."),
             (None, "Just prose.".into())
         );
+    }
+
+    #[test]
+    fn the_prompt_offers_the_sights_that_are_really_there() {
+        use memorylane_core::geo::GeoPoint;
+        let sight = |name: &str| Place {
+            name: name.into(),
+            at: GeoPoint::new(63.53, -19.51),
+            distance_m: 120.0,
+            source: "memory".into(),
+            kind: Some("landmark".into()),
+            dim_m: None,
+            country: None,
+        };
+        let with = sights_hint(&[sight("Skógafoss"), sight("Skógar Museum")]);
+        assert!(with.contains("Sights near where this was taken: Skógafoss; Skógar Museum."));
+        assert!(with.contains("exactly as written"));
+        assert_eq!(sights_hint(&[]), "");
     }
 }

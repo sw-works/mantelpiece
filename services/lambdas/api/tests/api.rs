@@ -3997,3 +3997,131 @@ async fn gateway_tools_run_the_same_routes_for_the_household_they_name() {
         400
     );
 }
+
+#[tokio::test]
+async fn landmark_facts_reach_the_trip_and_trivia_must_stay_inside_the_summary() {
+    let h = harness();
+    let house = HouseholdId::new("amzn-owner");
+    let gold = enriched(&h, "gold.jpg", 71, &["Temple"], None).await;
+    let plain = enriched(&h, "plain.jpg", 72, &["Street"], None).await;
+    let mut kyoto = trip("amzn-owner", "kyoto");
+    let day = memorylane_core::trip::TripDay {
+        index: 1,
+        date: time::macros::date!(2026 - 04 - 04),
+        media: vec![gold.clone(), plain.clone()],
+        route: Route::default(),
+        title: Some("Day 1: Kinkaku-ji".into()),
+        story: None,
+        undated: vec![],
+        landmarks: vec![],
+    };
+    kyoto.days = vec![day];
+    h.storage.put_trip(&kyoto).await.unwrap();
+    let maya = memorylane_core::person::Person::new(house.clone(), "f1", gold.clone(), h.app.now());
+    h.storage.put_person(&maya).await.unwrap();
+    for id in [&gold, &plain] {
+        let mut m = h.storage.get_media(&house, id).await.unwrap().unwrap();
+        m.trip = Some(TripId::new("kyoto"));
+        if id == &gold {
+            m.enrichment.landmark = Some(memorylane_core::media::Tag {
+                name: "Kinkaku-ji".into(),
+                confidence: 0.85,
+            });
+            m.people = vec![maya.id.clone()];
+        }
+        h.storage.put_media(&m).await.unwrap();
+    }
+    h.storage
+        .put_landmark_facts(&memorylane_core::landmark::LandmarkFacts {
+            key: "kinkaku-ji".into(),
+            name: "Kinkaku-ji".into(),
+            title: "Kinkaku-ji".into(),
+            tagline: Some("Buddhist temple in Kyoto, Japan".into()),
+            summary: "Kinkaku-ji is a Zen Buddhist temple in Kyoto, Japan. The top two floors of the pavilion are covered in gold leaf. The pavilion was burned down in 1950 by a monk and rebuilt in 1955.".into(),
+            url: "https://en.wikipedia.org/wiki/Kinkaku-ji".into(),
+            credit: "Wikipedia, CC BY-SA 4.0".into(),
+            at: None,
+            trivia: vec![],
+            fetched_at: h.app.now(),
+        })
+        .await
+        .unwrap();
+
+    // The trip carries facts per landmark, and per photo the landmark and people in it.
+    let detail = h.owner(Method::Get, "/trips/kyoto", None).await;
+    assert_eq!(detail.status, 200, "{}", detail.body);
+    let facts = &detail.body["landmark_facts"]["kinkaku-ji"];
+    assert_eq!(facts["credit"], "Wikipedia, CC BY-SA 4.0");
+    assert!(facts["lines"][0]
+        .as_str()
+        .unwrap()
+        .starts_with("Kinkaku-ji is a Zen Buddhist temple"));
+    let tags = &detail.body["media_tags"];
+    assert_eq!(tags[gold.as_str()]["landmark"], "kinkaku-ji");
+    assert_eq!(tags[gold.as_str()]["people"][0], maya.id.as_str());
+    assert!(tags[plain.as_str()].is_null());
+    assert_eq!(
+        detail.body["days"][0]["landmark_keys"],
+        json!(["kinkaku-ji"])
+    );
+    assert_eq!(detail.body["people"][0]["id"], maya.id.as_str());
+    assert_eq!(detail.body["people"][0]["media_count"], 1);
+
+    // Trivia the summary backs is kept; trivia that invents is refused and not stored.
+    let invented = h
+        .owner(
+            Method::Post,
+            "/landmarks/kinkaku-ji/trivia",
+            Some(json!({ "lines": ["Legend says Mishima hid a sword here in 1936."] })),
+        )
+        .await;
+    assert_eq!(invented.status, 422, "{}", invented.body);
+    let kept = h
+        .owner(
+            Method::Post,
+            "/landmarks/Kinkaku-ji/trivia",
+            Some(json!({ "lines": [
+                "The top two floors are covered in gold leaf.",
+                "A monk burned it down in 1950; it was rebuilt in 1955."
+            ] })),
+        )
+        .await;
+    assert_eq!(kept.status, 200, "{}", kept.body);
+    let got = h.owner(Method::Get, "/landmarks/kinkaku-ji", None).await;
+    assert_eq!(got.body["has_trivia"], true);
+    assert_eq!(got.body["lines"].as_array().unwrap().len(), 2);
+
+    // A household only reads landmarks it has been to.
+    assert_eq!(
+        h.owner(Method::Get, "/landmarks/eiffel-tower", None)
+            .await
+            .status,
+        404
+    );
+
+    // The same through the Gateway: Alexa+ asks by name, the Concierge writes trivia.
+    let person = access_token(&h, "amzn-owner", "alexa-client", None, 3600);
+    let asked = via_gateway(
+        &h,
+        &person,
+        "api___get_landmark_facts",
+        json!({ "landmark": "Kinkaku-ji" }),
+    )
+    .await
+    .unwrap();
+    assert_eq!(asked["title"], "Kinkaku-ji");
+    let agent = h.app.config.agent_client_id.clone();
+    let concierge = access_token(&h, &agent, &agent, None, 3600);
+    let refused = via_gateway(
+        &h,
+        &concierge,
+        "api___save_landmark_trivia",
+        json!({ "household": "amzn-owner", "landmark": "kinkaku-ji", "lines": ["Built by aliens in 1234."] }),
+    )
+    .await
+    .unwrap();
+    assert!(
+        refused["error"].as_str().unwrap().contains("1234"),
+        "the agent gets the reasons: {refused}"
+    );
+}
