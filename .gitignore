@@ -25,3 +25,6 @@ apps/tv-vega/spike/vendor/
 
 # Downloaded test albums (scripts/fetch-test-album.py)
 testbed/
+
+# Vega hls.js build for live video (scripts/vega-hls.sh): Amazon-licensed, rebuilt per machine
+apps/tv-vega/vendor/

@@ -88,6 +88,24 @@ sessions) or Cognito JWTs (`/join/amazon`). Errors are `{ "error": "<message>" }
 | POST | /trips/{trip}/reactions | contributor, member | NEW `{target: day\|media, id, kind, text?}` |
 | GET | /trips/{trip}/reactions | any with access | NEW |
 
+## Family channel
+
+| Method | Path | Caller | Notes |
+|--------|------|--------|-------|
+| GET | /push/key | anyone | NEW VAPID public key, base64url uncompressed P-256, derived from the token secret |
+| PUT | /push/subscription | paired phone, guest | NEW body is `PushSubscription.toJSON()`; endpoint must be https |
+| DELETE | /push/subscription | paired phone, guest | NEW |
+| GET | /inbox | paired phone, guest | NEW `{notes: [{at, from, kind, count, cover?}], push}`, newest first, at most 20 |
+| POST | /arrivals/love | TV | NEW `{contributor, count, cover?}`: note to the contributor's inbox, web push when subscribed; a 404/410 from the push service drops the subscription |
+
+## Live from the event
+
+| Method | Path | Caller | Notes |
+|--------|------|--------|-------|
+| POST | /live | paired phone, guest | NEW makes one IVS BASIC low-latency channel; answers `{id, ingest_endpoint, stream_key, playback_url, tv}`; the stream key goes to this phone only; any earlier broadcast of the household ends first |
+| POST | /live/stop | the live phone, TV | NEW stops the stream, deletes the channel (or parks it while IVS refuses), emits `live.ended` |
+| GET | /live | TV, phone | NEW `{live: {id, display_name, playback_url, started_at} \| null}`; a broadcast older than 4 h reads as null |
+
 ## People (US9)
 
 | Method | Path | Caller | Notes |

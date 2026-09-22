@@ -1,0 +1,7 @@
+{
+  "name": "vega-hls",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Stand-in for the Vega hls.js build when scripts/vega-hls.sh has not run: live video is off.",
+  "main": "index.js"
+}
