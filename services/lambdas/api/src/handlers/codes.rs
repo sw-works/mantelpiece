@@ -238,6 +238,8 @@ pub async fn join(app: &App, req: &Req) -> Result<Resp, ApiError> {
                 removed_at: None,
                 grace_until: None,
                 role: Role::Contributor,
+                push: None,
+                inbox: Vec::new(),
             };
             app.storage.put_contributor(&c).await?;
             c

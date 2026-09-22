@@ -10,9 +10,11 @@ use memorylane_core::ids::{HouseholdId, MediaId, TripId};
 use memorylane_core::trip::{Route, Trip};
 use memorylane_store::bus::MemoryBus;
 use memorylane_store::faces::MemoryFaces;
+use memorylane_store::live::MemoryLive;
 use memorylane_store::mailer::MemoryMailer;
 use memorylane_store::maps::MemoryMaps;
 use memorylane_store::memory::{MemoryBlobs, MemoryStorage};
+use memorylane_store::push::MemoryPush;
 use memorylane_store::speech::MemorySpeech;
 use memorylane_store::vectors::MemoryVectors;
 use memorylane_store::Blobs as _;
@@ -31,6 +33,8 @@ struct Harness {
     vectors: Arc<MemoryVectors>,
     starter: Arc<MemoryStarter>,
     mailer: Arc<MemoryMailer>,
+    push: Arc<MemoryPush>,
+    live: Arc<MemoryLive>,
     now: Arc<Mutex<OffsetDateTime>>,
 }
 
@@ -41,6 +45,8 @@ fn harness() -> Harness {
     let vectors = Arc::new(MemoryVectors::default());
     let starter = Arc::new(MemoryStarter::default());
     let mailer = Arc::new(MemoryMailer::default());
+    let push = Arc::new(MemoryPush::default());
+    let live = Arc::new(MemoryLive::default());
     let now = Arc::new(Mutex::new(datetime!(2026-09-08 10:00:00 UTC)));
     let clock_now = now.clone();
     let app = App {
@@ -52,6 +58,8 @@ fn harness() -> Harness {
         faces: Arc::new(MemoryFaces::with_faces_per_image(1)),
         speech: Arc::new(MemorySpeech::default()),
         mailer: mailer.clone(),
+        push: push.clone(),
+        live: live.clone(),
         starter: starter.clone(),
         signer: Signer::new("test-secret"),
         config: Config {
@@ -69,6 +77,8 @@ fn harness() -> Harness {
         vectors,
         starter,
         mailer,
+        push,
+        live,
         now,
     };
     // The owner exists once they approved a TV; tests that skip that flow still need them.
@@ -4123,5 +4133,258 @@ async fn landmark_facts_reach_the_trip_and_trivia_must_stay_inside_the_summary()
     assert!(
         refused["error"].as_str().unwrap().contains("1234"),
         "the agent gets the reasons: {refused}"
+    );
+}
+
+/// A TV named `tv_name` with one approved phone called `phone_name`. Returns
+/// (tv token, phone token, phone's contributor id).
+async fn paired(h: &Harness, tv_name: &str, phone_name: &str) -> (String, String, String) {
+    let setup = h
+        .call(
+            Method::Post,
+            "/tv/setup",
+            Some(json!({ "device_id": "tv-1", "name": tv_name })),
+            None,
+            None,
+        )
+        .await;
+    let tv = setup.body["token"].as_str().unwrap().to_owned();
+    let issued = h
+        .call(
+            Method::Post,
+            "/pair/code",
+            Some(json!({ "device_id": "tv-1" })),
+            Some(&tv),
+            None,
+        )
+        .await;
+    let code = issued.body["code"].as_str().unwrap().to_owned();
+    let asked = h
+        .call(
+            Method::Post,
+            "/pair/requests",
+            Some(json!({ "code": code, "name": phone_name })),
+            None,
+            None,
+        )
+        .await;
+    let waiting = asked.body["token"].as_str().unwrap().to_owned();
+    let request = asked.body["request"].as_str().unwrap().to_owned();
+    let path = format!("/pair/requests/{request}/approve");
+    assert_eq!(
+        h.call(Method::Post, &path, None, Some(&tv), None)
+            .await
+            .status,
+        200
+    );
+    let approved = h
+        .call(Method::Get, "/pair/status", None, Some(&waiting), None)
+        .await;
+    let phone = approved.body["token"].as_str().unwrap().to_owned();
+    (tv, phone, request)
+}
+
+#[tokio::test]
+async fn the_tv_loves_an_arrival_and_the_senders_phone_hears_about_it() {
+    let h = harness();
+    let (tv, phone, maya) = paired(&h, "Grandma's TV", "Maya").await;
+
+    // The phone turns notifications on with its browser subscription.
+    let key = h.call(Method::Get, "/push/key", None, None, None).await;
+    assert_eq!(key.status, 200);
+    assert!(key.body["key"].as_str().is_some_and(|k| !k.is_empty()));
+    let sub = json!({ "endpoint": "https://push.example.com/abc", "keys": { "p256dh": "BPk", "auth": "au" } });
+    let insecure = json!({ "endpoint": "http://push.example.com/abc", "keys": { "p256dh": "BPk", "auth": "au" } });
+    assert_eq!(
+        h.bearer(Method::Put, "/push/subscription", Some(insecure), &phone)
+            .await
+            .status,
+        400
+    );
+    assert_eq!(
+        h.bearer(Method::Put, "/push/subscription", Some(sub.clone()), &phone)
+            .await
+            .status,
+        200
+    );
+    // The TV has no inbox and no push; the phone cannot love on the TV's behalf.
+    assert_eq!(
+        h.bearer(Method::Put, "/push/subscription", Some(sub), &tv)
+            .await
+            .status,
+        403
+    );
+    let love = json!({ "contributor": maya, "count": 14, "cover": "m1" });
+    assert_eq!(
+        h.bearer(Method::Post, "/arrivals/love", Some(love.clone()), &phone)
+            .await
+            .status,
+        403
+    );
+
+    // One button on the TV: the note lands and the push goes out.
+    let loved = h
+        .bearer(Method::Post, "/arrivals/love", Some(love.clone()), &tv)
+        .await;
+    assert_eq!(loved.status, 200, "{:?}", loved.body);
+    assert_eq!(loved.body["pushed"], true);
+    {
+        let sent = h.push.sent.lock().unwrap();
+        assert_eq!(sent.len(), 1);
+        assert_eq!(sent[0].0.endpoint, "https://push.example.com/abc");
+        assert_eq!(sent[0].1.title, "Grandma's TV");
+        assert_eq!(sent[0].1.body, "loved your 14 photos");
+        assert!(sent[0].1.url.ends_with("/?inbox=1"));
+    }
+    let inbox = h.bearer(Method::Get, "/inbox", None, &phone).await;
+    assert_eq!(inbox.status, 200);
+    assert_eq!(inbox.body["push"], true);
+    assert_eq!(inbox.body["notes"][0]["from"], "Grandma's TV");
+    assert_eq!(inbox.body["notes"][0]["count"], 14);
+    assert_eq!(inbox.body["notes"][0]["cover"], "m1");
+
+    // A subscription the push service forgot is dropped; the note still arrives.
+    h.push
+        .gone
+        .lock()
+        .unwrap()
+        .push("https://push.example.com/abc".into());
+    let again = h
+        .bearer(Method::Post, "/arrivals/love", Some(love), &tv)
+        .await;
+    assert_eq!(again.body["pushed"], false);
+    let inbox = h.bearer(Method::Get, "/inbox", None, &phone).await;
+    assert_eq!(inbox.body["push"], false);
+    assert_eq!(inbox.body["notes"].as_array().unwrap().len(), 2);
+
+    // No session, no inbox.
+    assert_eq!(
+        h.call(Method::Get, "/inbox", None, None, None).await.status,
+        401
+    );
+}
+
+#[tokio::test]
+async fn a_phone_goes_live_on_the_tv_and_the_channel_goes_when_it_ends() {
+    let h = harness();
+    let (tv, phone, _) = paired(&h, "Grandma's TV", "Maya").await;
+    assert_eq!(h.bearer(Method::Post, "/live", None, &tv).await.status, 403);
+    assert_eq!(
+        h.bearer(Method::Get, "/live", None, &tv).await.body["live"],
+        Value::Null
+    );
+
+    let started = h.bearer(Method::Post, "/live", None, &phone).await;
+    assert_eq!(started.status, 201, "{:?}", started.body);
+    assert!(started.body["stream_key"]
+        .as_str()
+        .is_some_and(|k| k.starts_with("sk_")));
+    assert!(started.body["ingest_endpoint"].as_str().is_some());
+    assert_eq!(started.body["tv"], "Grandma's TV");
+    let first_arn = h
+        .live
+        .channels
+        .lock()
+        .unwrap()
+        .keys()
+        .next()
+        .cloned()
+        .unwrap();
+
+    // The TV learns where to watch, and never sees the stream key.
+    let feed = h.bearer(Method::Get, "/events?since=0", None, &tv).await;
+    let text = feed.body.to_string();
+    assert!(text.contains("live.started"), "{text}");
+    assert!(!text.contains("sk_"), "{text}");
+    let now = h.bearer(Method::Get, "/live", None, &tv).await;
+    assert_eq!(now.body["live"]["display_name"], "Maya");
+    assert!(
+        std::path::Path::new(now.body["live"]["playback_url"].as_str().unwrap())
+            .extension()
+            .is_some_and(|e| e.eq_ignore_ascii_case("m3u8"))
+    );
+    assert!(!now.body.to_string().contains("sk_"));
+
+    // The TV ends it; IVS refuses the delete for now, so the channel waits.
+    h.live.busy.lock().unwrap().push(first_arn.clone());
+    let stopped = h.bearer(Method::Post, "/live/stop", None, &tv).await;
+    assert_eq!(stopped.body["ended"], true);
+    assert!(h.live.stopped.lock().unwrap().contains(&first_arn));
+    assert!(h.live.channels.lock().unwrap().contains_key(&first_arn));
+    let feed = h.bearer(Method::Get, "/events?since=0", None, &tv).await;
+    assert!(feed.body.to_string().contains("live.ended"));
+    assert_eq!(
+        h.bearer(Method::Get, "/live", None, &tv).await.body["live"],
+        Value::Null
+    );
+
+    // Going live again sweeps the old channel and makes a fresh one.
+    let again = h.bearer(Method::Post, "/live", None, &phone).await;
+    assert_eq!(again.status, 201);
+    {
+        let channels = h.live.channels.lock().unwrap();
+        assert!(!channels.contains_key(&first_arn));
+        assert_eq!(channels.len(), 1);
+    }
+    // Only the phone that is live may end it from a phone.
+    let (_, other, _) = {
+        let asked = h
+            .bearer(
+                Method::Post,
+                "/pair/code",
+                Some(json!({ "device_id": "tv-1" })),
+                &tv,
+            )
+            .await;
+        let code = asked.body["code"].as_str().unwrap().to_owned();
+        let req = h
+            .call(
+                Method::Post,
+                "/pair/requests",
+                Some(json!({ "code": code, "name": "Ben" })),
+                None,
+                None,
+            )
+            .await;
+        let waiting = req.body["token"].as_str().unwrap().to_owned();
+        let id = req.body["request"].as_str().unwrap().to_owned();
+        h.bearer(
+            Method::Post,
+            &format!("/pair/requests/{id}/approve"),
+            None,
+            &tv,
+        )
+        .await;
+        let ok = h.bearer(Method::Get, "/pair/status", None, &waiting).await;
+        (
+            String::new(),
+            ok.body["token"].as_str().unwrap().to_owned(),
+            id,
+        )
+    };
+    assert_eq!(
+        h.bearer(Method::Post, "/live/stop", None, &other)
+            .await
+            .status,
+        403
+    );
+    // The phone stops its own broadcast.
+    assert_eq!(
+        h.bearer(Method::Post, "/live/stop", None, &phone)
+            .await
+            .body["ended"],
+        true
+    );
+    assert!(h.live.channels.lock().unwrap().is_empty());
+
+    // A broadcast nobody ended stops showing after four hours.
+    assert_eq!(
+        h.bearer(Method::Post, "/live", None, &phone).await.status,
+        201
+    );
+    h.advance(Duration::hours(5));
+    assert_eq!(
+        h.bearer(Method::Get, "/live", None, &tv).await.body["live"],
+        Value::Null
     );
 }

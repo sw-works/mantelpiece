@@ -24,6 +24,12 @@ aws-sdk-polly.workspace = true
 aws-sdk-sesv2.workspace = true
 aws-sdk-geoplaces.workspace = true
 ureq.workspace = true
+aws-sdk-ivs.workspace = true
+web-push-native.workspace = true
+hmac.workspace = true
+sha2.workspace = true
+base64.workspace = true
+http.workspace = true
 tokio = { workspace = true, features = ["time"] }
 aws-sdk-eventbridge.workspace = true
 aws-smithy-types.workspace = true

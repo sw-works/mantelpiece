@@ -1,6 +1,6 @@
 //! Who uploaded what.
 
-use crate::ids::{ContributorId, HouseholdId};
+use crate::ids::{ContributorId, HouseholdId, MediaId};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use time::OffsetDateTime;
@@ -48,6 +48,36 @@ pub enum RoleError {
     OwnerRole,
 }
 
+/// A browser's web push subscription (`PushSubscription.toJSON()`), so the TV can reach
+/// this phone when someone reacts to its photos (family channel).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PushSubscription {
+    pub endpoint: String,
+    /// The browser's P-256 public key, base64url.
+    pub p256dh: String,
+    /// The browser's 16-byte auth secret, base64url.
+    pub auth: String,
+}
+
+/// Something a household did with this contributor's photos, shown on their phone.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InboxNote {
+    #[serde(with = "time::serde::rfc3339")]
+    pub at: OffsetDateTime,
+    /// Who reacted: the TV's household name.
+    pub from: String,
+    /// `love` for now.
+    pub kind: String,
+    /// How many photos the reaction covers.
+    pub count: u32,
+    /// One of those photos, for a thumbnail.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cover: Option<MediaId>,
+}
+
+/// Notes kept per contributor; older ones fall off.
+pub const INBOX_LIMIT: usize = 20;
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Contributor {
     pub id: ContributorId,
@@ -66,6 +96,12 @@ pub struct Contributor {
     pub grace_until: Option<OffsetDateTime>,
     #[serde(default)]
     pub role: Role,
+    /// Where to push reactions, when the phone turned notifications on.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub push: Option<PushSubscription>,
+    /// Reactions to this contributor's photos, newest first, at most [`INBOX_LIMIT`].
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub inbox: Vec<InboxNote>,
 }
 
 impl Contributor {
@@ -83,6 +119,8 @@ impl Contributor {
             removed_at: None,
             grace_until: None,
             role: Role::Contributor,
+            push: None,
+            inbox: Vec::new(),
         }
     }
 
@@ -103,7 +141,15 @@ impl Contributor {
             removed_at: None,
             grace_until: None,
             role: Role::Contributor,
+            push: None,
+            inbox: Vec::new(),
         }
+    }
+
+    /// Put a note at the top of the inbox, dropping the oldest past [`INBOX_LIMIT`].
+    pub fn note(&mut self, note: InboxNote) {
+        self.inbox.insert(0, note);
+        self.inbox.truncate(INBOX_LIMIT);
     }
 
     /// The pairing status, for a paired phone.
@@ -160,6 +206,8 @@ mod tests {
             removed_at: None,
             grace_until: None,
             role: Role::Contributor,
+            push: None,
+            inbox: Vec::new(),
         }
     }
 

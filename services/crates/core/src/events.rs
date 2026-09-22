@@ -2,7 +2,7 @@
 //!
 //! One schema for both transports (architecture section 3).
 
-use crate::ids::{ContributorId, HouseholdId, MediaId, PlaylistId, TripId};
+use crate::ids::{BatchId, ContributorId, HouseholdId, MediaId, PlaylistId, TripId};
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 
@@ -52,6 +52,28 @@ pub enum EventKind {
         contributor: ContributorId,
         display_name: String,
     },
+    /// Photos from a phone are ready to show: their renditions exist. Emitted by Signal as
+    /// a batch lands, so the TV can put them up before any trip exists (family channel).
+    /// `media` is the batch so far, newest last, at most [`ARRIVAL_MEDIA`] ids; `count` is
+    /// every photo of the batch signalled so far.
+    #[serde(rename = "photos.arrived")]
+    PhotosArrived {
+        contributor: ContributorId,
+        display_name: String,
+        batch: BatchId,
+        media: Vec<MediaId>,
+        count: u32,
+    },
+    /// A phone went live: the TV plays `playback_url` (HLS, a few seconds behind).
+    #[serde(rename = "live.started")]
+    LiveStarted {
+        broadcast: String,
+        display_name: String,
+        playback_url: String,
+    },
+    /// The broadcast ended, from the phone or the TV.
+    #[serde(rename = "live.ended")]
+    LiveEnded { broadcast: String },
     #[serde(rename = "upload.progress")]
     UploadProgress {
         contributor: ContributorId,
@@ -118,6 +140,9 @@ pub enum EventKind {
     },
 }
 
+/// Most photos a `photos.arrived` event names; the TV shows these and the count.
+pub const ARRIVAL_MEDIA: usize = 12;
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Event {
     pub household: HouseholdId,
@@ -141,6 +166,9 @@ impl Event {
             EventKind::ContributionReceived { .. } => "contribution.received",
             EventKind::PhoneRequested { .. } => "phone.requested",
             EventKind::UploadProgress { .. } => "upload.progress",
+            EventKind::PhotosArrived { .. } => "photos.arrived",
+            EventKind::LiveStarted { .. } => "live.started",
+            EventKind::LiveEnded { .. } => "live.ended",
             EventKind::MediaRemoved { .. } => "media.removed",
             EventKind::CleanupProposal { .. } => "cleanup.proposal",
             EventKind::ReactionReceived { .. } => "reaction.received",
@@ -181,6 +209,9 @@ impl Event {
             EventKind::PlaylistCreated { .. }
             | EventKind::PhoneRequested { .. }
             | EventKind::UploadProgress { .. }
+            | EventKind::PhotosArrived { .. }
+            | EventKind::LiveStarted { .. }
+            | EventKind::LiveEnded { .. }
             | EventKind::MediaRemoved { .. }
             | EventKind::AnswerCard { .. }
             | EventKind::MemoriesReady { .. } => None,
@@ -192,6 +223,44 @@ impl Event {
 mod tests {
     use super::*;
     use time::macros::datetime;
+
+    #[test]
+    fn arrivals_and_live_events_carry_dotted_types_and_no_trip() {
+        let arrived = Event {
+            household: HouseholdId::new("h"),
+            seq: 1,
+            at: datetime!(2026-09-21 10:00:00 UTC),
+            kind: EventKind::PhotosArrived {
+                contributor: ContributorId::new("c"),
+                display_name: "Maya".into(),
+                batch: BatchId::new("b"),
+                media: vec![MediaId::new("m1")],
+                count: 1,
+            },
+        };
+        let json = serde_json::to_value(&arrived).unwrap();
+        assert_eq!(json["type"], "photos.arrived");
+        assert_eq!(json["batch"], "b");
+        assert_eq!(arrived.detail_type(), "photos.arrived");
+        assert_eq!(arrived.trip(), None);
+        assert!(!arrived.visible_to_members());
+        let live = Event {
+            kind: EventKind::LiveStarted {
+                broadcast: "l1".into(),
+                display_name: "Maya".into(),
+                playback_url: "https://x/y.m3u8".into(),
+            },
+            ..arrived.clone()
+        };
+        assert_eq!(serde_json::to_value(&live).unwrap()["type"], "live.started");
+        let ended = Event {
+            kind: EventKind::LiveEnded {
+                broadcast: "l1".into(),
+            },
+            ..arrived
+        };
+        assert_eq!(ended.detail_type(), "live.ended");
+    }
 
     #[test]
     fn event_wire_format_is_flat_with_dotted_type() {

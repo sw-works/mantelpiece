@@ -1,6 +1,6 @@
 //! The tenant: one Amazon account, one or more TVs, settings that gate model features.
 
-use crate::ids::HouseholdId;
+use crate::ids::{ContributorId, HouseholdId};
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 
@@ -20,6 +20,25 @@ pub struct Household {
     pub deleting_since: Option<OffsetDateTime>,
     #[serde(with = "time::serde::rfc3339")]
     pub created_at: OffsetDateTime,
+    /// The phone broadcasting to this household's TV right now, if any.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub live: Option<LiveBroadcast>,
+    /// IVS channels whose stream stopped but which could not be deleted yet (IVS refuses
+    /// while a stream is still winding down); retried on the next live call.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub stale_channels: Vec<String>,
+}
+
+/// One phone broadcast: an IVS channel made for it and deleted after.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LiveBroadcast {
+    pub id: String,
+    pub channel_arn: String,
+    pub playback_url: String,
+    pub contributor: ContributorId,
+    pub display_name: String,
+    #[serde(with = "time::serde::rfc3339")]
+    pub started_at: OffsetDateTime,
 }
 
 impl Household {
@@ -31,6 +50,8 @@ impl Household {
             narration_enabled: false,
             deleting_since: None,
             created_at: now,
+            live: None,
+            stale_channels: Vec::new(),
         }
     }
 

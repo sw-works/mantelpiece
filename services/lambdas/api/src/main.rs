@@ -15,8 +15,10 @@ use memorylane_api::tools;
 use memorylane_store::bus::EventBridgeBus;
 use memorylane_store::dynamo::DynamoStorage;
 use memorylane_store::faces::RekognitionFaces;
+use memorylane_store::live::IvsLive;
 use memorylane_store::mailer::SesMailer;
 use memorylane_store::maps::LocationMaps;
+use memorylane_store::push::WebPush;
 use memorylane_store::s3::S3Blobs;
 use memorylane_store::speech::PollySpeech;
 use memorylane_store::vectors::DynamoVectors;
@@ -91,6 +93,10 @@ async fn main() -> Result<(), Error> {
         .init();
 
     let aws = aws_config::load_from_env().await;
+    let token_secret = env("TOKEN_SECRET")?;
+    let upload_base = env("UPLOAD_BASE")?;
+    let push = WebPush::from_secret(&token_secret, upload_base.clone())
+        .map_err(|e| Error::from(e.to_string()))?;
     let app = Arc::new(App {
         storage: Arc::new(DynamoStorage::from_config(&aws, env("TABLE_NAME")?)),
         blobs: Arc::new(S3Blobs::from_config(&aws, env("MEDIA_BUCKET")?)),
@@ -103,14 +109,16 @@ async fn main() -> Result<(), Error> {
             &aws,
             std::env::var("SHARE_SENDER").ok(),
         )),
+        push: Arc::new(push),
+        live: Arc::new(IvsLive::from_config(&aws)),
         starter: Arc::new(SfnStarter::from_config(
             &aws,
             env("ORGANIZE_STATE_MACHINE_ARN")?,
         )),
-        signer: Signer::new(env("TOKEN_SECRET")?),
+        signer: Signer::new(token_secret),
         config: Config {
             link_base: env("LINK_BASE")?,
-            upload_base: env("UPLOAD_BASE")?,
+            upload_base,
             oauth_issuer: std::env::var("OAUTH_ISSUER").unwrap_or_default(),
             oauth_domain: std::env::var("OAUTH_DOMAIN").unwrap_or_default(),
             gateway_url: std::env::var("GATEWAY_URL").unwrap_or_default(),

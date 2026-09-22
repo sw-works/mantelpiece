@@ -284,7 +284,10 @@ mod tests {
     async fn live_wikipedia_finds_the_falls_by_the_name_amazon_location_uses() {
         let w = Wikipedia::default();
         let found = w
-            .lookup("Skógafoss Waterfall", Some(GeoPoint::new(63.5300, -19.5100)))
+            .lookup(
+                "Skógafoss Waterfall",
+                Some(GeoPoint::new(63.5300, -19.5100)),
+            )
             .await
             .unwrap()
             .expect("found");

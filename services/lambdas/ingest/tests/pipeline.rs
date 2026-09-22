@@ -208,6 +208,85 @@ async fn signal_computes_signals_and_writes_renditions() {
 }
 
 #[tokio::test]
+async fn signalled_photos_announce_their_arrival_for_the_tv() {
+    let h = harness(Enrichment::default());
+    h.storage
+        .put_contributor(&memorylane_core::contributor::Contributor::phone(
+            HouseholdId::new(H),
+            "Maya",
+            base(),
+        ))
+        .await
+        .unwrap();
+    let maya = h
+        .storage
+        .list_contributors(&HouseholdId::new(H))
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|c| c.display_name == "Maya")
+        .unwrap()
+        .id;
+    // Fourteen photos in one batch, signalled one after another the way they land.
+    for i in 0..14u8 {
+        let bytes = jpeg(64, 48, i);
+        let mut m = media(
+            &format!("p{i:02}"),
+            maya.as_str(),
+            &format!("IMG_{i}.jpg"),
+            &sha256_hex(&bytes),
+        );
+        m.uploaded_at = base() + Duration::seconds(i64::from(i));
+        h.blobs
+            .put(&m.original_key, bytes, "image/jpeg")
+            .await
+            .unwrap();
+        h.storage.put_media(&m).await.unwrap();
+        h.ingest
+            .run(Task::Signal {
+                key: m.original_key.clone(),
+            })
+            .await
+            .unwrap();
+    }
+    let events = h
+        .storage
+        .events_since(&HouseholdId::new(H), 0, 100)
+        .await
+        .unwrap();
+    let arrivals: Vec<_> = events
+        .iter()
+        .filter_map(|e| match &e.kind {
+            memorylane_core::events::EventKind::PhotosArrived {
+                display_name,
+                batch,
+                media,
+                count,
+                ..
+            } => Some((display_name.clone(), batch.clone(), media.clone(), *count)),
+            _ => None,
+        })
+        .collect();
+    // One per photo up to twelve, then nothing until the next dozen.
+    assert_eq!(arrivals.len(), 12, "{arrivals:?}");
+    let (name, batch, shown, count) = arrivals.last().unwrap().clone();
+    assert_eq!(name, "Maya");
+    assert_eq!(batch, BatchId::new("b"));
+    assert_eq!(count, 12);
+    assert_eq!(shown.len(), 12);
+    assert_eq!(shown.first(), Some(&MediaId::new("p00")));
+    assert_eq!(shown.last(), Some(&MediaId::new("p11")));
+    // The bus hears it too, so the Concierge could react later.
+    assert!(h
+        .bus
+        .published
+        .lock()
+        .unwrap()
+        .iter()
+        .any(|e| e.detail_type() == "photos.arrived"));
+}
+
+#[tokio::test]
 async fn signal_rejects_checksum_mismatch_and_unknown_keys() {
     let h = harness(Enrichment::default());
     let bytes = jpeg(100, 100, 2);
@@ -462,6 +541,8 @@ async fn organize_groups_bursts_builds_trip_and_is_idempotent() {
             removed_at: None,
             grace_until: None,
             role: memorylane_core::contributor::Role::Contributor,
+            push: None,
+            inbox: Vec::new(),
         })
         .await
         .unwrap();

@@ -9,7 +9,7 @@ use crate::error::ApiError;
 use crate::handlers;
 use crate::req::{Method, Req, Resp};
 use crate::tokens::{Claims, Session, Signer};
-use memorylane_store::{Blobs, Bus, Faces, Mailer, Maps, Speech, Storage, Vectors};
+use memorylane_store::{Blobs, Bus, Faces, Live, Mailer, Maps, Push, Speech, Storage, Vectors};
 
 #[derive(Clone, Debug)]
 pub struct Config {
@@ -61,6 +61,10 @@ pub struct App {
     pub faces: Arc<dyn Faces>,
     pub speech: Arc<dyn Speech>,
     pub mailer: Arc<dyn Mailer>,
+    /// Web push to paired phones (family channel).
+    pub push: Arc<dyn Push>,
+    /// IVS channels for phone broadcasts (live from the event).
+    pub live: Arc<dyn Live>,
     pub starter: Arc<dyn crate::starter::Starter>,
     pub signer: Signer,
     pub config: Config,
@@ -308,6 +312,16 @@ impl App {
                 handlers::playlists::play(self, req, id).await
             }
             (Method::Put, ["presence"]) => handlers::presence::put(self, req).await,
+            (Method::Get, ["push", "key"]) => handlers::family::key(self),
+            (Method::Put, ["push", "subscription"]) => handlers::family::subscribe(self, req).await,
+            (Method::Delete, ["push", "subscription"]) => {
+                handlers::family::unsubscribe(self, req).await
+            }
+            (Method::Get, ["inbox"]) => handlers::family::inbox(self, req).await,
+            (Method::Post, ["arrivals", "love"]) => handlers::family::love(self, req).await,
+            (Method::Post, ["live"]) => handlers::live::start(self, req).await,
+            (Method::Post, ["live", "stop"]) => handlers::live::stop(self, req).await,
+            (Method::Get, ["live"]) => handlers::live::current(self, req).await,
             (Method::Get, ["presence"]) => handlers::presence::list(self, req).await,
             (Method::Post, ["ask"]) => handlers::ask::ask(self, req).await,
             (Method::Get, ["memories", "home"]) => handlers::memories::home(self, req).await,

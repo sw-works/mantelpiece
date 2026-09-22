@@ -1,7 +1,8 @@
 //! Per-file task: checksum, EXIF, signals, renditions.
 
+use memorylane_core::events::{EventKind, ARRIVAL_MEDIA};
 use memorylane_core::ids::MediaId;
-use memorylane_core::media::{MediaKind, ProcessingState};
+use memorylane_core::media::{MediaItem, MediaKind, ProcessingState};
 use memorylane_ingest::renditions::{self, Rendition};
 use memorylane_ingest::{checksum, decode, exif, quality};
 use serde::Serialize;
@@ -77,6 +78,9 @@ pub async fn run(ingest: &Ingest, key: &str) -> Result<Output> {
         ProcessingState::Signalled
     };
     ingest.storage.put_media(&media).await?;
+    if media.state == ProcessingState::Signalled && media.kind == MediaKind::Photo {
+        announce_arrival(ingest, &media).await?;
+    }
     Ok(Output {
         household: household.to_string(),
         media_id,
@@ -84,4 +88,57 @@ pub async fn run(ingest: &Ingest, key: &str) -> Result<Output> {
         reason,
         poster: media.kind == MediaKind::Video,
     })
+}
+
+/// Family channel: tell the TV which of this batch's photos can be shown now. One event
+/// per photo for the first [`ARRIVAL_MEDIA`], then one per dozen, so a 5,000-photo archive
+/// upload does not flood the feed. Signal runs per file in parallel, so two executions may
+/// announce the same count; the TV keys on the batch and keeps the larger one.
+async fn announce_arrival(ingest: &Ingest, media: &MediaItem) -> Result<()> {
+    let mut batch: Vec<MediaItem> = ingest
+        .storage
+        .list_media_by_contributor(&media.household, &media.contributor)
+        .await?
+        .into_iter()
+        .filter(|m| {
+            m.batch == media.batch
+                && m.kind == MediaKind::Photo
+                && matches!(
+                    m.state,
+                    ProcessingState::Signalled | ProcessingState::Enriched
+                )
+        })
+        .collect();
+    let count = batch.len();
+    if count == 0 || (count > ARRIVAL_MEDIA && !count.is_multiple_of(ARRIVAL_MEDIA)) {
+        return Ok(());
+    }
+    batch.sort_by_key(|m| m.uploaded_at);
+    let shown: Vec<MediaId> = batch
+        .iter()
+        .rev()
+        .take(ARRIVAL_MEDIA)
+        .rev()
+        .map(|m| m.id.clone())
+        .collect();
+    let display_name = ingest
+        .storage
+        .get_contributor(&media.household, &media.contributor)
+        .await?
+        .map_or_else(|| "Someone".to_owned(), |c| c.display_name);
+    let event = memorylane_store::feed::emit(
+        ingest.storage.as_ref(),
+        &media.household,
+        ingest.now(),
+        EventKind::PhotosArrived {
+            contributor: media.contributor.clone(),
+            display_name,
+            batch: media.batch.clone(),
+            media: shown,
+            count: u32::try_from(count).unwrap_or(u32::MAX),
+        },
+    )
+    .await?;
+    ingest.bus.publish(&event).await?;
+    Ok(())
 }

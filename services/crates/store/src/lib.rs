@@ -2,7 +2,8 @@
 //! and an in-memory backend, so `make test` runs without credentials (constitution VI):
 //! [`Storage`] (DynamoDB), [`Blobs`] (S3), [`Vectors`] (DynamoDB cache and S3 Vectors),
 //! [`Faces`] (Rekognition collections), [`Vision`] (Rekognition labels and text, Bedrock
-//! descriptions), [`Maps`] (Amazon Location static maps) and [`Speech`] (Polly).
+//! descriptions), [`Maps`] (Amazon Location static maps), [`Speech`] (Polly), [`Push`]
+//! (web push to paired phones) and [`Live`] (IVS channels for phone broadcasts).
 
 pub mod blobs;
 pub mod bus;
@@ -10,10 +11,12 @@ pub mod dynamo;
 pub mod encyclopedia;
 pub mod faces;
 pub mod feed;
+pub mod live;
 pub mod mailer;
 pub mod maps;
 pub mod memory;
 pub mod places;
+pub mod push;
 pub mod s3;
 pub mod speech;
 pub mod storage;
@@ -24,9 +27,11 @@ pub use blobs::{Blobs, CompletedPart};
 pub use bus::Bus;
 pub use encyclopedia::Encyclopedia;
 pub use faces::Faces;
+pub use live::Live;
 pub use mailer::Mailer;
 pub use maps::Maps;
 pub use places::Places;
+pub use push::Push;
 pub use speech::Speech;
 pub use storage::Storage;
 use thiserror::Error;
