@@ -65,7 +65,7 @@ Expected outputs: `ApiUrl`, `LinkBase`, `UploadBase` (CloudFront unless `-c link
 | US11 ambient | leave the TV idle 5 minutes | ambient favours pinned, skips hidden; with the narration flag on, caption or audio in sync (R10) |
 | US12 share | POST /shares with a confirmation | link opens the album; after `expires_at` it returns nothing |
 | Family channel | pair a phone, upload six photos with the TV on Memories home, press Love it | "Just arrived · From <name>" takes over within seconds; the phone's inbox (`GET /inbox`) has "loved your N photos"; with notifications on, the phone shows the push |
-| Live from the event | `scripts/vega-hls.sh` once; on the paired phone open `live.html`, Open the camera, Go live; then End broadcast on the TV | TV opens Live and plays the camera about 10 s behind; after End the TV says "Broadcast ended", the phone "<TV> ended the broadcast"; `make down` sweeps leftover IVS channels |
+| Live from the event | `scripts/vega-hls.sh` once; on the paired phone open `live.html`, Open the camera, Go live; press Watch on the TV; a second phone asks too, press Switch; then End broadcast on the TV | nothing streams before Watch; TV plays the camera about 10 s behind; after Switch the first phone says "<TV> switched to <name>"; after End the TV says "Broadcast ended", the phone "<TV> ended the broadcast"; `make down` sweeps leftover IVS channels |
 
 ## Agent traces (F-506)
 

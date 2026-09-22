@@ -83,6 +83,8 @@ svg { flex: none; }
 .button.secondary { background: var(--panel2); color: var(--fg); }
 .button.inline { display: inline-flex; width: auto; }
 .button:disabled { opacity: 0.5; cursor: default; }
+/* `hidden` must win over the display a class sets. */
+[hidden] { display: none !important; }
 .link {
   display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0;
   border: 0; background: none; color: var(--accent); font: 600 15px/1 var(--sans);

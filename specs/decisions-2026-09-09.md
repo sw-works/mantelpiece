@@ -787,3 +787,14 @@ compile-checked only.
   hls.js probing codecs at start; the stream has no AC-3. The "forwardRef render functions
   accept exactly two parameters" console error comes from inside the Live screen's video
   surface, not from this code; both show only in debug builds.
+- Follow-up the same day: the TV grants every broadcast. `POST /live` only asks; the TV
+  shows "Maya wants to go live" (Watch / Not now) bottom left over any screen, and no IVS
+  channel exists until it says yes. With someone already live the prompt reads "This ends
+  Sam's broadcast" and the button "Switch to Maya": a grant ends the current broadcast,
+  makes the channel and hands the key to the asking phone alone (`GET /live/request`). The
+  phone switched away from says "<TV> switched to <name>" from its `GET /live` check.
+  Requests lapse after 60 s; a phone can withdraw its own. Verified on the Virtual Device
+  with Chrome as Maya and a scripted second phone as Sam: Watch, a switch to Sam (his
+  ffmpeg clock then played), and Not now leaving Sam on screen
+  (`docs/screens/vvd-live-request-2026-09-21.png`). After the prompt closes, focus returns
+  on the first arrow press, not by itself.

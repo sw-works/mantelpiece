@@ -7,8 +7,9 @@ import { Eyebrow, Heading, Meta } from "./Type";
 
 /**
  * A phone asks to show its camera on this TV. Nothing streams until someone here says yes;
- * when another phone is live, yes ends that broadcast. The prompt sits over whatever is on
- * screen and goes away when answered, withdrawn, or out of time.
+ * when another phone is live, yes ends that broadcast. The prompt sits bottom left over
+ * whatever is on screen, clear of the Live screen's buttons, and goes away when answered,
+ * withdrawn, or out of time.
  */
 export function LiveRequestPrompt({
   ask,
@@ -46,7 +47,7 @@ export function LiveRequestPrompt({
   return (
     <View
       testID="live-request"
-      style={{ position: "absolute", right: theme.safe.x, top: theme.safe.y, width: 760, padding: 36, gap: 18, borderRadius: theme.radius, backgroundColor: theme.panel, borderWidth: 2, borderColor: theme.accent }}
+      style={{ position: "absolute", left: theme.safe.x, bottom: theme.safe.y, width: 760, padding: 36, gap: 18, borderRadius: theme.radius, backgroundColor: theme.panel, borderWidth: 2, borderColor: theme.accent }}
     >
       <Eyebrow>Live</Eyebrow>
       <Heading testID="live-request-title">{`${ask.from} wants to go live`}</Heading>
