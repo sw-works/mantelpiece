@@ -1,7 +1,8 @@
 // App-shell cache so the uploader opens offline and resumes when the phone reconnects,
 // and the Web Share Target receiver: photos shared from the phone's share sheet are parked
-// in a cache and the uploader page picks them up.
-const CACHE = "memorylane-shell-v2";
+// in a cache and the uploader page picks them up. Also shows the family channel's pushes:
+// the TV loved this phone's photos.
+const CACHE = "memorylane-shell-v3";
 const SHARED = "memorylane-shared";
 const SHARE_PATH = "/share-target";
 
@@ -45,4 +46,33 @@ self.addEventListener("fetch", (event) => {
   }
   if (event.request.method !== "GET") return;
   event.respondWith(caches.match(event.request).then((hit) => hit ?? fetch(event.request)));
+});
+
+self.addEventListener("push", (event) => {
+  let message = { title: "MemoryLane", body: "The TV reacted to your photos", url: "/?inbox=1" };
+  try {
+    message = { ...message, ...event.data.json() };
+  } catch {
+    // An empty or non-JSON push still says something.
+  }
+  event.waitUntil(
+    self.registration.showNotification(message.title, {
+      body: message.body,
+      icon: "/icons/icon-192.png",
+      badge: "/icons/icon-192.png",
+      tag: "memorylane-reaction",
+      data: { url: message.url },
+    }),
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const target = new URL(event.notification.data?.url ?? "/", self.location.origin).href;
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((open) => {
+      const same = open.find((c) => new URL(c.url).origin === self.location.origin);
+      return same ? same.focus().then((c) => c.navigate(target)) : self.clients.openWindow(target);
+    }),
+  );
 });

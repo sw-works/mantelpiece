@@ -222,3 +222,10 @@ input.file { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: 
 .pulse { width: 14px; height: 14px; border-radius: 50%; background: var(--accent); flex: none; margin-right: 6px; animation: pulse 1.6s ease-in-out infinite; }
 @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.35; transform: scale(0.7); } }
 @media (prefers-reduced-motion: reduce) { .pulse { animation: none; } }
+
+/* Family channel: what the TV said, and going live. */
+.family { padding: 16px; border-radius: 18px; background: var(--panel); }
+.inbox { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
+.inbox li { font-size: 14px; color: var(--fg); }
+.inbox .heart { color: var(--accent); display: inline-flex; }
+.preview { width: 100%; aspect-ratio: 16 / 9; border-radius: 16px; background: #000; display: block; }

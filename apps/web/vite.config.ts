@@ -5,7 +5,7 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   build: {
     rollupOptions: {
-      input: { upload: resolve(__dirname, "index.html"), link: resolve(__dirname, "link.html"), trip: resolve(__dirname, "trip.html"), trips: resolve(__dirname, "trips.html"), ask: resolve(__dirname, "ask.html"), people: resolve(__dirname, "people.html"), share: resolve(__dirname, "s.html") },
+      input: { upload: resolve(__dirname, "index.html"), link: resolve(__dirname, "link.html"), trip: resolve(__dirname, "trip.html"), trips: resolve(__dirname, "trips.html"), ask: resolve(__dirname, "ask.html"), people: resolve(__dirname, "people.html"), live: resolve(__dirname, "live.html"), share: resolve(__dirname, "s.html") },
     },
   },
   test: { include: ["test/**/*.test.ts"], environment: "node" },

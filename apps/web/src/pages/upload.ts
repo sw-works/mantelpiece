@@ -5,6 +5,7 @@
 import { Api, ApiError } from "../api.js";
 import { OWNER_TOKEN_KEY, beginSignIn, completeSignIn, savedTokens, takeOwnerHandoff } from "../auth.js";
 import { loadConfig } from "../config.js";
+import { familyCard } from "../family.js";
 import { button, context, el, eyebrow, field, formatBytes, icon, link, mount, photo, topbar } from "../ui.js";
 import { retryItem, runQueue, type QueueItem } from "../upload/queue.js";
 import { openSharedCache, sharedCount, takeSharedFiles } from "../upload/shared.js";
@@ -275,6 +276,7 @@ function renderUploader(root: HTMLElement, api: Api, session: Session, storage: 
       picker,
       el("div", { class: "note" }, icon("share", 20), el("p", {}, "Or share straight from your camera roll: on Android, add this page to your home screen and MemoryLane appears in the share sheet.")),
       where,
+      familyCard(api, session.token, session.place ? { tvName: session.place } : {}),
       ...footer,
     );
 
@@ -316,6 +318,7 @@ function renderUploader(root: HTMLElement, api: Api, session: Session, storage: 
       ...seeTrip,
       list,
       el("p", { class: "small" }, "Your photos stay yours. Remove any of them from the list above, any time."),
+      familyCard(api, session.token, session.place ? { tvName: session.place } : {}),
       input,
     );
   };

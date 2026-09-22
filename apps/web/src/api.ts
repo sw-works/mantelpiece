@@ -73,6 +73,24 @@ export interface TripView {
   media_credits?: Record<string, string>;
 }
 
+/** What the TV said about this phone's photos (family channel). */
+export interface InboxNote {
+  at: string;
+  from: string;
+  kind: string;
+  count: number;
+  cover?: string;
+}
+
+/** A broadcast the API made for this phone: the stream key never leaves this phone. */
+export interface LiveStart {
+  id: string;
+  ingest_endpoint: string;
+  stream_key: string;
+  playback_url: string;
+  tv: string;
+}
+
 export class ApiError extends Error {
   constructor(
     readonly status: number,
@@ -96,7 +114,7 @@ export class Api {
   ) {}
 
   private async call<T>(
-    method: "GET" | "POST" | "PATCH" | "DELETE",
+    method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE",
     path: string,
     body?: unknown,
     auth?: { bearer?: string; jwt?: string },
@@ -193,6 +211,31 @@ export class Api {
 
   joinWithAmazon(code: string, jwt: string) {
     return this.call<Joined>("POST", "/join/amazon", { code }, { jwt });
+  }
+
+  pushKey() {
+    return this.call<{ key: string }>("GET", "/push/key");
+  }
+
+  /** `subscription` is `PushSubscription.toJSON()`. */
+  subscribePush(bearer: string, subscription: { endpoint?: string; keys?: Record<string, string> }) {
+    return this.call<{ push: boolean }>("PUT", "/push/subscription", subscription, { bearer });
+  }
+
+  unsubscribePush(bearer: string) {
+    return this.call<void>("DELETE", "/push/subscription", undefined, { bearer });
+  }
+
+  inbox(bearer: string) {
+    return this.call<{ notes: InboxNote[]; push: boolean }>("GET", "/inbox", undefined, { bearer });
+  }
+
+  startLive(bearer: string) {
+    return this.call<LiveStart>("POST", "/live", undefined, { bearer });
+  }
+
+  stopLive(bearer: string) {
+    return this.call<{ ended: boolean }>("POST", "/live/stop", undefined, { bearer });
   }
 
   me(bearer: string) {
