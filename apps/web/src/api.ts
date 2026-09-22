@@ -154,7 +154,7 @@ export class Api {
 
   /** Which TV a pairing code belongs to, before the phone asks to join it. */
   describePairing(code: string) {
-    return this.call<{ tv_name: string }>("GET", `/pair/code/${encodeURIComponent(code)}`);
+    return this.call<{ tv_name: string; household: string }>("GET", `/pair/code/${encodeURIComponent(code)}`);
   }
 
   /** Ask the TV to let this phone in, under the name its owner typed. */
@@ -264,7 +264,7 @@ export class Api {
   }
 
   me(bearer: string) {
-    return this.call<{ role: string; display_name?: string | null; household_name?: string | null; trip?: string | null }>("GET", "/me", undefined, { bearer });
+    return this.call<{ role: string; household: string; display_name?: string | null; household_name?: string | null; trip?: string | null }>("GET", "/me", undefined, { bearer });
   }
 
   initUpload(bearer: string, file: { filename: string; bytes: number; sha256: string; content_type: string; batch_id: string }) {

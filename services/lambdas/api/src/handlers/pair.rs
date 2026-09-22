@@ -132,9 +132,11 @@ async fn household_for(app: &App, raw: &str) -> Result<Household, ApiError> {
 }
 
 /// `GET /pair/code/{code}`: what the phone shows before asking, "Connect to Living room".
+/// The household id comes too: a phone already paired with another TV must not skip the
+/// question and send its photos to the TV it used last.
 pub async fn describe(app: &App, code: &str) -> Result<Resp, ApiError> {
     let household = household_for(app, code).await?;
-    Resp::ok(json!({ "tv_name": household.name }))
+    Resp::ok(json!({ "tv_name": household.name, "household": household.id }))
 }
 
 #[derive(Deserialize)]

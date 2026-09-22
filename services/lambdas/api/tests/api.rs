@@ -3501,6 +3501,10 @@ async fn a_phone_pairs_with_the_tv_by_name_and_waits_for_approval() {
         .call(Method::Get, &format!("/pair/code/{code}"), None, None, None)
         .await;
     assert_eq!(seen.body["tv_name"], "Living room");
+    // The household comes too, so a phone paired with another TV knows to ask again.
+    assert!(seen.body["household"]
+        .as_str()
+        .is_some_and(|h| !h.is_empty()));
     let nameless = h
         .call(
             Method::Post,

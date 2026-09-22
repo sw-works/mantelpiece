@@ -90,21 +90,39 @@ async function pair(root: HTMLElement, api: Api, code: string, uploadBase: strin
     ask(waiting.tvName, outcome.state === "denied" ? "Not approved on the TV. Ask again if that was a mistake." : "That took too long. Ask again.");
   };
 
-  // Already paired: straight to the photos.
+  // Already paired with the TV this code belongs to: straight to the photos. A code from
+  // another TV asks again, or this phone would keep sending to the one it used last.
   const paired = storage.getItem(OWNER_TOKEN_KEY);
+  const waiting = readWaiting(storage, code);
+  mount(root, ...page("Finding your TV…"));
+  let tv: { tv_name: string; household: string };
+  try {
+    tv = await api.describePairing(code);
+  } catch (e) {
+    if (paired) {
+      try {
+        const me = await api.me(paired);
+        return connected(me.household_name ?? "your TV", paired);
+      } catch {
+        storage.removeItem(OWNER_TOKEN_KEY);
+      }
+    }
+    mount(root, ...page("That code is no longer on the TV", el("p", { class: "lead" }, "Codes change every ten minutes. Scan the one on screen now."), el("p", { class: "error" }, e instanceof Error ? e.message : String(e))));
+    return;
+  }
   if (paired) {
     try {
       const me = await api.me(paired);
-      return connected(me.household_name ?? "your TV", paired);
+      if (me.household === tv.household) return connected(me.household_name ?? tv.tv_name, paired);
+      // A different TV: start over rather than silently using the old session.
+      storage.removeItem(OWNER_TOKEN_KEY);
     } catch {
       storage.removeItem(OWNER_TOKEN_KEY);
     }
   }
-  const waiting = readWaiting(storage, code);
   if (waiting) return wait(waiting);
-  mount(root, ...page("Finding your TV…"));
   try {
-    ask((await api.describePairing(code)).tv_name);
+    ask(tv.tv_name);
   } catch (e) {
     mount(root, ...page("That code is no longer on the TV", el("p", { class: "lead" }, "Codes change every ten minutes. Scan the one on screen now."), el("p", { class: "error" }, e instanceof Error ? e.message : String(e))));
   }
