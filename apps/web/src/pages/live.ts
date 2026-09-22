@@ -5,7 +5,7 @@
 import { Api } from "../api.js";
 import { loadConfig } from "../config.js";
 import { phoneToken } from "../family.js";
-import { cameraConstraints, holdHint, liveErrorText, type Facing, type LivePhase } from "../live.js";
+import { LIVE_CHECK_MS, broadcastGone, cameraConstraints, holdHint, liveErrorText, type Facing, type LivePhase } from "../live.js";
 import { button, context, el, icon, mount, topbar } from "../ui.js";
 import { deviceIdOf } from "./upload.js";
 
@@ -35,9 +35,14 @@ export async function main(root: HTMLElement, location: Location, storage: Stora
   let sdk: BroadcastSdk | null = null;
   let client: BroadcastClient | null = null;
   let stream: MediaStream | null = null;
+  let check: ReturnType<typeof setInterval> | undefined;
 
   const set = (next: LivePhase, text?: string) => {
     phase = next;
+    if (next !== "live" && check) {
+      clearInterval(check);
+      check = undefined;
+    }
     primary.disabled = next === "starting" || next === "stopping";
     flip.hidden = !(next === "camera" || next === "live");
     const label = { idle: "Open the camera", camera: `Go live on ${tvName}`, starting: "Starting…", live: "Stop", stopping: "Stopping…", ended: "Go live again" }[next];
@@ -94,6 +99,17 @@ export async function main(root: HTMLElement, location: Location, storage: Stora
         const live = await api.startLive(token);
         await client!.startBroadcast(live.stream_key, live.ingest_endpoint);
         set("live");
+        // The TV's End broadcast cuts the stream, but the SDK does not always notice.
+        check = setInterval(() => {
+          void api
+            .currentLive(token)
+            .then(({ live: now }) => {
+              if (phase !== "live" || !broadcastGone(now, live.id)) return;
+              client?.stopBroadcast();
+              set("ended", `${tvName} ended the broadcast.`);
+            })
+            .catch(() => undefined);
+        }, LIVE_CHECK_MS);
         return;
       }
       if (phase === "live") await stop();

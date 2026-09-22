@@ -30,6 +30,8 @@ export function Live({
   endedCloseMs?: number;
 }) {
   const [state, setState] = useState<LivePlayerState>("starting");
+  // Ended from this TV, so the phone did not end it.
+  const [endedHere, setEndedHere] = useState(false);
   useRemoteKeys({ onBack });
   useEffect(() => {
     if (live || endedCloseMs <= 0) return;
@@ -41,7 +43,7 @@ export function Live({
     return (
       <View testID="live-ended" style={{ flex: 1, backgroundColor: theme.bg, padding: theme.safe.x, justifyContent: "center", gap: theme.gap }}>
         <Eyebrow>Live</Eyebrow>
-        <Title>{`${from} ended the broadcast`}</Title>
+        <Title>{endedHere ? "Broadcast ended" : `${from} ended the broadcast`}</Title>
         <FocusButton label="Back" onPress={onBack} preferred testID="back" />
       </View>
     );
@@ -63,7 +65,11 @@ export function Live({
       </View>
       <View style={{ position: "absolute", right: theme.safe.x, bottom: theme.safe.y, flexDirection: "row", gap: 18 }}>
         <FocusButton label="Back" variant="ghost" onPress={onBack} preferred testID="back" />
-        <FocusButton label="End broadcast" variant="ghost" onPress={onEnd} testID="end" />
+        <FocusButton label="End broadcast" variant="ghost" onPress={() => {
+            setEndedHere(true);
+            onEnd();
+          }}
+          testID="end" />
       </View>
     </View>
   );

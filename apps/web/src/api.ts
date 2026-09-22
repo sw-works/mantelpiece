@@ -238,6 +238,11 @@ export class Api {
     return this.call<{ ended: boolean }>("POST", "/live/stop", undefined, { bearer });
   }
 
+  /** The household's broadcast now, or null: the TV can end it without this phone. */
+  currentLive(bearer: string) {
+    return this.call<{ live: { id: string } | null }>("GET", "/live", undefined, { bearer });
+  }
+
   me(bearer: string) {
     return this.call<{ role: string; display_name?: string | null; household_name?: string | null; trip?: string | null }>("GET", "/me", undefined, { bearer });
   }

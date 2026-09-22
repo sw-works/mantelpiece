@@ -51,6 +51,7 @@ up: deploy deploy-web
 	scripts/tv-config.sh
 
 down:
+	scripts/ivs-sweep.sh
 	cd infra && pnpm cdk destroy --force $(CDK_ARGS)
 	@echo "Stack gone. Retained stores: aws dynamodb list-tables; aws cognito-idp list-user-pools --max-results 20; aws s3 ls"
 

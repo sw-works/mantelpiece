@@ -18,6 +18,14 @@ export function holdHint(width: number, height: number): string | null {
 
 export type LivePhase = "idle" | "camera" | "starting" | "live" | "stopping" | "ended";
 
+/** How often a live phone asks whether its broadcast is still the household's. */
+export const LIVE_CHECK_MS = 5000;
+
+/** The TV ended this broadcast, or another phone took over: `GET /live` no longer names it. */
+export function broadcastGone(current: { id: string } | null, mine: string): boolean {
+  return current?.id !== mine;
+}
+
 /** Plain words for the errors this page meets. */
 export function liveErrorText(e: unknown): string {
   const name = e instanceof Error ? e.name : "";

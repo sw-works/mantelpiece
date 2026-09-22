@@ -76,12 +76,15 @@ describe("family channel on the TV", () => {
 
   it("Live plays the broadcast with who and how far behind, and ends it on request", async () => {
     const onEnd = jest.fn();
-    await render(<Live live={broadcast} from="Maya" player={FakePlayer} onBack={jest.fn()} onEnd={onEnd} />);
+    const { rerender } = await render(<Live live={broadcast} from="Maya" player={FakePlayer} onBack={jest.fn()} onEnd={onEnd} endedCloseMs={0} />);
     expect(screen.getByTestId("player").props.children).toBe("https://play.test/l1.m3u8");
     expect(screen.getByTestId("live-who").props.children).toBe("Live · Maya");
     await waitFor(() => expect(screen.getByTestId("live-state").props.children).toBe("A few seconds behind the room"));
     await fireEvent.press(screen.getByTestId("end"));
     expect(onEnd).toHaveBeenCalled();
+    // Ended from the TV: nobody on the phone did it.
+    await rerender(<Live live={null} from="Maya" player={FakePlayer} onBack={jest.fn()} onEnd={onEnd} endedCloseMs={0} />);
+    expect(screen.getByText("Broadcast ended")).toBeTruthy();
   });
 
   it("Live says when the phone stopped and without a player explains itself", async () => {

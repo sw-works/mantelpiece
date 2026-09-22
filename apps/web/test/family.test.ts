@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ago, base64UrlToBytes, describeNote, phoneToken, pushSupport, type PushEnv } from "../src/family.js";
-import { cameraConstraints, holdHint, liveErrorText } from "../src/live.js";
+import { broadcastGone, cameraConstraints, holdHint, liveErrorText } from "../src/live.js";
 
 const android: PushEnv = { hasServiceWorker: true, hasPushManager: true, permission: "default", userAgent: "Mozilla/5.0 (Linux; Android 15) Chrome/140", standalone: false };
 
@@ -70,5 +70,11 @@ describe("going live", () => {
     expect(liveErrorText(refused)).toMatch(/refused/);
     expect(liveErrorText(new Error("403 this phone is no longer paired"))).toMatch(/not paired/);
     expect(liveErrorText(new Error("boom"))).toBe("Could not go live: boom");
+  });
+
+  it("notices when the TV ended this broadcast or another phone took over", () => {
+    expect(broadcastGone({ id: "b1" }, "b1")).toBe(false);
+    expect(broadcastGone(null, "b1")).toBe(true);
+    expect(broadcastGone({ id: "b2" }, "b1")).toBe(true);
   });
 });
