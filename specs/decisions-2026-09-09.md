@@ -819,3 +819,24 @@ compile-checked only.
   its retained table, bucket and user pool: they are orphans and go by hand.
 - The icon is two framed photos standing on a shelf (`docs/brand/icon.svg`), replacing the
   route line, which belonged to the old name.
+
+## 34. Live from a real phone, and what the Virtual Device does under it (2026-09-22)
+
+- First run from a real phone's camera, against the deployed stack: the picture reached the
+  TV about 4 s behind, better than the 10 s measured from the ffmpeg clock the day before,
+  and photos, the arrival takeover and trip organising all worked in the same session.
+- The Virtual Device is the weak part, not the player. Twice, live video starting took the
+  emulator's developer shell service with it: the screen went black, `vega device list` said
+  "No devices found" while the emulator console still answered screenshots, and every shell
+  command failed with "Invalid component id: com.amazon.dev.shell.service". Only
+  `vega virtual-device stop` then `start` recovers it, and that wipes the TV session, so the
+  household is abandoned and its phone has to pair again. Once, the media pipeline wedged
+  instead: hls.js kept reloading the playlist while the buffer sat still and the picture
+  froze. Live has never failed this way on anything but the Virtual Device; a real Fire TV
+  is untested.
+- The TV now rebuilds the player when the picture stops (3 s apart, three times) rather than
+  sitting on a frozen frame, and the debug build no longer covers the screen with the media
+  bundle's own React warnings.
+- Open, seen from the phone and not chased: the Back button on the Live screen flickers a
+  few times while the broadcast starts, most likely the preferred-focus prop being re-applied
+  on every state change as the player reports starting, stalled and then playing.
