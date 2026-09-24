@@ -4,12 +4,17 @@
 //! Stopping cuts the stream and deletes the channel. IVS refuses to delete a channel whose
 //! stream is still winding down, so those wait in `stale_channels` and go on the next
 //! start or stop.
+//!
+//! A phone can ask to keep its broadcast. The grant then makes a recorded channel and
+//! leaves a [`RecordingClaim`] beside it; when IVS finishes the recording, the recording
+//! Lambda turns it into a video in the household's memories.
 
 use mantelpiece_core::events::EventKind;
 use mantelpiece_core::household::{
-    Household, LiveBroadcast, LiveGrant, LiveRequest, LiveRequestStatus,
+    Household, LiveBroadcast, LiveGrant, LiveRequest, LiveRequestStatus, LiveSave, RecordingClaim,
 };
 use mantelpiece_core::ids::{ContributorId, HouseholdId};
+use serde::Deserialize;
 use serde_json::{json, Value};
 use time::format_description::well_known::Rfc3339;
 use time::{Duration, OffsetDateTime};
@@ -105,9 +110,31 @@ fn tv_household(app: &App, req: &Req) -> Result<HouseholdId, ApiError> {
     }
 }
 
+/// `POST /live` body. Empty is fine: show the camera, keep nothing.
+#[derive(Debug, Default, Deserialize)]
+struct AskBody {
+    /// Record the broadcast and add it to the household's memories.
+    #[serde(default)]
+    save: bool,
+    /// Minutes east of UTC, the negation of JavaScript's `getTimezoneOffset()`.
+    utc_offset_minutes: Option<i32>,
+}
+
 /// `POST /live`: this phone asks the TV to show its camera. Replaces its earlier request.
 pub async fn request(app: &App, req: &Req) -> Result<Resp, ApiError> {
     let (household_id, contributor) = family::phone(app, req).await?;
+    let body: AskBody = if req.body.is_empty() {
+        AskBody::default()
+    } else {
+        req.json()?
+    };
+    // Asked to keep it but this stack records nothing: say so rather than pretend.
+    let save = (body.save && app.live.records()).then(|| LiveSave {
+        utc_offset_seconds: body
+            .utc_offset_minutes
+            .filter(|m| (-14 * 60..=14 * 60).contains(m))
+            .map(|m| m * 60),
+    });
     let mut h = household(app, &household_id).await?;
     let now = app.now();
     if h.live
@@ -132,6 +159,7 @@ pub async fn request(app: &App, req: &Req) -> Result<Resp, ApiError> {
         display_name: contributor.display_name.clone(),
         requested_at: now,
         status: LiveRequestStatus::Waiting,
+        save,
         grant: None,
     });
     let replacing = h
@@ -151,6 +179,7 @@ pub async fn request(app: &App, req: &Req) -> Result<Resp, ApiError> {
             display_name: contributor.display_name.clone(),
             expires_at: now + REQUEST_TTL,
             replacing: replacing.clone(),
+            saving: save.is_some(),
         },
     )
     .await?;
@@ -159,6 +188,7 @@ pub async fn request(app: &App, req: &Req) -> Result<Resp, ApiError> {
             "status": "waiting",
             "expires_at": rfc3339(now + REQUEST_TTL),
             "replacing": replacing,
+            "saving": save.is_some(),
             "tv": h.name,
     }))
 }
@@ -191,6 +221,11 @@ pub async fn my_request(app: &App, req: &Req) -> Result<Resp, ApiError> {
         body["ingest_endpoint"] = Value::from(g.ingest_endpoint.clone());
         body["stream_key"] = Value::from(g.stream_key.clone());
         body["playback_url"] = Value::from(g.playback_url.clone());
+        body["saving"] = Value::from(
+            h.live
+                .as_ref()
+                .is_some_and(|l| l.id == g.broadcast && l.save.is_some()),
+        );
     }
     Resp::ok(body)
 }
@@ -252,7 +287,28 @@ pub async fn grant(app: &App, req: &Req, id: &str) -> Result<Resp, ApiError> {
         .filter(|c| c.is_ascii_alphanumeric() || *c == '-' || *c == '_')
         .take(128)
         .collect();
-    let channel = app.live.create(&name, household_id.as_str()).await?;
+    let save = asking.save.filter(|_| app.live.records());
+    let channel = app
+        .live
+        .create(&name, household_id.as_str(), save.is_some())
+        .await?;
+    if let Some(save) = save {
+        let claim = RecordingClaim {
+            household: household_id.clone(),
+            broadcast: broadcast.clone(),
+            contributor: asking.contributor.clone(),
+            display_name: asking.display_name.clone(),
+            started_at: now,
+            save,
+        };
+        app.blobs
+            .put(
+                &RecordingClaim::key(&channel.arn),
+                serde_json::to_vec(&claim)?,
+                "application/json",
+            )
+            .await?;
+    }
     h.live = Some(LiveBroadcast {
         id: broadcast.clone(),
         channel_arn: channel.arn,
@@ -260,6 +316,7 @@ pub async fn grant(app: &App, req: &Req, id: &str) -> Result<Resp, ApiError> {
         contributor: asking.contributor.clone(),
         display_name: asking.display_name.clone(),
         started_at: now,
+        save,
     });
     let r = &mut h.live_requests[i];
     r.status = LiveRequestStatus::Granted;
@@ -284,10 +341,11 @@ pub async fn grant(app: &App, req: &Req, id: &str) -> Result<Resp, ApiError> {
             broadcast: broadcast.clone(),
             display_name: asking.display_name,
             playback_url: channel.playback_url,
+            saving: save.is_some(),
         },
     )
     .await?;
-    Resp::ok(json!({ "broadcast": broadcast }))
+    Resp::ok(json!({ "broadcast": broadcast, "saving": save.is_some() }))
 }
 
 /// `POST /live/requests/{id}/decline`: the TV says not now.
@@ -356,6 +414,7 @@ pub async fn current(app: &App, req: &Req) -> Result<Resp, ApiError> {
                 "display_name": l.display_name,
                 "playback_url": l.playback_url,
                 "started_at": rfc3339(l.started_at),
+                "saving": l.save.is_some(),
             })
         });
     let mut body = json!({ "live": live });
@@ -369,6 +428,7 @@ pub async fn current(app: &App, req: &Req) -> Result<Resp, ApiError> {
                     "request": r.id,
                     "display_name": r.display_name,
                     "expires_at": rfc3339(r.requested_at + REQUEST_TTL),
+                    "saving": r.save.is_some(),
                 })
             })
             .collect();

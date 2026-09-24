@@ -65,11 +65,14 @@ pub enum EventKind {
         count: u32,
     },
     /// A phone went live: the TV plays `playback_url` (HLS, a few seconds behind).
+    /// `saving`: the broadcast is recorded and goes into the household's memories.
     #[serde(rename = "live.started")]
     LiveStarted {
         broadcast: String,
         display_name: String,
         playback_url: String,
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        saving: bool,
     },
     /// The broadcast ended, from the phone or the TV.
     #[serde(rename = "live.ended")]
@@ -84,6 +87,9 @@ pub enum EventKind {
         expires_at: time::OffsetDateTime,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         replacing: Option<String>,
+        /// The phone asked to keep the broadcast; saying yes also records it.
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        saving: bool,
     },
     /// The request was granted, declined or cancelled: the TV drops the prompt.
     #[serde(rename = "live.request_closed")]
@@ -267,10 +273,13 @@ mod tests {
                 broadcast: "l1".into(),
                 display_name: "Maya".into(),
                 playback_url: "https://x/y.m3u8".into(),
+                saving: true,
             },
             ..arrived.clone()
         };
-        assert_eq!(serde_json::to_value(&live).unwrap()["type"], "live.started");
+        let json = serde_json::to_value(&live).unwrap();
+        assert_eq!(json["type"], "live.started");
+        assert_eq!(json["saving"], true);
         let ended = Event {
             kind: EventKind::LiveEnded {
                 broadcast: "l1".into(),
@@ -284,11 +293,13 @@ mod tests {
                 display_name: "Sam".into(),
                 expires_at: datetime!(2026-09-21 10:01:00 UTC),
                 replacing: Some("Maya".into()),
+                saving: false,
             },
             ..ended.clone()
         };
         let json = serde_json::to_value(&asked).unwrap();
         assert_eq!(json["type"], "live.requested");
+        assert!(json.get("saving").is_none());
         assert_eq!(json["replacing"], "Maya");
         assert_eq!(json["expires_at"], "2026-09-21T10:01:00Z");
         let closed = Event {

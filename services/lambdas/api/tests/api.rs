@@ -39,6 +39,10 @@ struct Harness {
 }
 
 fn harness() -> Harness {
+    harness_with(MemoryLive::default())
+}
+
+fn harness_with(live: MemoryLive) -> Harness {
     let storage = Arc::new(MemoryStorage::new());
     let blobs = Arc::new(MemoryBlobs::default());
     let bus = Arc::new(MemoryBus::default());
@@ -46,7 +50,7 @@ fn harness() -> Harness {
     let starter = Arc::new(MemoryStarter::default());
     let mailer = Arc::new(MemoryMailer::default());
     let push = Arc::new(MemoryPush::default());
-    let live = Arc::new(MemoryLive::default());
+    let live = Arc::new(live);
     let now = Arc::new(Mutex::new(datetime!(2026-09-08 10:00:00 UTC)));
     let clock_now = now.clone();
     let app = App {
@@ -4433,6 +4437,81 @@ async fn a_phone_asks_the_tv_grants_and_the_channel_goes_when_it_ends() {
         h.bearer(Method::Get, "/live", None, &tv).await.body["live"],
         Value::Null
     );
+}
+
+#[tokio::test]
+async fn a_phone_that_asks_to_keep_its_broadcast_gets_a_recorded_channel() {
+    // No recording configuration: the ask to keep it is answered honestly with no.
+    let h = harness();
+    let (tv, phone, _) = paired(&h, "Grandma's TV", "Maya").await;
+    let asked = h
+        .bearer(Method::Post, "/live", Some(json!({ "save": true })), &phone)
+        .await;
+    assert_eq!(asked.status, 202, "{:?}", asked.body);
+    assert_eq!(asked.body["saving"], false);
+
+    let h = harness_with(MemoryLive {
+        recording: true,
+        ..MemoryLive::default()
+    });
+    let (tv2, phone2, _) = paired(&h, "Grandma's TV", "Maya").await;
+    let asked = h
+        .bearer(
+            Method::Post,
+            "/live",
+            Some(json!({ "save": true, "utc_offset_minutes": -420 })),
+            &phone2,
+        )
+        .await;
+    assert_eq!(asked.body["saving"], true);
+    let now = h.bearer(Method::Get, "/live", None, &tv2).await;
+    assert_eq!(now.body["requests"][0]["saving"], true);
+    let id = asked.body["request"].as_str().unwrap().to_owned();
+    let granted = h
+        .bearer(
+            Method::Post,
+            &format!("/live/requests/{id}/grant"),
+            None,
+            &tv2,
+        )
+        .await;
+    assert_eq!(granted.body["saving"], true);
+
+    let arn = h.live.recorded.lock().unwrap()[0].clone();
+    let claim = h
+        .blobs
+        .objects
+        .lock()
+        .unwrap()
+        .get(&mantelpiece_core::household::RecordingClaim::key(&arn))
+        .cloned()
+        .expect("claim written beside the channel");
+    let claim: mantelpiece_core::household::RecordingClaim =
+        serde_json::from_slice(&claim).unwrap();
+    assert_eq!(claim.display_name, "Maya");
+    assert_eq!(claim.save.utc_offset_seconds, Some(-420 * 60));
+    assert_eq!(
+        h.bearer(Method::Get, "/live/request", None, &phone2)
+            .await
+            .body["saving"],
+        true
+    );
+    assert_eq!(
+        h.bearer(Method::Get, "/live", None, &tv2).await.body["live"]["saving"],
+        true
+    );
+    assert!(h
+        .bearer(Method::Get, "/events?since=0", None, &tv2)
+        .await
+        .body
+        .to_string()
+        .contains("\"saving\":true"));
+
+    // Without asking, nothing is recorded.
+    h.bearer(Method::Post, "/live/stop", None, &tv2).await;
+    go_live(&h, &tv2, &phone2).await;
+    assert_eq!(h.live.recorded.lock().unwrap().len(), 1);
+    let _ = (tv, phone);
 }
 
 #[tokio::test]

@@ -1,6 +1,8 @@
 //! Live from the event: a phone broadcasts, the TV watches. One IVS low-latency channel
 //! per broadcast, made on demand and deleted after, so nothing sits idle between events.
 //! BASIC channels pass the phone's own encode through (no transcoding), the cheapest input.
+//! A broadcast the phone asked to keep gets a channel with the stack's recording
+//! configuration, so IVS writes it to S3 as HLS; the recording Lambda takes it from there.
 
 use async_trait::async_trait;
 use std::collections::BTreeMap;
@@ -21,7 +23,10 @@ pub struct Channel {
 
 #[async_trait]
 pub trait Live: Send + Sync {
-    async fn create(&self, name: &str, household: &str) -> Result<Channel>;
+    /// `record`: attach the recording configuration. Ignored when [`Live::records`] is false.
+    async fn create(&self, name: &str, household: &str, record: bool) -> Result<Channel>;
+    /// Whether channels can be recorded at all (a recording configuration exists).
+    fn records(&self) -> bool;
     /// Cut the stream if one is running. Fine when nothing is.
     async fn stop(&self, arn: &str) -> Result<()>;
     /// Delete the channel. `false` means IVS refused for now (the stream is still winding
@@ -34,16 +39,24 @@ fn backend<E: std::fmt::Debug>(e: E) -> StorageError {
 }
 
 /// Channels in a map. `busy` arns refuse deletion once, the way IVS does right after a stop.
+/// `recording` stands in for the stack's recording configuration; `recorded` lists the
+/// channels made with it.
 #[derive(Debug, Default)]
 pub struct MemoryLive {
     pub channels: Mutex<BTreeMap<String, Channel>>,
     pub stopped: Mutex<Vec<String>>,
     pub busy: Mutex<Vec<String>>,
+    pub recording: bool,
+    pub recorded: Mutex<Vec<String>>,
 }
 
 #[async_trait]
 impl Live for MemoryLive {
-    async fn create(&self, name: &str, _household: &str) -> Result<Channel> {
+    fn records(&self) -> bool {
+        self.recording
+    }
+
+    async fn create(&self, name: &str, _household: &str, record: bool) -> Result<Channel> {
         let mut channels = self.channels.lock().unwrap();
         let n = channels.len() + 1;
         let channel = Channel {
@@ -53,6 +66,9 @@ impl Live for MemoryLive {
             playback_url: format!("https://play.example.live-video.net/{name}-{n}.m3u8"),
         };
         channels.insert(channel.arn.clone(), channel.clone());
+        if record && self.recording {
+            self.recorded.lock().unwrap().push(channel.arn.clone());
+        }
         Ok(channel)
     }
 
@@ -75,19 +91,26 @@ impl Live for MemoryLive {
 #[derive(Debug, Clone)]
 pub struct IvsLive {
     client: aws_sdk_ivs::Client,
+    /// ARN of the stack's recording configuration; `None` means nothing is ever recorded.
+    recording: Option<String>,
 }
 
 impl IvsLive {
-    pub fn from_config(config: &aws_config::SdkConfig) -> Self {
+    pub fn from_config(config: &aws_config::SdkConfig, recording: Option<String>) -> Self {
         Self {
             client: aws_sdk_ivs::Client::new(config),
+            recording: recording.filter(|arn| !arn.is_empty()),
         }
     }
 }
 
 #[async_trait]
 impl Live for IvsLive {
-    async fn create(&self, name: &str, household: &str) -> Result<Channel> {
+    fn records(&self) -> bool {
+        self.recording.is_some()
+    }
+
+    async fn create(&self, name: &str, household: &str, record: bool) -> Result<Channel> {
         use aws_sdk_ivs::types::{ChannelLatencyMode, ChannelType};
         let out = self
             .client
@@ -96,6 +119,7 @@ impl Live for IvsLive {
             .latency_mode(ChannelLatencyMode::LowLatency)
             .r#type(ChannelType::BasicChannelType)
             .tags("mantelpiece:household", household)
+            .set_recording_configuration_arn(self.recording.clone().filter(|_| record))
             .send()
             .await
             .map_err(backend)?;

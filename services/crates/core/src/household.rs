@@ -42,6 +42,9 @@ pub struct LiveBroadcast {
     pub display_name: String,
     #[serde(with = "time::serde::rfc3339")]
     pub started_at: OffsetDateTime,
+    /// The phone asked to keep this broadcast and IVS is recording it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub save: Option<LiveSave>,
 }
 
 /// A phone asking the TV to show its camera. Nothing streams, and no channel exists,
@@ -54,9 +57,42 @@ pub struct LiveRequest {
     #[serde(with = "time::serde::rfc3339")]
     pub requested_at: OffsetDateTime,
     pub status: LiveRequestStatus,
+    /// The phone wants the broadcast kept in the household's memories.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub save: Option<LiveSave>,
     /// Where and how the phone streams once granted. Only the asking phone reads it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub grant: Option<LiveGrant>,
+}
+
+/// Keep this broadcast: record it and add the video to the household's memories.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LiveSave {
+    /// The phone's zone, so the saved video lands on the right local day.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub utc_offset_seconds: Option<i32>,
+}
+
+/// Left in the media bucket when a saved broadcast's channel is made. IVS files the
+/// recording under the channel id alone; this is how the recording finds its household.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RecordingClaim {
+    pub household: HouseholdId,
+    pub broadcast: String,
+    pub contributor: ContributorId,
+    pub display_name: String,
+    #[serde(with = "time::serde::rfc3339")]
+    pub started_at: OffsetDateTime,
+    #[serde(default)]
+    pub save: LiveSave,
+}
+
+impl RecordingClaim {
+    /// `live/recordings/{channel id}.json`, the channel id being the last part of its ARN.
+    pub fn key(channel_arn: &str) -> String {
+        let id = channel_arn.rsplit('/').next().unwrap_or(channel_arn);
+        format!("live/recordings/{id}.json")
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

@@ -110,7 +110,10 @@ async fn main() -> Result<(), Error> {
             std::env::var("SHARE_SENDER").ok(),
         )),
         push: Arc::new(push),
-        live: Arc::new(IvsLive::from_config(&aws)),
+        live: Arc::new(IvsLive::from_config(
+            &aws,
+            std::env::var("IVS_RECORDING_ARN").ok(),
+        )),
         starter: Arc::new(SfnStarter::from_config(
             &aws,
             env("ORGANIZE_STATE_MACHINE_ARN")?,

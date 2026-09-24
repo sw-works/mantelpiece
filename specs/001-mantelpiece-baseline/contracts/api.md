@@ -102,13 +102,13 @@ sessions) or Cognito JWTs (`/join/amazon`). Errors are `{ "error": "<message>" }
 
 | Method | Path | Caller | Notes |
 |--------|------|--------|-------|
-| POST | /live | paired phone, guest | NEW asks the TV; no channel yet. 202 `{request, status: "waiting", expires_at, replacing, tv}`; `replacing` names whoever is live now. Replaces this phone's earlier request; 409 when this phone is already live; emits `live.requested` |
-| GET | /live/request | the asking phone | NEW `{request, status, tv}` with status `waiting`, `granted`, `declined`, `expired` (60 s unanswered), `cancelled` or `ended`; a grant adds `{broadcast, ingest_endpoint, stream_key, playback_url}`, and the key is dropped when that broadcast ends |
+| POST | /live | paired phone, guest | NEW asks the TV; no channel yet. Optional body `{save, utc_offset_minutes}`: `save` asks to record the broadcast into memories, the offset (minutes east of UTC) dates the saved video. 202 `{request, status: "waiting", expires_at, replacing, saving, tv}`; `replacing` names whoever is live now; `saving` is false when the stack has no recording configuration. Replaces this phone's earlier request; 409 when this phone is already live; emits `live.requested` |
+| GET | /live/request | the asking phone | NEW `{request, status, tv}` with status `waiting`, `granted`, `declined`, `expired` (60 s unanswered), `cancelled` or `ended`; a grant adds `{broadcast, ingest_endpoint, stream_key, playback_url, saving}`, and the key is dropped when that broadcast ends |
 | DELETE | /live/request | the asking phone | NEW stops asking; emits `live.request_closed` |
-| POST | /live/requests/{id}/grant | TV | NEW ends whoever is live (`live.ended`), makes one IVS BASIC low-latency channel for the asking phone, emits `live.request_closed` and `live.started`; 409 once the request is answered, withdrawn or expired, or the phone was unpaired |
+| POST | /live/requests/{id}/grant | TV | NEW ends whoever is live (`live.ended`), makes one IVS BASIC low-latency channel for the asking phone (with the recording configuration, and a claim at `live/recordings/{channel id}.json`, when it asked to save), emits `live.request_closed` and `live.started`; 409 once the request is answered, withdrawn or expired, or the phone was unpaired |
 | POST | /live/requests/{id}/decline | TV | NEW 204; the phone reads `declined`; emits `live.request_closed` |
 | POST | /live/stop | the live phone, TV | NEW stops the stream, deletes the channel (or parks it while IVS refuses), emits `live.ended` |
-| GET | /live | TV, phone | NEW `{live: {id, display_name, playback_url, started_at} \| null}`; a broadcast older than 4 h reads as null. For the TV also `requests: [{request, display_name, expires_at}]`, the ones still waiting. A live phone polls this to learn the TV ended or switched away from it |
+| GET | /live | TV, phone | NEW `{live: {id, display_name, playback_url, started_at, saving} \| null}`; a broadcast older than 4 h reads as null. For the TV also `requests: [{request, display_name, expires_at, saving}]`, the ones still waiting. A live phone polls this to learn the TV ended or switched away from it |
 
 ## People (US9)
 
