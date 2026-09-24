@@ -8,6 +8,7 @@ import { loadConfig } from "../config.js";
 import { familyCard } from "../family.js";
 import { button, context, el, eyebrow, field, formatBytes, icon, link, mount, photo, topbar } from "../ui.js";
 import { retryItem, runQueue, type QueueItem } from "../upload/queue.js";
+import { REVIEW_PAGE, doneTitle, failures, inFlight, kept, latestSent, sendingTitle, shareHint, summaryLine, tally } from "../upload/view.js";
 import { openSharedCache, sharedCount, takeSharedFiles } from "../upload/shared.js";
 import { IndexedDbResumeStore } from "../upload/store.js";
 
@@ -172,31 +173,11 @@ function renderJoin(root: HTMLElement, code: string, asGuest: (name: string) => 
   );
 }
 
-/** What the queue adds up to, for the title, the overall bar and the summary line. */
-function tally(items: readonly QueueItem[], removed: ReadonlySet<string>) {
-  let done = 0;
-  let duplicate = 0;
-  let failed = 0;
-  let fraction = 0;
-  let bytesLeft = 0;
-  for (const it of items) {
-    const phase = it.progress.phase;
-    if (phase === "done") done++;
-    else if (phase === "duplicate") duplicate++;
-    else if (phase === "failed") failed++;
-    const f = phase === "uploading" ? it.progress.fraction : phase === "hashing" ? 0 : 1;
-    fraction += f;
-    bytesLeft += Math.round(it.file.size * (1 - f));
-  }
-  const total = items.length;
-  const removedCount = items.filter((it) => it.mediaId && removed.has(it.mediaId)).length;
-  return { total, done, duplicate, failed, sent: done + duplicate, fraction: total ? fraction / total : 0, bytesLeft, removed: removedCount };
-}
-
-function stateOf(it: QueueItem): { cls: string; text: string } {
+/** A row for a file in flight or one that failed; everything else is counted, not listed. */
+function stateText(it: QueueItem): { cls: string; text: string } {
   switch (it.progress.phase) {
     case "hashing":
-      return it.progress.fraction === 0 ? { cls: "waiting", text: "Waiting" } : { cls: "hashing", text: "Checking" };
+      return { cls: "hashing", text: "Checking" };
     case "uploading":
       return { cls: "uploading", text: "" };
     case "done":
@@ -204,50 +185,43 @@ function stateOf(it: QueueItem): { cls: string; text: string } {
     case "duplicate":
       return { cls: "duplicate", text: "Already on the TV" };
     case "failed":
-      return { cls: "failed", text: `Failed · ${it.error ?? "unknown error"}` };
+      return { cls: "failed", text: it.error ?? "Did not send" };
   }
 }
 
 function renderUploader(root: HTMLElement, api: Api, session: Session, storage: Storage, pending: File[] = []) {
   const input = el("input", { type: "file", multiple: "", accept: "image/*,video/*", class: "file" });
-  const list = el("ul", { class: "uploads" });
   const store = new IndexedDbResumeStore();
   const chip = () => context(session.code ? `Trip ${session.code} · as ${session.displayName}` : `${session.place ?? "Your household"} · as ${session.displayName}`);
   const owner = Boolean(storage.getItem(OWNER_TOKEN_KEY));
+  const family = () => familyCard(api, session.token, session.place ? { tvName: session.place } : {});
 
-  // Object URLs for the row thumbnails, one per picked file; videos get a neutral panel.
+  // Object URLs for thumbnails, made only for files on screen; videos get a neutral panel.
   const previews = new Map<File, string>();
-  const preview = (file: File): HTMLElement => {
-    if (!file.type.startsWith("image/")) return el("div", { class: "thumb" }, icon("video", 22));
+  const preview = (file: File, cls = ""): HTMLElement => {
+    if (!file.type.startsWith("image/")) return el("div", { class: cls ? `thumb ${cls}` : "thumb" }, icon("video", 22));
     let u = previews.get(file);
     if (!u) {
       u = URL.createObjectURL(file);
       previews.set(file, u);
     }
-    return photo(u);
+    return photo(u, cls);
   };
 
   const picker = el(
     "label",
     { class: "picker" },
     el("span", { class: "circle" }, icon("images", 30)),
-    el("span", { class: "big" }, "Choose from your camera roll"),
-    el("p", { class: "small" }, "Photos and videos, up to 2 GB each"),
+    el("span", { class: "big" }, "Choose photos"),
     input,
   );
 
-  // Where the photos go, and a way out when this phone should join a different trip.
-  const leave = link("Switch trip");
+  // A way out when this phone should join a different trip.
+  const leave = link("Switch trip", { small: true });
   leave.onclick = () => {
     storage.removeItem(SESSION);
     notice(root, "Mantelpiece", "Scan the Invite code on the TV to join another trip.");
   };
-  const where = el(
-    "div",
-    { class: "row" },
-    el("p", { class: "meta grow" }, session.code ? `Adding to trip ${session.code}.` : "Adding to your household. Trips are found from the photos."),
-    leave,
-  );
   const sep = () => el("span", { class: "sep" }, "·");
   const footer = owner
     ? [
@@ -268,41 +242,119 @@ function renderUploader(root: HTMLElement, api: Api, session: Session, storage: 
       ]
     : [];
 
+  const hint = shareHint(globalThis.navigator?.userAgent ?? "");
   const showIdle = () =>
     mount(
       root,
       topbar({ right: chip() }),
-      el("div", { class: "stack" }, el("h1", {}, "Pick photos"), el("p", { class: "lead" }, "Choose a trip's worth. Big batches are fine; uploads resume if you lose signal.")),
+      el(
+        "div",
+        { class: "stack" },
+        el("h1", {}, "Add your photos"),
+        el("p", { class: "lead" }, session.code ? "Photos and videos go straight to the TV and into this trip. Up to 2 GB each." : "Photos and videos go straight to the TV; trips are found from them. Up to 2 GB each."),
+      ),
       picker,
-      el("div", { class: "note" }, icon("share", 20), el("p", {}, "Or share straight from your camera roll: on Android, add this page to your home screen and Mantelpiece appears in the share sheet.")),
-      where,
-      familyCard(api, session.token, session.place ? { tvName: session.place } : {}),
+      ...(hint ? [el("div", { class: "note" }, icon("share", 20), el("p", {}, hint))] : []),
+      el("div", { class: "row end" }, leave),
+      family(),
       ...footer,
     );
 
+  // One batch at a time; `all` is its queue, `removed` what this phone took back.
+  let all: readonly QueueItem[] = [];
+  const removed = new Set<string>();
+
+  // Rows for `items`, each failed one with Retry. A retry reports to `onRetry`, which
+  // redraws only what it owns, so the rest of the page stays as it is.
+  const retryRows = (items: readonly QueueItem[], onRetry: () => void) =>
+    items.map((it) => {
+      if (it.progress.phase !== "failed") return row(it);
+      const retry = link("Retry", { icon: "retry", small: true });
+      retry.onclick = async () => {
+        retry.disabled = true;
+        const index = all.indexOf(it);
+        await retryItem(it, { api, bearer: session.token, store, onChange: onRetry }, { total: all.length, done: index + 1 });
+        onRetry();
+      };
+      return row(it, retry);
+    });
+  const row = (it: QueueItem, action?: HTMLElement) => {
+    const state = stateText(it);
+    const progress =
+      it.progress.phase === "uploading"
+        ? el("div", { class: "bar" }, el("i", { style: `width: ${Math.round(it.progress.fraction * 100)}%` }))
+        : el("span", { class: "state" }, state.text);
+    return el(
+      "li",
+      { class: `item ${state.cls}` },
+      preview(it.file, "small"),
+      el("div", { class: "meta" }, el("div", { class: "top" }, el("span", { class: "name" }, it.file.name), el("span", { class: "size" }, formatBytes(it.file.size))), progress),
+      ...(action ? [action] : []),
+    );
+  };
+
+  // Sending: counts and a bar, the few files in flight, failures, the newest few sent.
   const title = el("h1");
   const overall = el("div", { class: "bar" }, el("i"));
   const summary = el("p", { class: "meta" });
-  const showUploading = () =>
+  const active = el("ul", { class: "uploads" });
+  const recent = el("div", { class: "recent" });
+  let recentShown = -1;
+  const showSending = () =>
     mount(
       root,
       topbar({ right: chip() }),
-      el("div", { class: "stack" }, title, el("p", { class: "lead" }, "Keep this page open, or come back later: it picks up where it stopped. The TV is already showing them arrive.")),
+      el("div", { class: "stack" }, title, el("p", { class: "lead" }, "Keep this page open. If you leave, it picks up where it stopped when you come back.")),
       overall,
       summary,
-      list,
+      active,
+      recent,
       input,
     );
+  const renderSending = () => {
+    const t = tally(all, removed);
+    title.textContent = sendingTitle(t);
+    (overall.firstElementChild as HTMLElement).style.width = `${Math.round(t.fraction * 100)}%`;
+    const left = t.bytesLeft > 0 ? `${formatBytes(t.bytesLeft)} to go` : "Finishing up";
+    const counts = summaryLine(t);
+    summary.textContent = counts ? `${left} · ${counts}` : left;
+    active.replaceChildren(...inFlight(all).map((it) => row(it)), ...retryRows(failures(all), renderSending));
+    // The strip changes only when another photo lands, not on every progress tick.
+    if (t.done !== recentShown) {
+      recentShown = t.done;
+      const latest = latestSent(all, 4);
+      recent.replaceChildren(...(latest.length ? [eyebrow("On the TV now"), el("div", { class: "tiles" }, ...latest.map((it) => preview(it.file, "tile")))] : []));
+    }
+  };
 
-  const showDone = (t: ReturnType<typeof tally>) => {
+  // Done: the outcome, what to do next, failures to retry, and the photos behind a fold.
+  const showDone = () => {
+    const t = tally(all, removed);
     const more = button("Add more photos", { icon: "images" });
     more.onclick = () => input.click();
     // A household code has no trip until the photos are organised; older saved sessions
     // (no flag) keep the link.
     const seeTrip = session.code && session.hasTrip !== false ? [el("a", { class: "button secondary", href: `/trip.html?t=${encodeURIComponent(session.code)}` }, icon("chev", 20), el("span", {}, "See the trip as it forms"))] : [];
-    const heading = t.failed > 0 ? `${t.sent} of ${t.total} on the TV` : t.sent === 1 ? "Your photo is on the TV" : `All ${t.sent} on the TV`;
-    const parts = [`${t.total} chosen`, `${t.duplicate} already on the TV`, `${t.removed} removed by you`];
-    if (t.failed > 0) parts.push(`${t.failed} failed`);
+    const heading = el("h1", {}, doneTitle(t));
+    const counts = el("p", { class: "small" }, summaryLine(t));
+    const recount = () => {
+      const now = tally(all, removed);
+      heading.textContent = doneTitle(now);
+      counts.textContent = summaryLine(now);
+    };
+    // The ones that failed stay listed while retried, showing how the retry goes.
+    const unsent = failures(all);
+    const failed = el("ul", { class: "uploads" });
+    const redrawFailed = () => {
+      // Every retry landed: draw the screen again without the section, counting them in.
+      if (unsent.every((it) => it.progress.phase === "done" || it.progress.phase === "duplicate")) {
+        showDone();
+        return;
+      }
+      failed.replaceChildren(...retryRows(unsent, redrawFailed));
+      recount();
+    };
+    failed.replaceChildren(...retryRows(unsent, redrawFailed));
     mount(
       root,
       topbar({ right: chip() }),
@@ -310,71 +362,82 @@ function renderUploader(root: HTMLElement, api: Api, session: Session, storage: 
         "div",
         { class: "finished" },
         el("div", { class: "check-circle" }, icon("check", 34)),
-        el("h1", {}, heading),
+        heading,
         el("p", { class: "lead" }, "The trip takes shape over the next few minutes: days, a route and a story."),
+        counts,
       ),
-      el("p", { class: "small" }, parts.join(" · ")),
+      ...(unsent.length > 0 ? [el("div", { class: "stack" }, eyebrow("Did not send"), failed)] : []),
       more,
       ...seeTrip,
-      list,
-      el("p", { class: "small" }, "Your photos stay yours. Remove any of them from the list above, any time."),
-      familyCard(api, session.token, session.place ? { tvName: session.place } : {}),
+      review(recount),
+      family(),
       input,
     );
+  };
+
+  // "Review or remove": a grid of this batch's photos, a page at a time, each removable.
+  const review = (changed: () => void): HTMLElement => {
+    const mine = kept(all, removed);
+    const grid = el("div", { class: "tiles review" });
+    const label = el("span", {}, `Review or remove (${mine.length})`);
+    const moreTiles = link("Show more", { small: true });
+    let shown = 0;
+    const tile = (it: QueueItem) => {
+      const remove = el("button", { class: "remove", type: "button", "aria-label": `Remove ${it.file.name}` }, el("span", {}, icon("close", 16)));
+      const box = el("div", { class: "tile-wrap" }, preview(it.file, "tile"), remove);
+      remove.onclick = async () => {
+        remove.disabled = true;
+        try {
+          await api.deleteMedia(session.token, it.mediaId!);
+        } catch {
+          remove.disabled = false;
+          return;
+        }
+        removed.add(it.mediaId!);
+        box.remove();
+        label.textContent = `Review or remove (${kept(all, removed).length})`;
+        changed();
+      };
+      return box;
+    };
+    const page = () => {
+      const next = mine.slice(shown, shown + REVIEW_PAGE);
+      shown += next.length;
+      grid.append(...next.map(tile));
+      moreTiles.hidden = shown >= mine.length;
+    };
+    moreTiles.onclick = page;
+    const details = el(
+      "details",
+      { class: "review-box" },
+      el("summary", {}, label, icon("chev", 18)),
+      el("p", { class: "small" }, "Your photos stay yours. Take any of them off the TV, any time."),
+      grid,
+      moreTiles,
+    );
+    // Thumbnails load only once someone opens it.
+    details.addEventListener("toggle", () => {
+      if (details.open && shown === 0) page();
+    });
+    if (mine.length === 0) details.hidden = true;
+    return details;
   };
 
   const upload = async (files: File[]) => {
     if (files.length === 0) return;
     input.disabled = true;
-    let all: readonly QueueItem[] = [];
-    const removed = new Set<string>();
-    showUploading();
-    const render = (items: readonly QueueItem[]) => {
+    all = [];
+    removed.clear();
+    recentShown = -1;
+    active.replaceChildren();
+    recent.replaceChildren();
+    showSending();
+    const onChange = (items: readonly QueueItem[]) => {
       if (items.length >= all.length) all = items;
-      const t = tally(all, removed);
-      title.textContent = `${t.sent} of ${t.total} sent`;
-      (overall.firstElementChild as HTMLElement).style.width = `${Math.round(t.fraction * 100)}%`;
-      summary.textContent = t.bytesLeft > 0 ? `${formatBytes(t.bytesLeft)} to go` : "Finishing up";
-      list.replaceChildren(
-        ...all
-          .filter((it) => !(it.mediaId && removed.has(it.mediaId)))
-          .map((it, index) => {
-            const state = stateOf(it);
-            const progress =
-              it.progress.phase === "uploading"
-                ? el("div", { class: "bar" }, el("i", { style: `width: ${Math.round(it.progress.fraction * 100)}%` }))
-                : el("span", { class: "state" }, state.text);
-            const row = el(
-              "li",
-              { class: `item ${state.cls}` },
-              preview(it.file),
-              el("div", { class: "meta" }, el("div", { class: "top" }, el("span", { class: "name" }, it.file.name), el("span", { class: "size" }, formatBytes(it.file.size))), progress),
-            );
-            if (it.mediaId) {
-              const remove = link("Remove");
-              remove.onclick = async () => {
-                await api.deleteMedia(session.token, it.mediaId!);
-                removed.add(it.mediaId!);
-                row.remove();
-              };
-              row.append(remove);
-            }
-            if (it.progress.phase === "failed") {
-              const retry = link("Retry", { icon: "retry" });
-              retry.onclick = async () => {
-                retry.disabled = true;
-                await retryItem(it, { api, bearer: session.token, store, onChange: () => render(all) }, { total: all.length, done: index + 1 });
-                render(all);
-              };
-              row.append(retry);
-            }
-            return row;
-          }),
-      );
+      renderSending();
     };
-    const items = await runQueue(files, { api, bearer: session.token, store, onChange: render });
-    render(items);
-    showDone(tally(items, removed));
+    all = await runQueue(files, { api, bearer: session.token, store, onChange });
+    showDone();
     input.disabled = false;
     input.value = "";
   };

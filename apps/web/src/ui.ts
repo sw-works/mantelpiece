@@ -42,6 +42,7 @@ const ICONS = {
   retry: '<path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v5h-5"/>',
   amazon: '<path d="M4 15c4 3 12 3 16 0"/><path d="M18 14l2 1-1 2"/><path d="M9 11a3 3 0 1 1 6 0v3"/>',
   chev: '<path d="M9 6l6 6-6 6"/>',
+  close: '<path d="M7 7l10 10M17 7L7 17"/>',
   video: '<rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10l5-3v10l-5-3z"/>',
 } as const;
 
