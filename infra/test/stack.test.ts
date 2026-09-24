@@ -82,12 +82,12 @@ describe("Mantelpiece stack", () => {
     });
   });
 
-  it("runs four Rust Lambdas on arm64 with the placeholder asset", () => {
+  it("runs five Rust Lambdas on arm64 with the placeholder asset", () => {
     const rust = template.findResources("AWS::Lambda::Function", {
       Properties: { Runtime: "provided.al2023" },
     });
-    // api, ingest, poster, and the api binary again as the Gateway's interceptor.
-    expect(Object.keys(rust)).toHaveLength(4);
+    // api, ingest, poster, recording, and the api binary again as the Gateway's interceptor.
+    expect(Object.keys(rust)).toHaveLength(5);
     template.hasResourceProperties("AWS::Lambda::Function", {
       Runtime: "provided.al2023",
       Architectures: ["arm64"],
@@ -181,6 +181,25 @@ describe("Mantelpiece stack", () => {
     expect(([] as string[]).concat(ivs.Action)).toEqual(expect.arrayContaining(["ivs:DeleteChannel", "ivs:StopStream", "ivs:TagResource"]));
     expect(JSON.stringify(ivs.Resource)).toContain(":channel/*");
     expect(JSON.stringify(ivs.Resource)).not.toContain('"*"');
+  });
+
+  it("records only into its own expiring bucket and turns a finished recording into a video", () => {
+    template.resourceCountIs("AWS::IVS::RecordingConfiguration", 1);
+    template.hasResourceProperties("AWS::IVS::RecordingConfiguration", {
+      DestinationConfiguration: { S3: { BucketName: Match.anyValue() } },
+      ThumbnailConfiguration: { RecordingMode: "DISABLED" },
+    });
+    template.hasResourceProperties("AWS::S3::Bucket", {
+      LifecycleConfiguration: { Rules: Match.arrayWith([Match.objectLike({ ExpirationInDays: 7 })]) },
+    });
+    template.hasResourceProperties("AWS::Events::Rule", {
+      EventPattern: Match.objectLike({ detail: Match.objectLike({ object: { key: [{ suffix: "/events/recording-ended.json" }] } }) }),
+    });
+    template.hasResourceProperties("AWS::Lambda::Function", {
+      Environment: { Variables: Match.objectLike({ RECORDINGS_BUCKET: Match.anyValue(), FFMPEG: "/opt/bin/ffmpeg" }) },
+    });
+    const fns = Object.values(template.findResources("AWS::Lambda::Function", { Properties: { Handler: "bootstrap" } }));
+    expect(fns.some((f) => f.Properties.Environment?.Variables?.IVS_RECORDING_ARN !== undefined)).toBe(true);
   });
 
   it("exposes every contract tool through one MCP Gateway target on the API Lambda", () => {

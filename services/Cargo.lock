@@ -2492,6 +2492,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "mantelpiece-recording"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "aws-config",
+ "aws-sdk-sfn",
+ "lambda_runtime",
+ "mantelpiece-core",
+ "mantelpiece-ingest",
+ "mantelpiece-store",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "time",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "mantelpiece-store"
 version = "0.1.0"
 dependencies = [

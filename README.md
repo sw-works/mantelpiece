@@ -37,6 +37,7 @@ services/        Rust workspace
   lambdas/api    backend API Lambda behind API Gateway
   lambdas/ingest Step Functions tasks: signal, enrich, organize
   lambdas/poster poster frames for videos (ffmpeg from a Lambda layer)
+  lambdas/recording saved broadcasts: IVS recording remuxed to MP4 into originals/ (same layer)
 agents/          Concierge workflows W1 to W6 for AgentCore Runtime, and the Echo Show skill (Python, uv)
 infra/           CDK stack (TypeScript)
 scripts/         tv-walkthrough.sh: Virtual Device key presses and screenshots

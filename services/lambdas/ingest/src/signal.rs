@@ -44,7 +44,8 @@ pub async fn run(ingest: &Ingest, key: &str) -> Result<Output> {
     media.bytes = bytes.len() as u64;
 
     let meta = exif::parse(&bytes);
-    media.captured = meta.captured;
+    // A video carries no EXIF; keep a capture time set at creation (a saved broadcast).
+    media.captured = meta.captured.or(media.captured);
     media.gps = meta.gps;
     media.orientation = meta.orientation;
 

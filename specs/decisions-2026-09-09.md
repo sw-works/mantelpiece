@@ -840,3 +840,32 @@ compile-checked only.
 - Open, seen from the phone and not chased: the Back button on the Live screen flickers a
   few times while the broadcast starts, most likely the preferred-focus prop being re-applied
   on every state change as the player reports starting, stalled and then playing.
+
+## 35. Saved broadcasts (2026-09-23)
+
+- Scope: a live broadcast can be kept. The phone's Go live page has "Save to memories", off
+  by default; the TV prompt adds "It will be saved to memories", and the Live screen shows
+  "Recording to memories" while it runs. Saying yes to Watch is not consent to be recorded,
+  so the choice is the broadcaster's and the room sees it before anyone presses yes.
+- How: the stack has one IVS recording configuration writing to its own bucket (IVS uses
+  its service-linked role `AWSServiceRoleForIVSRecordToS3`, no bucket policy); the raw HLS
+  expires after 7 days. Only a saving broadcast's channel names the configuration. The
+  grant leaves `live/recordings/{channel id}.json` in the media bucket, since IVS files the
+  recording under the channel id alone and the channel is deleted when the broadcast ends.
+- When `events/recording-ended.json` lands, an EventBridge rule runs the recording Lambda:
+  highest rendition's segments to /tmp, `ffmpeg -c copy -bsf:a aac_adtstoasc -movflags
+  +faststart` (the poster's layer), then a media record and `originals/.../live-{recording
+  id}.mp4`, exactly what an upload leaves. Signal, poster and organize take it from there.
+  Captured = IVS's `recording_started_at` in the phone's zone (sent with the ask), so the
+  video lands on the right day; signal now keeps a creation-time capture when EXIF has none.
+- Limit: signal and poster read a video into memory whole, so a saved broadcast keeps its
+  first 768 MiB of segments (roughly 40 minutes at the web broadcast's 720p, not measured)
+  and drops the rest; the Lambda's output says `truncated`.
+- Verified: unit tests (API grant writes the claim and records only when asked; the Lambda
+  picks the top rendition, caps, skips unclaimed and failed recordings, and is idempotent);
+  the ffmpeg command against a local HLS stream (H.264 + AAC, creation_time set).
+- Not verified: anything on AWS. Open: whether IVS finishes writing the recording when the
+  API deletes the channel right after StopStream (IVS refuses the delete while the stream
+  winds down, which should cover it); the static ffmpeg build's HLS demuxer on Lambda; the
+  web broadcast SDK's bitrate changes mid-stream (IVS lists a known issue with merged
+  reconnects, which stay off here).

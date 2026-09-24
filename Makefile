@@ -28,7 +28,7 @@ fmt:
 # Rust Lambdas for arm64 via cargo-lambda (`cargo install cargo-lambda`). Output lands in
 # services/target/lambda/<name>/bootstrap, which the CDK stack packages.
 build-lambdas:
-	cd services && cargo lambda build --release --arm64 --bin api --bin ingest --bin poster
+	cd services && cargo lambda build --release --arm64 --bin api --bin ingest --bin poster --bin recording
 
 # The Concierge agent for AgentCore Runtime: its code plus arm64 wheels in
 # agents/build/runtime, which the CDK stack zips. Needs uv.

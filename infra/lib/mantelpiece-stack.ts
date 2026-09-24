@@ -14,6 +14,7 @@ import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import * as events from "aws-cdk-lib/aws-events";
 import * as targets from "aws-cdk-lib/aws-events-targets";
 import * as iam from "aws-cdk-lib/aws-iam";
+import * as ivs from "aws-cdk-lib/aws-ivs";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as s3 from "aws-cdk-lib/aws-s3";
 import * as s3assets from "aws-cdk-lib/aws-s3-assets";
@@ -435,6 +436,62 @@ export class MantelpieceStack extends Stack {
     });
     this.bucket.grantRead(organizeMachine, "manifests/*");
 
+    // Saved broadcasts: a phone that asks to keep its broadcast gets a channel with this
+    // recording configuration (handlers/live.rs). IVS writes HLS into its own bucket through
+    // its service-linked role; when `recording-ended.json` lands, the recording Lambda
+    // remuxes the highest rendition to MP4 into `originals/`, and signal, poster and
+    // organize take it from there like any phone video. The raw HLS is a working copy, so
+    // it expires after a week.
+    const recordingsBucket = new s3.Bucket(this, "Recordings", {
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      encryption: s3.BucketEncryption.S3_MANAGED,
+      enforceSSL: true,
+      eventBridgeEnabled: true,
+      removalPolicy: RemovalPolicy.DESTROY,
+      autoDeleteObjects: true,
+      lifecycleRules: [{ expiration: Duration.days(7) }],
+    });
+    const recordingConfig = new ivs.CfnRecordingConfiguration(this, "LiveRecording", {
+      name: "mantelpiece-saved-broadcasts",
+      destinationConfiguration: { s3: { bucketName: recordingsBucket.bucketName } },
+      // The poster frame comes from the MP4; IVS thumbnails would only add objects.
+      thumbnailConfiguration: { recordingMode: "DISABLED" },
+    });
+    const recordingFn = rustFunction("RecordingFn", "recording", {
+      memorySize: 3008,
+      timeout: Duration.minutes(15),
+      ephemeralStorageSize: Size.gibibytes(4),
+      layers: [ffmpegLayer],
+      environment: {
+        TABLE_NAME: this.table.tableName,
+        MEDIA_BUCKET: this.bucket.bucketName,
+        RECORDINGS_BUCKET: recordingsBucket.bucketName,
+        ORGANIZE_STATE_MACHINE_ARN: organizeMachine.stateMachineArn,
+        FFMPEG: "/opt/bin/ffmpeg",
+        RUST_LOG: "info",
+      },
+    });
+    this.table.grantReadWriteData(recordingFn);
+    this.bucket.grantReadWrite(recordingFn);
+    recordingsBucket.grantRead(recordingFn);
+    organizeMachine.grantStartExecution(recordingFn);
+    new events.Rule(this, "RecordingEnded", {
+      eventPattern: {
+        source: ["aws.s3"],
+        detailType: ["Object Created"],
+        detail: {
+          bucket: { name: [recordingsBucket.bucketName] },
+          object: { key: [{ suffix: "/events/recording-ended.json" }] },
+        },
+      },
+      targets: [
+        new targets.LambdaFunction(recordingFn, {
+          event: events.RuleTargetInput.fromObject({ key: events.EventField.fromPath("$.detail.object.key") }),
+          retryAttempts: 2,
+        }),
+      ],
+    });
+
     const apiEnvironment = {
         TABLE_NAME: this.table.tableName,
         MEDIA_BUCKET: this.bucket.bucketName,
@@ -449,6 +506,7 @@ export class MantelpieceStack extends Stack {
         POLL_HOLD_SECONDS: "25",
         RUST_LOG: "info",
         AGENT_CLIENT_ID: agentClient.userPoolClientId,
+        IVS_RECORDING_ARN: recordingConfig.attrArn,
     };
     const apiFn = rustFunction("ApiFn", "api", { environment: apiEnvironment });
     // The same binary as the Gateway's REQUEST interceptor. A function of its own because
@@ -490,13 +548,15 @@ export class MantelpieceStack extends Stack {
 
     // Live from the event: one IVS channel per phone broadcast, made and deleted by the API
     // (handlers/live.rs). Channels are runtime resources outside this stack; `make down`
-    // leaves none behind once every broadcast ended, and idle channels cost nothing.
+    // leaves none behind once every broadcast ended, and idle channels cost nothing. A
+    // saved broadcast's channel names the recording configuration above.
     apiFn.addToRolePolicy(
       new iam.PolicyStatement({
         actions: ["ivs:CreateChannel", "ivs:DeleteChannel", "ivs:StopStream", "ivs:TagResource", "ivs:GetChannel"],
         resources: [
           `arn:aws:ivs:${this.region}:${this.account}:channel/*`,
           `arn:aws:ivs:${this.region}:${this.account}:stream-key/*`,
+          recordingConfig.attrArn,
         ],
       }),
     );
