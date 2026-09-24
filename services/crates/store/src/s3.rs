@@ -134,7 +134,15 @@ impl Blobs for S3Blobs {
             .key(key)
             .send()
             .await
-            .map_err(backend)?;
+            .map_err(|e| {
+                if e.as_service_error()
+                    .is_some_and(aws_sdk_s3::operation::get_object::GetObjectError::is_no_such_key)
+                {
+                    StorageError::NotFound(key.to_owned())
+                } else {
+                    backend(e)
+                }
+            })?;
         let bytes = out.body.collect().await.map_err(backend)?;
         Ok(bytes.into_bytes().to_vec())
     }
