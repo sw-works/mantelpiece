@@ -1,12 +1,14 @@
 // live.html: this phone broadcasts to the household's TV. The camera opens first so the
 // person sees what the TV will see; "Go live" asks the TV, which grants or declines. Only a
 // grant makes a channel and hands this phone the stream key for the IVS broadcast SDK
-// (WebRTC ingest). The SDK loads only on this page.
+// (WebRTC ingest). The SDK loads only on this page. "Save to memories", off unless the
+// person turns it on, asks for a recorded channel; the video joins the household's
+// memories a few minutes after the broadcast ends.
 
 import { Api } from "../api.js";
 import { loadConfig } from "../config.js";
 import { phoneToken } from "../family.js";
-import { ANSWER_CHECK_MS, LIVE_CHECK_MS, answerText, broadcastGone, cameraConstraints, goneText, holdHint, liveErrorText, type Facing, type LivePhase } from "../live.js";
+import { ANSWER_CHECK_MS, LIVE_CHECK_MS, answerText, askBody, broadcastGone, cameraConstraints, goneText, holdHint, liveErrorText, liveLine, type Facing, type LivePhase } from "../live.js";
 import { button, context, el, icon, mount, topbar } from "../ui.js";
 import { deviceIdOf } from "./upload.js";
 
@@ -30,6 +32,8 @@ export async function main(root: HTMLElement, location: Location, storage: Stora
   const primary = button("Open the camera", { icon: "video" });
   const flip = button("Switch camera", { secondary: true });
   flip.hidden = true;
+  const keep = el("input", { type: "checkbox", id: "keep" });
+  const keepRow = el("label", { class: "keep", for: "keep" }, keep, el("span", {}, "Save to memories"));
 
   let phase: LivePhase = "idle";
   let facing: Facing = "environment";
@@ -54,6 +58,8 @@ export async function main(root: HTMLElement, location: Location, storage: Stora
     cancel.hidden = next !== "asking";
     primary.disabled = next === "asking" || next === "starting" || next === "stopping";
     flip.hidden = !(next === "camera" || next === "live");
+    // Chosen before asking; the channel is made recorded or not when the TV says yes.
+    keepRow.hidden = !(next === "idle" || next === "camera" || next === "ended");
     const label = { idle: "Open the camera", camera: `Go live on ${tvName}`, asking: `Asking ${tvName}…`, starting: "Starting…", live: "Stop", stopping: "Stopping…", ended: "Go live again" }[next];
     primary.replaceChildren(icon(next === "live" ? "check" : "video", 20), el("span", {}, label));
     primary.classList.toggle("secondary", next === "live");
@@ -114,7 +120,7 @@ export async function main(root: HTMLElement, location: Location, storage: Stora
       set("camera", liveErrorText(e));
       return;
     }
-    set("live");
+    set("live", liveLine(tvName, answer.saving === true));
     // The TV can end it or switch to another phone; the SDK does not always notice the cut.
     check = setInterval(() => {
       void api
@@ -141,8 +147,9 @@ export async function main(root: HTMLElement, location: Location, storage: Stora
         return;
       }
       if (phase === "camera") {
-        const asked = await api.askLive(token);
-        set("asking", answerText("waiting", tvName, asked.replacing) ?? undefined);
+        const asked = await api.askLive(token, askBody(keep.checked));
+        const line = answerText("waiting", tvName, asked.replacing) ?? "";
+        set("asking", keep.checked && !asked.saving ? `${line} This TV cannot save broadcasts, so it will only show it.` : line);
         waiting = setInterval(() => void answered(), ANSWER_CHECK_MS);
         return;
       }
@@ -175,6 +182,7 @@ export async function main(root: HTMLElement, location: Location, storage: Stora
     preview,
     hint,
     primary,
+    keepRow,
     cancel,
     flip,
     status,

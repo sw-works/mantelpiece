@@ -125,7 +125,7 @@ describe("events feed", () => {
   it("tracks the live broadcast until it ends", () => {
     const s0 = { since: 0, recent: [], ticker: null, tripsVersion: 0, play: null };
     const s1 = reduce(s0, [{ seq: 1, at: "2026-09-21T10:00:00Z", type: "live.started", broadcast: "l1", display_name: "Maya", playback_url: "https://p/x.m3u8" }], 1);
-    expect(s1.live).toEqual({ seq: 1, at: "2026-09-21T10:00:00Z", id: "l1", from: "Maya", url: "https://p/x.m3u8" });
+    expect(s1.live).toEqual({ seq: 1, at: "2026-09-21T10:00:00Z", id: "l1", from: "Maya", url: "https://p/x.m3u8", saving: false });
     expect(s1.ticker).toBe("Maya is live");
     // An end for some other broadcast changes nothing.
     const s2 = reduce(s1, [{ seq: 2, at: "", type: "live.ended", broadcast: "l0" }], 2);

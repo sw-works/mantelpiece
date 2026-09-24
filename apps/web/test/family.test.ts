@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ago, base64UrlToBytes, describeNote, phoneToken, pushSupport, type PushEnv } from "../src/family.js";
-import { answerText, broadcastGone, cameraConstraints, goneText, holdHint, liveErrorText } from "../src/live.js";
+import { answerText, askBody, broadcastGone, cameraConstraints, goneText, holdHint, liveErrorText, liveLine } from "../src/live.js";
 
 const android: PushEnv = { hasServiceWorker: true, hasPushManager: true, permission: "default", userAgent: "Mozilla/5.0 (Linux; Android 15) Chrome/140", standalone: false };
 
@@ -53,6 +53,17 @@ describe("family channel on the phone", () => {
 });
 
 describe("going live", () => {
+  it("sends the phone's zone only when keeping the broadcast", () => {
+    const pacific = { getTimezoneOffset: () => 420 } as Date;
+    expect(askBody(true, pacific)).toEqual({ save: true, utc_offset_minutes: -420 });
+    expect(askBody(false, pacific)).toEqual({ save: false });
+  });
+
+  it("says when the broadcast is being recorded", () => {
+    expect(liveLine("Grandma's TV", true)).toMatch(/Recording to your memories/);
+    expect(liveLine("Grandma's TV", false)).not.toMatch(/Recording/);
+  });
+
   it("asks for a 720p back camera with voice cleanup", () => {
     const c = cameraConstraints("environment");
     expect(c.video).toMatchObject({ facingMode: "environment", width: { ideal: 1280 } });

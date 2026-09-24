@@ -32,6 +32,8 @@ export interface LiveAsk {
   expiresAt: string;
   /** Who is live now: granting ends their broadcast. */
   replacing: string | null;
+  /** The phone asked to keep it: yes also records it into memories. */
+  saving: boolean;
 }
 
 export interface Arrival {
@@ -53,6 +55,8 @@ export interface LiveNow {
   id: string;
   from: string;
   url: string;
+  /** Recorded; the video joins memories after it ends. */
+  saving: boolean;
 }
 
 export interface UploadProgress {
@@ -186,7 +190,7 @@ function nextRequests(current: LiveAsk[], events: FeedEvent[]): LiveAsk[] {
   let asks = current;
   for (const e of events) {
     if (e.type === "live.requested") {
-      asks = [...asks.filter((a) => a.id !== String(e.request)), { id: String(e.request), from: String(e.display_name), expiresAt: String(e.expires_at), replacing: typeof e.replacing === "string" ? e.replacing : null }];
+      asks = [...asks.filter((a) => a.id !== String(e.request)), { id: String(e.request), from: String(e.display_name), expiresAt: String(e.expires_at), replacing: typeof e.replacing === "string" ? e.replacing : null, saving: e.saving === true }];
     } else if (e.type === "live.request_closed") {
       asks = asks.filter((a) => a.id !== String(e.request));
     }
@@ -197,7 +201,7 @@ function nextRequests(current: LiveAsk[], events: FeedEvent[]): LiveAsk[] {
 function nextLive(current: LiveNow | null, events: FeedEvent[]): LiveNow | null {
   let live = current;
   for (const e of events) {
-    if (e.type === "live.started") live = { seq: e.seq, at: e.at, id: String(e.broadcast), from: String(e.display_name), url: String(e.playback_url) };
+    if (e.type === "live.started") live = { seq: e.seq, at: e.at, id: String(e.broadcast), from: String(e.display_name), url: String(e.playback_url), saving: e.saving === true };
     else if (e.type === "live.ended" && live && live.id === String(e.broadcast)) live = null;
   }
   return live;

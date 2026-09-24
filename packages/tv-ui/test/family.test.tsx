@@ -23,7 +23,7 @@ const arrival = (over: Partial<Arrival> = {}): Arrival => ({
   ...over,
 });
 
-const broadcast: LiveNow = { seq: 9, at: now(), id: "l1", from: "Maya", url: "https://play.test/l1.m3u8" };
+const broadcast: LiveNow = { seq: 9, at: now(), id: "l1", from: "Maya", url: "https://play.test/l1.m3u8", saving: false };
 
 function FakePlayer({ uri, onState }: LivePlayerProps) {
   onState?.("playing");
@@ -81,6 +81,9 @@ describe("family channel on the TV", () => {
     expect(screen.getByTestId("player").props.children).toBe("https://play.test/l1.m3u8");
     expect(screen.getByTestId("live-who").props.children).toBe("Live · Maya");
     await waitFor(() => expect(screen.getByTestId("live-state").props.children).toBe("A few seconds behind the room"));
+    expect(screen.queryByTestId("live-saving")).toBeNull();
+    await rerender(<Live live={{ ...broadcast, saving: true }} from="Maya" player={FakePlayer} onBack={jest.fn()} onEnd={onEnd} endedCloseMs={0} />);
+    expect(screen.getByTestId("live-saving").props.children).toBe("· Recording to memories");
     await fireEvent.press(screen.getByTestId("end"));
     expect(onEnd).toHaveBeenCalled();
     // Ended from the TV: nobody on the phone did it.
@@ -127,9 +130,11 @@ describe("family channel on the TV", () => {
     const store = new MemorySessionStore();
     await store.save({ token: "tv-token", household: "tv-house", deviceId: "tv-1" });
     const soon = new Date(Date.now() + 60_000).toISOString();
-    api.eventPages = [{ events: [{ seq: 1, at: now(), type: "live.requested", request: "r1", display_name: "Maya", expires_at: soon }], next: 1 }];
+    api.eventPages = [{ events: [{ seq: 1, at: now(), type: "live.requested", request: "r1", display_name: "Maya", expires_at: soon, saving: true }], next: 1 }];
     await render(<App api={api} sessionStore={store} idleMs={0} livePlayer={FakePlayer} />);
     await waitFor(() => expect(screen.getByTestId("live-request-title").props.children).toBe("Maya wants to go live"));
+    // Yes also records the room, so the prompt says so.
+    expect(screen.getByTestId("live-request-meta").props.children).toBe("Their camera shows here, a few seconds behind. It will be saved to memories.");
     // Nothing plays until someone here says yes.
     expect(screen.queryByTestId("player")).toBeNull();
     await fireEvent.press(screen.getByTestId("live-grant"));

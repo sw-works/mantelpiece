@@ -82,6 +82,7 @@ export function Live({
         <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: "#ff4d4d" }} />
         <Meta testID="live-who" color={theme.fg} size={theme.body}>{`Live · ${live.from}`}</Meta>
         <Meta testID="live-state">{line}</Meta>
+        {live.saving ? <Meta testID="live-saving" color={theme.fg}>· Recording to memories</Meta> : null}
       </View>
       <View style={{ position: "absolute", right: theme.safe.x, bottom: theme.safe.y, flexDirection: "row", gap: 18 }}>
         <FocusButton label="Back" variant="ghost" onPress={onBack} preferred testID="back" />

@@ -89,6 +89,8 @@ export interface LiveAsk {
   expires_at: string;
   /** Who is live now: a grant ends their broadcast. */
   replacing: string | null;
+  /** The broadcast will be recorded into memories; false when asked but the stack cannot. */
+  saving: boolean;
   tv: string;
 }
 
@@ -101,6 +103,8 @@ export interface LiveAnswer {
   ingest_endpoint?: string;
   stream_key?: string;
   playback_url?: string;
+  /** On a grant: the channel records, and the video goes into memories after. */
+  saving?: boolean;
 }
 
 export class ApiError extends Error {
@@ -242,8 +246,8 @@ export class Api {
     return this.call<{ notes: InboxNote[]; push: boolean }>("GET", "/inbox", undefined, { bearer });
   }
 
-  askLive(bearer: string) {
-    return this.call<LiveAsk>("POST", "/live", undefined, { bearer });
+  askLive(bearer: string, body: { save: boolean; utc_offset_minutes?: number } = { save: false }) {
+    return this.call<LiveAsk>("POST", "/live", body, { bearer });
   }
 
   liveAnswer(bearer: string) {

@@ -230,4 +230,7 @@ input.file { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: 
 .inbox { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
 .inbox li { font-size: 14px; color: var(--fg); }
 .inbox .heart { color: var(--accent); display: inline-flex; }
+.keep { display: flex; align-items: center; gap: 10px; font-size: 15px; min-height: 44px; }
+.keep input { width: 22px; height: 22px; margin: 0; accent-color: var(--accent); }
+.keep[hidden] { display: none; }
 .preview { width: 100%; aspect-ratio: 16 / 9; border-radius: 16px; background: #000; display: block; }

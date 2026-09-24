@@ -16,6 +16,20 @@ export function holdHint(width: number, height: number): string | null {
   return height > width ? "Turn your phone sideways to fill the TV." : null;
 }
 
+/**
+ * What `POST /live` carries. Keeping the broadcast sends this phone's zone too (minutes
+ * east of UTC), so the saved video lands on the day it happened here.
+ */
+export function askBody(save: boolean, now: Date = new Date()): { save: boolean; utc_offset_minutes?: number } {
+  return save ? { save, utc_offset_minutes: -now.getTimezoneOffset() } : { save };
+}
+
+/** The line under the preview while live. */
+export function liveLine(tvName: string, saving: boolean): string {
+  const line = `Live on ${tvName}. The TV runs a few seconds behind you.`;
+  return saving ? `${line} Recording to your memories.` : line;
+}
+
 export type LivePhase = "idle" | "camera" | "asking" | "starting" | "live" | "stopping" | "ended";
 
 /** How often a live phone asks whether its broadcast is still the household's. */

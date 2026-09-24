@@ -9,7 +9,8 @@ import { Eyebrow, Heading, Meta } from "./Type";
  * A phone asks to show its camera on this TV. Nothing streams until someone here says yes;
  * when another phone is live, yes ends that broadcast. The prompt sits bottom left over
  * whatever is on screen, clear of the Live screen's buttons, and goes away when answered,
- * withdrawn, or out of time.
+ * withdrawn, or out of time. A phone that asked to keep its broadcast says so here, since
+ * yes also records the room.
  */
 export function LiveRequestPrompt({
   ask,
@@ -52,7 +53,7 @@ export function LiveRequestPrompt({
       <Eyebrow>Live</Eyebrow>
       <Heading testID="live-request-title">{`${ask.from} wants to go live`}</Heading>
       <Meta testID="live-request-meta" size={theme.body}>
-        {failed ? "That did not work. Try again." : ask.replacing ? `This ends ${ask.replacing}'s broadcast.` : "Their camera shows here, a few seconds behind."}
+        {failed ? "That did not work. Try again." : `${ask.replacing ? `This ends ${ask.replacing}'s broadcast.` : "Their camera shows here, a few seconds behind."}${ask.saving ? " It will be saved to memories." : ""}`}
       </Meta>
       <View style={{ flexDirection: "row", gap: 18, marginTop: 6 }}>
         <FocusButton label={ask.replacing ? `Switch to ${ask.from}` : "Watch"} preferred disabled={busy} onPress={answer(onGrant)} testID="live-grant" />
