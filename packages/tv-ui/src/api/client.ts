@@ -97,6 +97,38 @@ export interface Trip extends TripSummary {
   media_tags?: Record<string, { landmark: string | null; people: string[] }>;
   /** People in this trip's photos, named first (F-704). Empty when face grouping is off. */
   people?: TripPerson[];
+  /** Media id to its field note (F-711): where the map sits in the photo's frame. */
+  field_notes?: Record<string, FieldNoteSummary>;
+}
+
+/** A box in a photo's frame, as fractions of its width and height. */
+export interface NormBox {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
+export interface FieldNoteSummary {
+  placement: NormBox;
+  mode: "coast" | "mountains" | "town" | "trail";
+  /** `approximate` for a ring; always `approximate` on a joined household's TV. */
+  certainty: "precise" | "approximate";
+  credit: string;
+}
+
+/** "This place" for a highlight's field note (US6). */
+export interface ThisPlace {
+  media: string;
+  /** "Saturday 4 April 2026, 14:00", or the date alone without a time zone. */
+  taken: string | null;
+  /** "Kiyomizu-dera, Japan", or "Around ..." for an approximate place. */
+  place: string | null;
+  coords: string | null;
+  feature: { name: string; kind: string; detail: string | null; summary: string | null; tagline: string | null; credit: string | null; url: string | null } | null;
+  description: string | null;
+  nearby: string[];
+  credit: string;
 }
 
 /** Facts for the landmark a photo shows, when known. */
@@ -376,8 +408,13 @@ export class TvApi {
     return this.call<Trip>("GET", `/trips/${id}`, undefined, token);
   }
 
-  mediaUrl(token: string, mediaId: string, rendition: "thumb" | "tv" = "tv") {
+  mediaUrl(token: string, mediaId: string, rendition: "thumb" | "tv" | "fieldnote" | "fieldnote_map" = "tv") {
     return this.call<{ url: string; expires_in: number }>("GET", `/media/${mediaId}/url?rendition=${rendition}`, undefined, token);
+  }
+
+  /** "This place" for a highlight's field note (US6). */
+  place(token: string, tripId: string, mediaId: string) {
+    return this.call<ThisPlace>("GET", `/trips/${encodeURIComponent(tripId)}/places/${encodeURIComponent(mediaId)}`, undefined, token);
   }
 
   householdCode(token: string) {

@@ -40,8 +40,14 @@ export class FakeApi extends TvApi {
     if (!this.tripDetail) throw new Error("no trip");
     return this.tripDetail;
   }
-  override async mediaUrl(_token: string, mediaId: string) {
-    return { url: `https://cdn.test/${mediaId}.jpg`, expires_in: 3600 };
+  override async mediaUrl(_token: string, mediaId: string, rendition: "thumb" | "tv" | "fieldnote" | "fieldnote_map" = "tv") {
+    return { url: rendition.startsWith("fieldnote") ? `https://cdn.test/${mediaId}-${rendition}.png` : `https://cdn.test/${mediaId}.jpg`, expires_in: 3600 };
+  }
+  placeResult: import("../src/api/client").ThisPlace | null = null;
+  override async place(_token: string, tripId: string, mediaId: string) {
+    this.calls.push(`place ${tripId} ${mediaId}`);
+    if (!this.placeResult) throw new Error("no place");
+    return this.placeResult;
   }
   override async tripMap(_token: string, tripId: string, day?: number) {
     this.calls.push(`map ${tripId}${day === undefined ? "" : ` day ${day}`}`);

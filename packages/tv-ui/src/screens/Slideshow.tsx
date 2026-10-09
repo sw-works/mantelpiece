@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Text, View } from "react-native";
 import { factsFor, slides as slidesOf, type Trip, type TvApi } from "../api/client";
 import { type AudioPlayer } from "../audio";
+import { FieldNoteImage } from "../components/FieldNoteImage";
 import { FocusButton } from "../components/FocusButton";
 import { KenBurns } from "../components/KenBurns";
 import { LandmarkCard } from "../components/LandmarkCard";
@@ -38,6 +39,11 @@ export function Slideshow({
   audio,
   narration = false,
   startAt,
+  fieldNotes = false,
+  onFieldNotes,
+  onOpenPlace,
+  startPaused = false,
+  focusMap = false,
 }: {
   api: TvApi;
   token: string;
@@ -53,6 +59,14 @@ export function Slideshow({
   audio?: AudioPlayer | null;
   /** Read the day's story: audio when possible, captions always. */
   narration?: boolean;
+  /** F-711: show highlights with their field notes; the TV remembers the choice. */
+  fieldNotes?: boolean;
+  onFieldNotes?: (on: boolean) => void;
+  /** Select on a focused map: open "This place" for that photo (US6). */
+  onOpenPlace?: (media: string) => void;
+  /** Coming back from "This place": still paused, focus on the map. */
+  startPaused?: boolean;
+  focusMap?: boolean;
 }) {
   const slides = useMemo(() => slidesOf(trip), [trip]);
   const [index, setIndex] = useState(() => Math.max(0, startAt ? slides.findIndex((s) => s.media === startAt) : 0));
@@ -62,14 +76,35 @@ export function Slideshow({
     const at = slides.findIndex((s) => s.media === startAt);
     if (at >= 0) setIndex(at);
   }, [startAt, slides]);
-  const [paused, setPaused] = useState(false);
+  const [paused, setPaused] = useState(startPaused);
   const current = slides[index];
+  // A focused map holds the slide still; leaving it lets the show carry on.
+  const [mapFocused, setMapFocused] = useState(false);
+  const held = paused || mapFocused;
 
   useEffect(() => {
-    if (paused || slides.length < 2) return;
+    if (held || slides.length < 2) return;
     const t = setInterval(() => setIndex((i) => (i + 1) % slides.length), intervalMs);
     return () => clearInterval(t);
-  }, [paused, slides.length, intervalMs]);
+  }, [held, slides.length, intervalMs]);
+
+  // F-711: in Field notes mode the controls step back after three seconds without input.
+  const notes = trip.field_notes ?? {};
+  const noteCount = Object.keys(notes).length;
+  const notesMode = fieldNotes;
+  const [awake, setAwake] = useState(true);
+  const wakeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const wake = useCallback(() => {
+    setAwake(true);
+    if (wakeTimer.current) clearTimeout(wakeTimer.current);
+    wakeTimer.current = setTimeout(() => setAwake(false), 3000);
+  }, []);
+  useEffect(() => {
+    if (notesMode) wake();
+    return () => {
+      if (wakeTimer.current) clearTimeout(wakeTimer.current);
+    };
+  }, [notesMode, wake]);
 
   useEffect(() => {
     if (current) onPresence?.({ media: current.media, day: current.day, paused });
@@ -114,7 +149,7 @@ export function Slideshow({
         <Meta testID="empty" size={theme.body}>
           Nothing to show yet.
         </Meta>
-        <FocusButton label="Back" onPress={onBack} preferred testID="back" />
+        <FocusButton label="Back" onPress={onBack} preferred testID="back" onFocus={wake} />
       </View>
     );
   }
@@ -124,10 +159,37 @@ export function Slideshow({
   const dayLabel = dayInfo?.title ?? `Day ${current.day}`;
   return (
     <View style={{ flex: 1, backgroundColor: "#000" }}>
-      <KenBurns slideKey={current.media} paused={paused} durationMs={intervalMs}>
-        <RemoteImage api={api} token={token} mediaId={current.media} rendition="tv" width={1920} height={1080} radius={0} />
-      </KenBurns>
-      <View pointerEvents="none" style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 300, backgroundColor: "#000", opacity: 0.55 }} />
+      {notesMode ? (
+        notes[current.media] ? (
+          <FieldNoteImage
+            key={current.media}
+            api={api}
+            token={token}
+            mediaId={current.media}
+            note={notes[current.media]!}
+            width={1920}
+            height={1080}
+            preferred={focusMap}
+            onOpen={onOpenPlace ? () => onOpenPlace(current.media) : undefined}
+            onFocusChange={(f) => {
+              setMapFocused(f);
+              wake();
+            }}
+          />
+        ) : (
+          <RemoteImage api={api} token={token} mediaId={current.media} rendition="tv" width={1920} height={1080} radius={0} resizeMode="contain" />
+        )
+      ) : (
+        <KenBurns slideKey={current.media} paused={paused} durationMs={intervalMs}>
+          <RemoteImage api={api} token={token} mediaId={current.media} rendition="tv" width={1920} height={1080} radius={0} />
+        </KenBurns>
+      )}
+      {!notesMode && <View pointerEvents="none" style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 300, backgroundColor: "#000", opacity: 0.55 }} />}
+      {notesMode && noteCount === 0 && (
+        <View testID="no-field-notes" style={{ position: "absolute", top: theme.safe.y, left: theme.safe.x, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20, backgroundColor: "#0b0b0fcc" }}>
+          <Meta size={theme.small}>No field notes for this trip yet.</Meta>
+        </View>
+      )}
       {answer && (
         <View testID="answer-card" style={{ position: "absolute", top: theme.safe.y, left: theme.safe.x, width: 760, padding: 24, borderRadius: 20, backgroundColor: "#0b0b0fcc", borderWidth: 1, borderColor: "#ffffff1f", gap: 8 }}>
           <Meta size={theme.eyebrow}>Asked from a phone</Meta>
@@ -147,7 +209,7 @@ export function Slideshow({
           <Text style={{ color: theme.fg, fontSize: theme.heading, lineHeight: 40 }}>{caption}</Text>
         </View>
       )}
-      <View style={{ position: "absolute", left: theme.safe.x, right: theme.safe.x, bottom: theme.safe.y, flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", gap: 24 }}>
+      <View testID="slideshow-controls" style={{ position: "absolute", left: theme.safe.x, right: theme.safe.x, bottom: theme.safe.y, flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", gap: 24, opacity: notesMode && !awake ? 0.12 : 1 }}>
         <View style={{ gap: 10, flex: 1 }}>
           <Eyebrow>{`${trip.name} · day ${current.day} of ${dayCount}`}</Eyebrow>
           <Text style={{ color: theme.fg, fontSize: 44, fontWeight: "700" }}>{dayLabel}</Text>
@@ -156,11 +218,14 @@ export function Slideshow({
           </Text>
         </View>
         <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
-          <FocusButton label={paused ? "Play" : "Pause"} onPress={togglePause} preferred testID="playpause" />
-          <FocusButton label="Previous day" variant="ghost" onPress={() => jumpDay(-1)} testID="prev-day" />
-          <FocusButton label="Next day" variant="ghost" onPress={() => jumpDay(1)} testID="next-day" />
-          {facts && !showFacts && <FocusButton label="About this place" variant="ghost" onPress={() => setAsked(current.media)} testID="about-place" />}
-          {dayInfo?.story && <FocusButton label={captions ? "Captions off" : "Captions"} variant="ghost" onPress={() => setCaptions((c) => !c)} testID="captions" />}
+          <FocusButton label={paused ? "Play" : "Pause"} onPress={togglePause} preferred={!focusMap} testID="playpause" onFocus={wake} />
+          {onFieldNotes && (
+            <FocusButton label={fieldNotes ? "Plain photos" : "Field notes"} variant="ghost" onPress={() => onFieldNotes(!fieldNotes)} testID="field-notes" onFocus={wake} />
+          )}
+          <FocusButton label="Previous day" variant="ghost" onPress={() => jumpDay(-1)} testID="prev-day" onFocus={wake} />
+          <FocusButton label="Next day" variant="ghost" onPress={() => jumpDay(1)} testID="next-day" onFocus={wake} />
+          {facts && !showFacts && <FocusButton label="About this place" variant="ghost" onPress={() => setAsked(current.media)} testID="about-place" onFocus={wake} />}
+          {dayInfo?.story && <FocusButton label={captions ? "Captions off" : "Captions"} variant="ghost" onPress={() => setCaptions((c) => !c)} testID="captions" onFocus={wake} />}
           <FocusButton label="Back" variant="ghost" onPress={onBack} testID="back" />
         </View>
       </View>

@@ -17,6 +17,7 @@ export function FocusButton({
   variant = "solid",
   selected = false,
   disabled = false,
+  onFocus,
 }: {
   label: string;
   onPress: () => void;
@@ -25,6 +26,8 @@ export function FocusButton({
   variant?: ButtonVariant;
   selected?: boolean;
   disabled?: boolean;
+  /** Told when this button takes focus, e.g. to wake faded controls. */
+  onFocus?: () => void;
 }) {
   const [focused, setFocused] = useState(false);
   const chip = variant === "chip";
@@ -36,7 +39,10 @@ export function FocusButton({
       accessibilityRole="button"
       accessibilityState={{ disabled, selected }}
       hasTVPreferredFocus={preferred}
-      onFocus={() => setFocused(true)}
+      onFocus={() => {
+        setFocused(true);
+        onFocus?.();
+      }}
       onBlur={() => setFocused(false)}
       onPress={disabled ? undefined : onPress}
       style={{

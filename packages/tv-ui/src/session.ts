@@ -8,6 +8,8 @@ export interface StoredSession {
   household: string;
   deviceId: string;
   name?: string;
+  /** The Field notes toggle (F-711), per TV, across trips and restarts. */
+  fieldNotes?: boolean;
 }
 
 export interface SessionStore {

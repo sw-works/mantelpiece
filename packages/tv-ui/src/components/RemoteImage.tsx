@@ -12,14 +12,19 @@ export function RemoteImage({
   width,
   height,
   radius = theme.radius,
+  resizeMode = "cover",
+  onSize,
 }: {
   api: TvApi;
   token: string;
   mediaId: string;
-  rendition?: "thumb" | "tv";
+  rendition?: "thumb" | "tv" | "fieldnote" | "fieldnote_map";
   width: number;
   height: number;
   radius?: number;
+  resizeMode?: "cover" | "contain";
+  /** The source's own size once loaded, for laying things over a `contain` image. */
+  onSize?: (width: number, height: number) => void;
 }) {
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
@@ -33,5 +38,16 @@ export function RemoteImage({
     };
   }, [api, token, mediaId, rendition]);
   if (!url) return <View style={{ width, height, backgroundColor: theme.panel, borderRadius: radius }} />;
-  return <Image source={{ uri: url }} style={{ width, height, borderRadius: radius }} resizeMode="cover" />;
+  return (
+    <Image
+      testID={`image-${mediaId}-${rendition}`}
+      source={{ uri: url }}
+      style={{ width, height, borderRadius: radius }}
+      resizeMode={resizeMode}
+      onLoad={(e) => {
+        const s = e.nativeEvent?.source;
+        if (s && onSize) onSize(s.width, s.height);
+      }}
+    />
+  );
 }

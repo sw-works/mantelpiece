@@ -8,7 +8,24 @@ import { Meta } from "../components/Type";
 import { theme } from "../theme";
 
 /** F-209: the trip's highlights as a grid, each credited to whoever took it (F-154). */
-export function Highlights({ api, token, tripId, onBack, onPlay, nav }: { api: TvApi; token: string; tripId: string; onBack: () => void; onPlay?: (trip: Trip) => void; nav?: Nav }) {
+export function Highlights({
+  api,
+  token,
+  tripId,
+  onBack,
+  onPlay,
+  onPlayFieldNotes,
+  nav,
+}: {
+  api: TvApi;
+  token: string;
+  tripId: string;
+  onBack: () => void;
+  onPlay?: (trip: Trip) => void;
+  /** F-711: play the trip with its field notes showing. */
+  onPlayFieldNotes?: (trip: Trip) => void;
+  nav?: Nav;
+}) {
   const [trip, setTrip] = useState<Trip | null>(null);
   const [keepers, setKeepers] = useState<string[]>([]);
   useEffect(() => {
@@ -31,6 +48,9 @@ export function Highlights({ api, token, tripId, onBack, onPlay, nav }: { api: T
       actions={
         <>
           {onPlay && <FocusButton label="Play" onPress={() => onPlay(trip)} testID="play" />}
+          {onPlayFieldNotes && Object.keys(trip.field_notes ?? {}).length > 0 && (
+            <FocusButton label="Field notes" variant="ghost" onPress={() => onPlayFieldNotes(trip)} testID="play-field-notes" />
+          )}
           <FocusButton label="Back" variant="ghost" onPress={onBack} preferred testID="back" />
         </>
       }
@@ -60,7 +80,9 @@ export function Highlights({ api, token, tripId, onBack, onPlay, nav }: { api: T
                       .catch(() => undefined);
                   }}
                 />
-                <Meta size={theme.credit}>{creditFor(trip, m) ?? ""}</Meta>
+                <Meta size={theme.credit} testID={`credit-${m}`}>
+                  {[creditFor(trip, m), trip.field_notes?.[m] ? "Field note" : null].filter(Boolean).join(" · ")}
+                </Meta>
               </View>
             ))}
           </ScrollView>

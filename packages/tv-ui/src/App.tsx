@@ -21,6 +21,7 @@ import { MemoriesHome } from "./screens/MemoriesHome";
 import { People } from "./screens/People";
 import { Phones } from "./screens/Phones";
 import { ReviewChanges } from "./screens/ReviewChanges";
+import { ThisPlace } from "./screens/ThisPlace";
 import { Slideshow } from "./screens/Slideshow";
 import { TripView } from "./screens/TripView";
 import { Welcome } from "./screens/Welcome";
@@ -34,7 +35,9 @@ export type Route =
   | { name: "people" }
   | { name: "ambient" }
   | { name: "highlights"; id: string }
-  | { name: "slideshow"; trip: Trip; start?: string }
+  | { name: "slideshow"; trip: Trip; start?: string; resume?: boolean }
+  /** A field note's map opened from the slideshow (F-711, US6); Back resumes the show. */
+  | { name: "place"; trip: Trip; media: string }
   | { name: "ask" }
   | { name: "review" }
   | { name: "phones"; first?: boolean }
@@ -78,6 +81,15 @@ export function App({ apiBase, api: injectedApi, sessionStore, tvName, audio = n
   const store = useMemo(() => sessionStore ?? new MemorySessionStore(), [sessionStore]);
   const [deviceId] = useState(() => newDeviceId());
   const [session, setSession] = useState<{ token: string; household: string; name?: string } | null | undefined>(undefined);
+  // F-711: the Field notes toggle, remembered by this TV across trips and restarts.
+  const [fieldNotes, setFieldNotes] = useState(false);
+  const chooseFieldNotes = useCallback(
+    (on: boolean) => {
+      setFieldNotes(on);
+      void store.load().then((s) => s && store.save({ ...s, fieldNotes: on }));
+    },
+    [store],
+  );
   const [route, setRoute] = useState<Route>({ name: "home" });
   const feed = useEvents(api, session?.token ?? null);
 
@@ -89,6 +101,7 @@ export function App({ apiBase, api: injectedApi, sessionStore, tvName, audio = n
       if (r.name === "highlights") return { name: "trip", id: r.id };
       if (r.name === "slideshow") return r.trip.id.startsWith("playlist:") ? { name: "ask" } : r.trip.id.startsWith("arrival:") ? { name: "home" } : { name: "trip", id: r.trip.id };
       if (r.name === "arrived" || r.name === "live") return r.back;
+      if (r.name === "place") return { name: "slideshow", trip: r.trip, start: r.media, resume: true };
       if (r.name === "ask" || r.name === "review" || r.name === "phones" || r.name === "join" || r.name === "map" || r.name === "people" || r.name === "ambient")
         return { name: "home" };
       if (r.name === "invite") return r.tripId ? { name: "trip", id: r.tripId } : { name: "home" };
@@ -96,10 +109,13 @@ export function App({ apiBase, api: injectedApi, sessionStore, tvName, audio = n
     });
   }, []);
   // The slideshow owns the remote while it is up.
-  useRemoteKeys({ onBack: route.name === "home" || route.name === "slideshow" || route.name === "ambient" || route.name === "arrived" || route.name === "live" ? undefined : goBack });
+  useRemoteKeys({ onBack: route.name === "home" || route.name === "slideshow" || route.name === "place" || route.name === "ambient" || route.name === "arrived" || route.name === "live" ? undefined : goBack });
 
   useEffect(() => {
-    store.load().then((s) => setSession(s ? { token: s.token, household: s.household, ...(s.name ? { name: s.name } : {}) } : null));
+    store.load().then((s) => {
+      setSession(s ? { token: s.token, household: s.household, ...(s.name ? { name: s.name } : {}) } : null);
+      setFieldNotes(s?.fieldNotes === true);
+    });
   }, [store]);
 
   // F-406: stillness on Memories home becomes the ambient slideshow.
@@ -306,8 +322,16 @@ export function App({ apiBase, api: injectedApi, sessionStore, tvName, audio = n
           answer={answer}
           audio={audio}
           narration={narration}
+          fieldNotes={fieldNotes}
+          onFieldNotes={chooseFieldNotes}
+          onOpenPlace={isAdHoc(route.trip.id) ? undefined : (media) => setRoute({ name: "place", trip: route.trip, media })}
+          startPaused={route.resume === true}
+          focusMap={route.resume === true}
         />
       );
+      break;
+    case "place":
+      screen = <ThisPlace api={api} token={session.token} tripId={route.trip.id} mediaId={route.media} onBack={goBack} />;
       break;
     case "ambient":
       screen = <Ambient api={api} token={session.token} onBack={goBack} onPresence={onPresence} />;
@@ -324,6 +348,10 @@ export function App({ apiBase, api: injectedApi, sessionStore, tvName, audio = n
           api={api}
           token={session.token}
           tripId={route.id}
+          onPlayFieldNotes={(trip) => {
+            chooseFieldNotes(true);
+            setRoute({ name: "slideshow", trip });
+          }}
           onBack={() => setRoute({ name: "trip", id: route.id })}
           onPlay={(trip) => setRoute({ name: "slideshow", trip })}
           nav={nav}
