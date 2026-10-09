@@ -160,7 +160,7 @@ notes appear for the new highlights and vanish for the dropped ones.
 - **FR-005**: The map MUST use thin lines, a low-saturation palette, a subtle paper-like grain confined to the map layer, and line and label colour chosen for contrast with the region underneath.
 - **FR-006**: The map MUST occupy between 15 and 25 percent of the frame and MUST NOT be enclosed in an opaque box or card; its edges fade into the photo.
 - **FR-007**: A field note MAY carry one short caption line with the place name and the day's date, in small type; it MUST NOT add titles, borders or other decoration.
-- **FR-008**: Making field notes MUST NOT use image-generation models and MUST NOT cost more model calls per highlight than the trip's enrichment already made.
+- **FR-008**: Making field notes MUST NOT use image-generation models, and MUST make at most one model call per highlight (to find its landscape subjects), never for photos that are not highlights, and none when a highlight's field note is already up to date.
 
 **Placement**
 
@@ -218,10 +218,10 @@ notes appear for the new highlights and vanish for the dropped ones.
 ## Assumptions
 
 - Highlights, the day's route (actual or inferred), recognised landmarks and the enrichment results already exist for an organised trip; field notes add to them and need no new upload step.
-- The subject boxes found during enrichment (people, faces, text, objects) are kept from now on; landscape subjects are found in the description call enrichment already makes, at no extra call. Highlights enriched before this feature get their subject mask on the next re-organise.
+- The subject boxes found during enrichment (people, faces, text, objects) are kept from now on at no extra call. Landscape subjects (a peak, a building, a monument) are not boxed by enrichment, so each highlight gets one model call asking for them when its field note is made; a trip has about 24 highlights. Highlights enriched before this feature get their boxes on the next re-enrich.
 - The household's home area is where most of its photos outside any trip cluster, with a radius of 2 km; until there are enough such photos, the home rule is skipped and the shared-view rule still hides every precise marker.
 - Place names are taken in English from the map data when an English name exists.
-- The primary map data source is Amazon Location; whether its terms allow keeping finished field notes is checked during planning, and OpenStreetMap (open licence, credit shown) is the fallback.
+- Map data comes from OpenStreetMap (open licence, credit shown) and contours from open terrain data. Amazon Location was considered first; its service terms bar storing map content, so it is not used for field notes (research R1).
 - Field notes are made automatically; there is no per-photo editing of map style, position or content in this feature.
 - Videos get a field note on their poster frame only.
 - Out of scope: altering or regenerating the photo, image-generation models, user-editable map styling, printing services.
