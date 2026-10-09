@@ -1040,11 +1040,11 @@ async fn highlights_get_field_notes_once_and_lose_them_when_they_stop_being_high
         .unwrap();
     let note = m.field_note.expect("a note on the highlight");
     assert!(note.credit.contains("OpenStreetMap"));
-    for key in [
-        FieldNote::drawing_key(H, first.as_str()),
-        FieldNote::layer_key(H, first.as_str()),
-        FieldNote::public_layer_key(H, first.as_str()),
-    ] {
+    // Every object but the share, which is made only on request.
+    for key in FieldNote::keys(H, first.as_str())
+        .into_iter()
+        .filter(|k| !k.ends_with("-full.jpg"))
+    {
         assert!(h.blobs.get(&key).await.is_ok(), "{key}");
     }
     // The photo's own rendition is untouched.

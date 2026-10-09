@@ -15,6 +15,9 @@ use std::sync::Arc;
 use crate::landmarks::ensure_facts;
 use crate::{Ingest, IngestError, Result};
 
+/// Width of the large map in "This place", in pixels.
+const MAP_WIDTH: u32 = 1600;
+
 #[derive(Debug, Serialize, PartialEq, Eq)]
 pub struct Output {
     pub media_id: MediaId,
@@ -119,20 +122,20 @@ pub async fn run(ingest: &Ingest, household: &HouseholdId, media_id: &MediaId) -
             heading: None,
         };
         Ok::<_, IngestError>(make(&input, &tiles).map(|made| {
+            let public_drawing = made.drawing.public(made.width_m);
             let owner = raster::png(&raster::layer(&made.drawing, made.placement, w, h));
-            let public = raster::png(&raster::layer(
-                &made.drawing.public(made.width_m),
-                made.placement,
-                w,
-                h,
-            ));
-            (made, owner, public)
+            let public = raster::png(&raster::layer(&public_drawing, made.placement, w, h));
+            let maps = (
+                raster::png(&raster::map_only(&made.drawing, MAP_WIDTH)),
+                raster::png(&raster::map_only(&public_drawing, MAP_WIDTH)),
+            );
+            (made, owner, public, maps)
         }))
     })
     .await
     .map_err(|e| IngestError::Input(format!("field note task: {e}")))??;
 
-    let (made, owner, public) = match made {
+    let (made, owner, public, (map, public_map)) = match made {
         Ok(m) => m,
         Err(skip) => {
             // A stale note for a place that is now unknown or unmappable goes.
@@ -154,6 +157,14 @@ pub async fn run(ingest: &Ingest, household: &HouseholdId, media_id: &MediaId) -
     ingest
         .blobs
         .put(&FieldNote::public_layer_key(h, id), public, "image/png")
+        .await?;
+    ingest
+        .blobs
+        .put(&FieldNote::map_key(h, id), map, "image/png")
+        .await?;
+    ingest
+        .blobs
+        .put(&FieldNote::public_map_key(h, id), public_map, "image/png")
         .await?;
     // A share made from the old note no longer matches it.
     ingest.blobs.delete(&[FieldNote::full_key(h, id)]).await?;

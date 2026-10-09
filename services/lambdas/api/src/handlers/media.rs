@@ -58,9 +58,20 @@ pub async fn url(app: &App, req: &Req, id: &str) -> Result<Resp, ApiError> {
                 FieldNote::public_layer_key(h, m)
             }
         }
+        "fieldnote_map" => {
+            if media.field_note.is_none() {
+                return Err(ApiError::not_found("no field note"));
+            }
+            let (h, m) = (media.household.as_str(), media.id.as_str());
+            if caller.is_some() {
+                FieldNote::map_key(h, m)
+            } else {
+                FieldNote::public_map_key(h, m)
+            }
+        }
         _ => {
             return Err(ApiError::bad_request(
-                "rendition must be thumb, tv, original or fieldnote",
+                "rendition must be thumb, tv, original, fieldnote or fieldnote_map",
             ))
         }
     };

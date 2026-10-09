@@ -219,13 +219,22 @@ impl FieldNote {
     pub fn full_key(household: &str, media: &str) -> String {
         format!("renditions/{household}/{media}/fieldnote-full.jpg")
     }
+    /// The map alone, large, for "This place" on the TV.
+    pub fn map_key(household: &str, media: &str) -> String {
+        format!("renditions/{household}/{media}/fieldnote-map.png")
+    }
+    pub fn public_map_key(household: &str, media: &str) -> String {
+        format!("renditions/{household}/{media}/fieldnote-map-public.png")
+    }
     /// Every object a field note leaves, for purge and account deletion.
-    pub fn keys(household: &str, media: &str) -> [String; 4] {
+    pub fn keys(household: &str, media: &str) -> [String; 6] {
         [
             Self::drawing_key(household, media),
             Self::layer_key(household, media),
             Self::public_layer_key(household, media),
             Self::full_key(household, media),
+            Self::map_key(household, media),
+            Self::public_map_key(household, media),
         ]
     }
 }

@@ -742,6 +742,23 @@ pub fn layer(d: &Drawing, placement: NormBox, frame_w: u32, frame_h: u32) -> Pix
     frame
 }
 
+/// The map alone, `width` pixels wide at the drawing's own aspect, edge to edge on a
+/// transparent ground: the large map in "This place".
+#[must_use]
+pub fn map_only(d: &Drawing, width: u32) -> Pixmap {
+    let height = ((width as f32 / d.aspect.max(0.1)).round() as u32).max(1);
+    let whole = NormBox {
+        left: 0.0,
+        top: 0.0,
+        width: 1.0,
+        height: 1.0,
+    };
+    let mut d = d.clone();
+    // A standalone map needs only a light feather at its edge.
+    d.fade = d.fade.min(0.08);
+    layer(&d, whole, width, height)
+}
+
 /// PNG bytes of a layer.
 #[must_use]
 pub fn png(layer: &Pixmap) -> Vec<u8> {

@@ -4765,6 +4765,17 @@ async fn field_notes_are_served_in_the_form_each_viewer_may_see() {
         .as_str()
         .unwrap()
         .ends_with(&FieldNote::layer_key("amzn-owner", id.as_str())));
+    let big = h
+        .owner(
+            Method::Get,
+            &format!("/media/{id}/url?rendition=fieldnote_map"),
+            None,
+        )
+        .await;
+    assert!(big.body["url"]
+        .as_str()
+        .unwrap()
+        .ends_with(&FieldNote::map_key("amzn-owner", id.as_str())));
     let t = h.owner(Method::Get, "/trips/kyoto", None).await;
     assert_eq!(t.body["field_notes"][id.as_str()]["certainty"], "precise");
 
