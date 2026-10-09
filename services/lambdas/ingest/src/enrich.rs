@@ -123,7 +123,9 @@ pub async fn run(ingest: &Ingest, household: &HouseholdId, media_id: &MediaId) -
 
     let mut enrichment = ingest.vision.analyze(&jpeg).await?;
     enrichment.inherited_from = None;
-    let lines = ingest.vision.detect_text(&jpeg).await?;
+    let found = ingest.vision.detect_text(&jpeg).await?;
+    enrichment.subjects.extend(found.boxes);
+    let lines = found.lines;
     let text = lines.join(" ").trim().to_owned();
     media.text = (!text.is_empty()).then_some(text);
 

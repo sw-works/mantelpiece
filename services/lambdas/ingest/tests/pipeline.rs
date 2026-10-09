@@ -579,6 +579,7 @@ async fn enrich_runs_on_keepers_and_organize_propagates_to_burst() {
         enrichment: tags.clone(),
         text: vec!["Ichiran".into(), "ラーメン".into()],
         description: "Landmark: Todai-ji\nThe Great Buddha hall on a bright afternoon.".into(),
+        subjects: vec![],
         prompts: std::sync::Mutex::new(vec![]),
     });
     let kyoto = Some((35.0116, 135.7681));
@@ -862,6 +863,7 @@ async fn a_landmark_is_picked_from_the_sights_nearby_and_gets_its_facts() {
         },
         text: vec![],
         description: "Landmark: kinkaku-ji\nA golden pavilion over a still pond.".into(),
+        subjects: vec![],
         prompts: std::sync::Mutex::new(vec![]),
     });
     let house = HouseholdId::new(H);
