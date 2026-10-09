@@ -19,6 +19,7 @@ mantelpiece-core.workspace = true
 mantelpiece-ingest.workspace = true
 mantelpiece-trips.workspace = true
 mantelpiece-store.workspace = true
+mantelpiece-fieldnotes.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true

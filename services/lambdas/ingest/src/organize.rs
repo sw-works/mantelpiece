@@ -4,6 +4,7 @@
 //! updates the same trips in place. Trips are matched to existing ones by date overlap.
 
 use mantelpiece_core::events::EventKind;
+use mantelpiece_core::field_note::FieldNote;
 use mantelpiece_core::geo::GeoPoint;
 use mantelpiece_core::ids::{ContributorId, HouseholdId, MediaId, TripId};
 use mantelpiece_core::media::{MediaItem, ProcessingState};
@@ -32,6 +33,42 @@ pub struct Output {
     pub keepers_manifest: String,
     pub trips: Vec<TripId>,
     pub new_trips: usize,
+    /// S3 key of a JSON array of `{household, media_id}`: highlights whose field note is
+    /// missing or stale (F-711), for the field-notes Distributed Map.
+    pub field_notes_manifest: String,
+    pub field_notes: usize,
+}
+
+/// Cell size for the home area, in degrees (about 2 km).
+const HOME_CELL: f64 = 0.02;
+/// A cell needs this many everyday photos to count as home.
+const HOME_MIN_PHOTOS: usize = 20;
+
+/// The centre of the busiest cell among geotagged photos outside any trip (research R9).
+#[must_use]
+pub fn home_point(media: &[MediaItem]) -> Option<mantelpiece_core::geo::GeoPoint> {
+    let mut cells: HashMap<(i64, i64), Vec<mantelpiece_core::geo::GeoPoint>> = HashMap::new();
+    for g in media
+        .iter()
+        .filter(|m| m.trip.is_none())
+        .filter_map(|m| m.gps)
+    {
+        #[allow(clippy::cast_possible_truncation)]
+        let key = (
+            (g.lat / HOME_CELL).floor() as i64,
+            (g.lon / HOME_CELL).floor() as i64,
+        );
+        cells.entry(key).or_default().push(g);
+    }
+    let (_, pts) = cells
+        .into_iter()
+        .filter(|(_, p)| p.len() >= HOME_MIN_PHOTOS)
+        .max_by_key(|(k, p)| (p.len(), std::cmp::Reverse(*k)))?;
+    let n = pts.len() as f64;
+    Some(mantelpiece_core::geo::GeoPoint::new(
+        pts.iter().map(|p| p.lat).sum::<f64>() / n,
+        pts.iter().map(|p| p.lon).sum::<f64>() / n,
+    ))
 }
 
 #[allow(clippy::too_many_lines)]
@@ -88,6 +125,7 @@ pub async fn run(ingest: &Ingest, household: &HouseholdId) -> Result<Output> {
         .map(|m| m.id.clone())
         .collect();
 
+    let mut built: Vec<mantelpiece_core::trip::Trip> = Vec::new();
     for c in clustering.clusters.iter().filter(|c| c.is_trip) {
         let members: Vec<&Sample> = c
             .sample_indices
@@ -120,6 +158,7 @@ pub async fn run(ingest: &Ingest, household: &HouseholdId) -> Result<Output> {
         attach_landmarks(ingest, &mut trip, &sample_by_id, &mut place_cache).await;
         render_maps(ingest, household, &mut trip, previous).await?;
         ingest.storage.put_trip(&trip).await?;
+        built.push(trip.clone());
         for s in members.iter().map(|s| &s.id).chain(c.undated.iter()) {
             if let Some(m) = media.iter_mut().find(|m| &m.id == s) {
                 m.trip = Some(id.clone());
@@ -139,6 +178,40 @@ pub async fn run(ingest: &Ingest, household: &HouseholdId) -> Result<Output> {
             .await?;
         }
         trip_ids.push(id);
+    }
+
+    // F-711: the home area, then which highlights need a field note made or remade, and
+    // which photos lost theirs (no longer a highlight). Removed photos are not in `media`,
+    // so their notes wait for a restore.
+    let home = home_point(&media);
+    if let Some(mut h) = ingest.storage.get_household(household).await? {
+        if h.home != home {
+            h.home = home;
+            ingest.storage.put_household(&h).await?;
+        }
+    }
+    let mut notes: Vec<MediaId> = Vec::new();
+    if ingest.field_notes {
+        for m in &mut media {
+            let trip = m
+                .trip
+                .as_ref()
+                .and_then(|t| built.iter().find(|b| &b.id == t));
+            match trip.filter(|t| t.highlights.contains(&m.id)) {
+                Some(t) => {
+                    let print = mantelpiece_fieldnotes::fingerprint(m, t, home);
+                    if m.field_note.as_ref().is_none_or(|n| n.fingerprint != print) {
+                        notes.push(m.id.clone());
+                    }
+                }
+                None => {
+                    if m.field_note.take().is_some() {
+                        let keys = FieldNote::keys(household.as_str(), m.id.as_str()).to_vec();
+                        ingest.blobs.delete(&keys).await?;
+                    }
+                }
+            }
+        }
     }
 
     for m in &media {
@@ -163,7 +236,26 @@ pub async fn run(ingest: &Ingest, household: &HouseholdId) -> Result<Output> {
         )
         .await?;
 
+    let field_notes_manifest = format!(
+        "manifests/{household}/field-notes-{}.json",
+        now.unix_timestamp_nanos()
+    );
+    let entries: Vec<serde_json::Value> = notes
+        .iter()
+        .map(|m| serde_json::json!({ "household": household, "media_id": m }))
+        .collect();
+    ingest
+        .blobs
+        .put(
+            &field_notes_manifest,
+            serde_json::to_vec(&entries).expect("manifest serialises"),
+            "application/json",
+        )
+        .await?;
+
     Ok(Output {
+        field_notes_manifest,
+        field_notes: notes.len(),
         media: media.len(),
         estimated_positions,
         groups: groups.len(),

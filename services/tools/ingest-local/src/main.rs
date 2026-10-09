@@ -233,6 +233,9 @@ async fn main() {
         } else {
             Arc::new(mantelpiece_store::encyclopedia::NoEncyclopedia)
         },
+        geography: Arc::new(mantelpiece_store::geography::OpenGeography::default()),
+        // Field notes need the pipeline's enrich and tiles; run them with the spike example.
+        field_notes: false,
         cluster: mantelpiece_trips::cluster::Params {
             min_trip_days: args.min_trip_days,
             ..mantelpiece_trips::cluster::Params::default()

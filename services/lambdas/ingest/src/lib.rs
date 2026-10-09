@@ -13,12 +13,15 @@
 #![allow(clippy::cast_precision_loss)]
 
 pub mod enrich;
+pub mod fieldnote;
 pub mod landmarks;
 pub mod organize;
 pub mod signal;
 
 use mantelpiece_core::ids::{HouseholdId, MediaId};
-use mantelpiece_store::{Blobs, Bus, Faces, Maps, Storage, StorageError, Vectors, Vision};
+use mantelpiece_store::{
+    Blobs, Bus, Faces, Geography, Maps, Storage, StorageError, Vectors, Vision,
+};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use thiserror::Error;
@@ -50,6 +53,11 @@ pub enum Task {
     Organize {
         household: HouseholdId,
     },
+    /// Make or refresh one highlight's field note (F-711).
+    FieldNote {
+        household: HouseholdId,
+        media_id: MediaId,
+    },
 }
 
 pub type Clock = Arc<dyn Fn() -> OffsetDateTime + Send + Sync>;
@@ -66,6 +74,10 @@ pub struct Ingest {
     pub places: Arc<dyn mantelpiece_store::Places>,
     /// What is known about a landmark (F-210); `NoEncyclopedia` leaves them plain names.
     pub encyclopedia: Arc<dyn mantelpiece_store::Encyclopedia>,
+    /// Map data for field notes (F-711).
+    pub geography: Arc<dyn Geography>,
+    /// Field notes on or off; off skips the manifest and every map fetch.
+    pub field_notes: bool,
     /// Clustering thresholds; the defaults are the product rules, tools may relax them.
     pub cluster: mantelpiece_trips::cluster::Params,
     pub clock: Clock,
@@ -97,6 +109,13 @@ impl Ingest {
             }
             Task::Organize { household } => {
                 let out = organize::run(self, &household).await?;
+                Ok(serde_json::to_value(out).expect("serialisable"))
+            }
+            Task::FieldNote {
+                household,
+                media_id,
+            } => {
+                let out = fieldnote::run(self, &household, &media_id).await?;
                 Ok(serde_json::to_value(out).expect("serialisable"))
             }
         }

@@ -2528,6 +2528,7 @@ dependencies = [
  "image",
  "lambda_runtime",
  "mantelpiece-core",
+ "mantelpiece-fieldnotes",
  "mantelpiece-ingest",
  "mantelpiece-store",
  "mantelpiece-trips",

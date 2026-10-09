@@ -32,6 +32,7 @@ struct Harness {
     maps: Arc<MemoryMaps>,
     faces: Arc<MemoryFaces>,
     encyclopedia: Arc<MemoryEncyclopedia>,
+    geography: Arc<mantelpiece_store::geography::MemoryGeography>,
 }
 
 fn harness(enrichment: Enrichment) -> Harness {
@@ -45,6 +46,7 @@ fn harness_with(vision: MemoryVision) -> Harness {
     let vectors = Arc::new(MemoryVectors::default());
     let maps = Arc::new(MemoryMaps::default());
     let faces = Arc::new(MemoryFaces::with_faces_per_image(1));
+    let geography = Arc::new(fixture_geography());
     let encyclopedia = Arc::new(MemoryEncyclopedia::with(vec![
         (
             "Kinkaku-ji",
@@ -71,6 +73,8 @@ fn harness_with(vision: MemoryVision) -> Harness {
             ("Kyoto Station", 34.9858, 135.7588),
         ])),
         encyclopedia: encyclopedia.clone(),
+        geography: geography.clone(),
+        field_notes: true,
         cluster: mantelpiece_trips::cluster::Params::default(),
         clock: Arc::new(|| datetime!(2026-09-08 10:00:00 UTC)),
     };
@@ -83,7 +87,26 @@ fn harness_with(vision: MemoryVision) -> Harness {
         maps,
         faces,
         encyclopedia,
+        geography,
     }
+}
+
+/// The Ponte Vecchio fixtures from the field-notes crate, under every key they answer.
+fn fixture_geography() -> mantelpiece_store::geography::MemoryGeography {
+    let dir = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../crates/fieldnotes/tests/fixtures"
+    );
+    let mut g = mantelpiece_store::geography::MemoryGeography::default();
+    g.tiles.insert(
+        "vector/13/4352/2986".into(),
+        std::fs::read(format!("{dir}/omt-13-4352-2986.pbf")).unwrap(),
+    );
+    g.tiles.insert(
+        "terrain/12/2176/1493".into(),
+        std::fs::read(format!("{dir}/terrarium-12-2176-1493.png")).unwrap(),
+    );
+    g
 }
 
 const H: &str = "house";
@@ -910,4 +933,201 @@ async fn a_landmark_is_picked_from_the_sights_nearby_and_gets_its_facts() {
         .expect("facts stored once");
     assert!(facts.summary.contains("gold leaf"));
     assert_eq!(h.encyclopedia.calls.lock().unwrap().len(), 1);
+}
+
+/// Calm sky over a busy town, small enough that the map stays at the fixture zoom (13).
+fn sky_jpeg(seed: u8) -> Vec<u8> {
+    let img = image::RgbImage::from_fn(480, 320, |x, y| {
+        if y < 160 {
+            image::Rgb([110, 160, 220])
+        } else {
+            image::Rgb([
+                ((x / 6 * 37 + y / 6 * 91 + u32::from(seed)) % 230) as u8,
+                120,
+                80,
+            ])
+        }
+    });
+    let mut out = Vec::new();
+    image::codecs::jpeg::JpegEncoder::new_with_quality(&mut out, 90)
+        .encode_image(&img)
+        .unwrap();
+    out
+}
+
+#[tokio::test]
+async fn highlights_get_field_notes_once_and_lose_them_when_they_stop_being_highlights() {
+    use mantelpiece_core::field_note::FieldNote;
+    use mantelpiece_ingest::renditions::Rendition;
+
+    let h = harness(Enrichment::default());
+    h.storage
+        .put_household(&mantelpiece_core::household::Household::new(
+            HouseholdId::new(H),
+            "Living room",
+            base(),
+        ))
+        .await
+        .unwrap();
+    // Two days around Ponte Vecchio: a trip.
+    for i in 0..6u8 {
+        let hours = f64::from(i) * 6.0;
+        let lat = 43.7679 + f64::from(i) * 0.0004;
+        let m = signalled(
+            &format!("f{i}"),
+            "owner",
+            hours,
+            Some((lat, 11.2531)),
+            0x1111_0000 << i,
+            0.9,
+        );
+        h.blobs
+            .put(
+                &Rendition::Tv.key(H, m.id.as_str()),
+                sky_jpeg(i),
+                "image/jpeg",
+            )
+            .await
+            .unwrap();
+        h.storage.put_media(&m).await.unwrap();
+    }
+    let out = h
+        .ingest
+        .run(Task::Organize {
+            household: HouseholdId::new(H),
+        })
+        .await
+        .unwrap();
+    assert_eq!(out["trips"].as_array().unwrap().len(), 1, "{out}");
+    let manifest: Vec<serde_json::Value> = serde_json::from_slice(
+        &h.blobs
+            .get(out["field_notes_manifest"].as_str().unwrap())
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    assert!(!manifest.is_empty(), "highlights need notes");
+    let trip = h
+        .storage
+        .list_trips(&HouseholdId::new(H))
+        .await
+        .unwrap()
+        .remove(0);
+    let first = MediaId::new(manifest[0]["media_id"].as_str().unwrap());
+    assert!(trip.highlights.contains(&first));
+
+    let made = h
+        .ingest
+        .run(Task::FieldNote {
+            household: HouseholdId::new(H),
+            media_id: first.clone(),
+        })
+        .await
+        .unwrap();
+    assert_eq!(made["made"], true, "{made}");
+    assert!(h.geography.fetched.lock().unwrap().iter().any(|k| k == "vector/13/4352/2986"));
+    let m = h
+        .storage
+        .get_media(&HouseholdId::new(H), &first)
+        .await
+        .unwrap()
+        .unwrap();
+    let note = m.field_note.expect("a note on the highlight");
+    assert!(note.credit.contains("OpenStreetMap"));
+    for key in [
+        FieldNote::drawing_key(H, first.as_str()),
+        FieldNote::layer_key(H, first.as_str()),
+        FieldNote::public_layer_key(H, first.as_str()),
+    ] {
+        assert!(h.blobs.get(&key).await.is_ok(), "{key}");
+    }
+    // The photo's own rendition is untouched.
+    assert_eq!(
+        h.blobs
+            .get(&Rendition::Tv.key(H, first.as_str()))
+            .await
+            .unwrap(),
+        sky_jpeg(first.as_str()[1..].parse().unwrap())
+    );
+
+    // Up to date: the next organize does not list it, and the task does nothing.
+    let again = h
+        .ingest
+        .run(Task::Organize {
+            household: HouseholdId::new(H),
+        })
+        .await
+        .unwrap();
+    let manifest: Vec<serde_json::Value> = serde_json::from_slice(
+        &h.blobs
+            .get(again["field_notes_manifest"].as_str().unwrap())
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    assert!(manifest.iter().all(|e| e["media_id"] != first.as_str()));
+    let skip = h
+        .ingest
+        .run(Task::FieldNote {
+            household: HouseholdId::new(H),
+            media_id: first.clone(),
+        })
+        .await
+        .unwrap();
+    assert_eq!(skip["skipped"], "up to date");
+
+    // No longer a highlight: the note and its objects go.
+    let mut trip = h
+        .storage
+        .list_trips(&HouseholdId::new(H))
+        .await
+        .unwrap()
+        .remove(0);
+    trip.highlights.retain(|m| m != &first);
+    h.storage.put_trip(&trip).await.unwrap();
+    let gone = h
+        .ingest
+        .run(Task::FieldNote {
+            household: HouseholdId::new(H),
+            media_id: first.clone(),
+        })
+        .await
+        .unwrap();
+    assert_eq!(gone["skipped"], "not a highlight");
+    assert!(h
+        .storage
+        .get_media(&HouseholdId::new(H), &first)
+        .await
+        .unwrap()
+        .unwrap()
+        .field_note
+        .is_none());
+    assert!(h
+        .blobs
+        .get(&FieldNote::layer_key(H, first.as_str()))
+        .await
+        .is_err());
+}
+
+#[test]
+fn home_is_the_busiest_everyday_cell() {
+    let mut media: Vec<MediaItem> = (0..25)
+        .map(|i| {
+            signalled(
+                &format!("h{i}"),
+                "owner",
+                0.0,
+                Some((47.6062 + f64::from(i) * 0.0001, -122.3321)),
+                0,
+                0.5,
+            )
+        })
+        .collect();
+    media.push(signalled("trip", "owner", 0.0, Some((35.0, 135.7)), 0, 0.5));
+    let home = mantelpiece_ingest_lambda::organize::home_point(&media).unwrap();
+    assert!((home.lat - 47.607).abs() < 0.01 && (home.lon + 122.332).abs() < 0.01);
+    assert!(
+        mantelpiece_ingest_lambda::organize::home_point(&media[..10]).is_none(),
+        "too few to call it home"
+    );
 }

@@ -49,6 +49,8 @@ async fn main() -> Result<(), Error> {
             Ok("none") => Arc::new(mantelpiece_store::encyclopedia::NoEncyclopedia),
             _ => Arc::new(mantelpiece_store::encyclopedia::Wikipedia::default()),
         },
+        geography: Arc::new(mantelpiece_store::geography::OpenGeography::default()),
+        field_notes: !std::env::var("FIELD_NOTES").is_ok_and(|v| v == "off"),
         cluster: mantelpiece_trips::cluster::Params::default(),
         clock: Arc::new(OffsetDateTime::now_utc),
     });
