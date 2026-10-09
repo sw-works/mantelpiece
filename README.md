@@ -138,6 +138,15 @@ to the plain file elsewhere. Screens keep text inside the 1080p title-safe margi
 config: it replaces the React Native CLI resolver that maps `react-native` to the kepler
 package.
 
+### Map data
+
+Field notes (spec 002) are drawn from OpenStreetMap data, © OpenStreetMap contributors,
+available under the Open Database Licence (https://www.openstreetmap.org/copyright), served
+as vector tiles by OpenFreeMap, and from Terrain Tiles (AWS Open Data,
+https://registry.opendata.aws/terrain-tiles/). Every surface that shows a field note
+carries the credit. Amazon Location is not used for them: its service terms do not allow
+keeping map content.
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).

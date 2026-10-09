@@ -271,6 +271,7 @@ in `decisions-2026-09-09.md` section 9.
 | F-708 | Ken Burns motion on stills in every slideshow; no video encoding, no video stack on the TV |
 | F-709 | Narrated memories: Polly reads the trip narrative during the slideshow; gated on the Vega audio spike (open question 10) |
 | F-710 | Reactions and comments from contributors on the F-159 read-only trip view (like, short comment per photo or day); they stream to the TV ticker ("Grandma loved day 3") and appear beside the photo in the trip view |
+| F-711 | **Field notes.** Each trip highlight gets a quiet map of where it was taken, drawn from OpenStreetMap and open terrain data into the photo's calmest empty space, clear of its subjects, as a separate layer: the photo is never altered. A dot and rounded coordinates only for the photo's own GPS, a ring for an inferred place, none for an unknown one, rings only near home and on shared or member views. A one-button Field notes mode in the TV slideshow; the map takes remote focus and opens This place (when, where, the main feature with its credited description); the phone views and shares it at full resolution. Spec 002 |
 
 ### 4.7 Sharing, Security, Operations
 

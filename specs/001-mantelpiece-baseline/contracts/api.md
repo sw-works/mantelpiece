@@ -53,7 +53,9 @@ sessions) or Cognito JWTs (`/join/amazon`). Errors are `{ "error": "<message>" }
 | Method | Path | Caller | Notes |
 |--------|------|--------|-------|
 | GET | /trips, /trips/{trip} | owner, member, contributor (web view) | trip with days, route, narrative, highlights |
-| GET | /media/{media}/url?rendition=thumb\|tv\|poster | any with access | presigned URL |
+| GET | /media/{media}/url?rendition=thumb\|tv\|poster\|fieldnote\|fieldnote_map | any with access | presigned URL; `fieldnote` and `fieldnote_map` (F-711) give the owner household the note as made and a code-gated viewer the public form |
+| POST | /media/{media}/fieldnote/full | owner, co-editor | NEW (F-711) the original composed with its field note at full resolution, presigned; made once per note |
+| GET | /trips/{trip}/places/{media} | any with access | NEW (F-711) This place: taken, place, coords (owner, precise only), feature with its credited summary, description, nearby photos |
 | POST | /media/{media}/pin, /hide | owner or member household | per household (F-163) |
 | POST | /trips/{trip}/narrative/regenerate | owner | NEW (F-302) |
 | GET | /trips/{trip}/map?day= | owner, member, contributor (web view) | NEW presigned URL for the trip map or one day's map (F-207) |
