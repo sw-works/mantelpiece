@@ -83,6 +83,9 @@ pub struct Enrichment {
     pub smile_count: u32,
     /// Id of the keeper this enrichment was copied from, if inherited.
     pub inherited_from: Option<MediaId>,
+    /// Boxes of the photo's main subjects, kept from the calls above (F-711).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub subjects: Vec<crate::field_note::Subject>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -225,6 +228,9 @@ pub struct MediaItem {
     pub removed_at: Option<OffsetDateTime>,
     #[serde(default, with = "time::serde::rfc3339::option")]
     pub restore_until: Option<OffsetDateTime>,
+    /// The map layer for a highlight (F-711).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub field_note: Option<crate::field_note::FieldNote>,
     pub state: ProcessingState,
     #[serde(with = "time::serde::rfc3339")]
     pub uploaded_at: OffsetDateTime,
@@ -386,6 +392,7 @@ mod tests {
             people: vec![],
             removed_at: None,
             restore_until: None,
+            field_note: None,
             state: ProcessingState::Signalled,
             uploaded_at: datetime!(2026-09-08 10:00:00 UTC),
         }

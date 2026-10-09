@@ -127,6 +127,7 @@ fn media(id: &str, contributor: &str, filename: &str, sha: &str) -> MediaItem {
         people: vec![],
         removed_at: None,
         restore_until: None,
+        field_note: None,
         state: ProcessingState::Uploaded,
         uploaded_at: base(),
     }

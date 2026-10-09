@@ -136,6 +136,7 @@ pub async fn init(app: &App, req: &Req) -> Result<Resp, ApiError> {
         people: vec![],
         removed_at: None,
         restore_until: None,
+        field_note: None,
         state: ProcessingState::Uploaded,
         uploaded_at: app.now(),
     };

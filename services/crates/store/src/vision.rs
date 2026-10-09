@@ -132,6 +132,7 @@ impl Vision for AwsVision {
             face_count,
             smile_count: u32::try_from(smile_count).unwrap_or(u32::MAX),
             inherited_from: None,
+            subjects: Vec::new(),
         })
     }
 

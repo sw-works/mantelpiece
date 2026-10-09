@@ -184,6 +184,7 @@ mod tests {
             people: vec![],
             removed_at: None,
             restore_until: None,
+            field_note: None,
             state: ProcessingState::Enriched,
             uploaded_at: at,
         }

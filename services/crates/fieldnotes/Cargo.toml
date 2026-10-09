@@ -1,0 +1,24 @@
+[package]
+name = "mantelpiece-fieldnotes"
+description = "Field notes (F-711): placement, certainty and drawing of a quiet map layer for a highlight. No AWS, no network"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+mantelpiece-core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+hex.workspace = true
+image.workspace = true
+time.workspace = true
+mvt-reader = "2.5"
+tiny-skia = { version = "0.12", default-features = false, features = ["std", "simd", "png-format"] }
+ttf-parser = "0.25"
+contour = "0.13"
+geo-types = "0.7"
+
+[lints]
+workspace = true

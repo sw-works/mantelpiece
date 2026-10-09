@@ -4,7 +4,7 @@ use crate::ids::{ContributorId, HouseholdId};
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Household {
     pub id: HouseholdId,
     /// Named from the TV, e.g. "Hanyu's living room"; shown to member households.
@@ -30,6 +30,10 @@ pub struct Household {
     /// Phones asking to go live, one per phone; the TV grants or declines each.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub live_requests: Vec<LiveRequest>,
+    /// Centre of the household's everyday photos outside any trip; field notes show no
+    /// precise marker within 2 km of it (F-711).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub home: Option<crate::geo::GeoPoint>,
 }
 
 /// One phone broadcast: an IVS channel made for it and deleted after.
@@ -124,6 +128,7 @@ impl Household {
             live: None,
             stale_channels: Vec::new(),
             live_requests: Vec::new(),
+            home: None,
         }
     }
 

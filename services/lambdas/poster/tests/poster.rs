@@ -57,6 +57,7 @@ fn media(id: &str, kind: MediaKind) -> MediaItem {
         people: vec![],
         removed_at: None,
         restore_until: None,
+        field_note: None,
         state: ProcessingState::Signalled,
         uploaded_at: datetime!(2026-09-08 10:00:00 UTC),
     }

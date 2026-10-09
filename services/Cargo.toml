@@ -15,6 +15,7 @@ mantelpiece-ingest = { path = "crates/ingest" }
 mantelpiece-trips = { path = "crates/trips" }
 mantelpiece-store = { path = "crates/store" }
 mantelpiece-poster = { path = "lambdas/poster" }
+mantelpiece-fieldnotes = { path = "crates/fieldnotes" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2"
