@@ -151,6 +151,7 @@ fn media(id: &str, contributor: &str, filename: &str, sha: &str) -> MediaItem {
         removed_at: None,
         restore_until: None,
         field_note: None,
+        heading: None,
         state: ProcessingState::Uploaded,
         uploaded_at: base(),
     }

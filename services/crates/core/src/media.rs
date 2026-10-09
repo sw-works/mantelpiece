@@ -231,6 +231,9 @@ pub struct MediaItem {
     /// The map layer for a highlight (F-711).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub field_note: Option<crate::field_note::FieldNote>,
+    /// Compass bearing the camera faced, from EXIF, for the field note's view cone.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub heading: Option<f32>,
     pub state: ProcessingState,
     #[serde(with = "time::serde::rfc3339")]
     pub uploaded_at: OffsetDateTime,
@@ -393,6 +396,7 @@ mod tests {
             removed_at: None,
             restore_until: None,
             field_note: None,
+            heading: None,
             state: ProcessingState::Signalled,
             uploaded_at: datetime!(2026-09-08 10:00:00 UTC),
         }

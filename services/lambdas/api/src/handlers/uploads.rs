@@ -46,6 +46,7 @@ fn contributor_of(caller: &Caller) -> Result<ContributorId, ApiError> {
     }
 }
 
+#[allow(clippy::too_many_lines)]
 pub async fn init(app: &App, req: &Req) -> Result<Resp, ApiError> {
     let caller = app.caller(req)?;
     let household = caller.household().clone();
@@ -137,6 +138,7 @@ pub async fn init(app: &App, req: &Req) -> Result<Resp, ApiError> {
         removed_at: None,
         restore_until: None,
         field_note: None,
+        heading: None,
         state: ProcessingState::Uploaded,
         uploaded_at: app.now(),
     };

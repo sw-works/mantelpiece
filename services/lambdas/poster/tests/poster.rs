@@ -58,6 +58,7 @@ fn media(id: &str, kind: MediaKind) -> MediaItem {
         removed_at: None,
         restore_until: None,
         field_note: None,
+        heading: None,
         state: ProcessingState::Signalled,
         uploaded_at: datetime!(2026-09-08 10:00:00 UTC),
     }

@@ -346,6 +346,7 @@ fn media_item(
         removed_at: None,
         restore_until: None,
         field_note: None,
+        heading: None,
         state: ProcessingState::Uploaded,
         uploaded_at: now,
     }

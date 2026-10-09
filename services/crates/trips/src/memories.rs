@@ -185,6 +185,7 @@ mod tests {
             removed_at: None,
             restore_until: None,
             field_note: None,
+            heading: None,
             state: ProcessingState::Enriched,
             uploaded_at: at,
         }

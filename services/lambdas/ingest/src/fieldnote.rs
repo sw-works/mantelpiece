@@ -119,7 +119,7 @@ pub async fn run(ingest: &Ingest, household: &HouseholdId, media_id: &MediaId) -
             home,
             photo: &photo,
             subjects: &subjects,
-            heading: None,
+            heading: m.heading,
         };
         Ok::<_, IngestError>(make(&input, &tiles).map(|made| {
             let public_drawing = made.drawing.public(made.width_m);

@@ -47,6 +47,7 @@ pub async fn run(ingest: &Ingest, key: &str) -> Result<Output> {
     // A video carries no EXIF; keep a capture time set at creation (a saved broadcast).
     media.captured = meta.captured.or(media.captured);
     media.gps = meta.gps;
+    media.heading = meta.heading.or(media.heading);
     media.orientation = meta.orientation;
 
     let reason = match media.kind {

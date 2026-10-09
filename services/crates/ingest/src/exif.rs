@@ -13,6 +13,8 @@ pub struct ExifData {
     /// EXIF orientation 1 to 8; 1 when absent.
     pub orientation: u8,
     pub camera: Option<String>,
+    /// Compass bearing the camera faced (`GPSImgDirection`), degrees from north.
+    pub heading: Option<f32>,
 }
 
 /// Parse EXIF from a JPEG/HEIF/PNG container, or from a raw TIFF blob. Returns defaults
@@ -65,6 +67,18 @@ pub fn parse(bytes: &[u8]) -> ExifData {
         });
 
     let gps = read_gps(&exif);
+    #[allow(clippy::cast_possible_truncation)]
+    let heading = match exif
+        .get_field(Tag::GPSImgDirection, In::PRIMARY)
+        .map(|f| &f.value)
+    {
+        Some(Value::Rational(v)) => v
+            .first()
+            .map(exif::Rational::to_f64)
+            .filter(|d| d.is_finite() && (0.0..=360.0).contains(d))
+            .map(|d| d as f32),
+        _ => None,
+    };
 
     let camera = match (ascii(Tag::Make), ascii(Tag::Model)) {
         (Some(make), Some(model)) if model.starts_with(&make) => Some(model),
@@ -77,6 +91,7 @@ pub fn parse(bytes: &[u8]) -> ExifData {
         gps,
         orientation,
         camera,
+        heading,
     }
 }
 
@@ -325,6 +340,26 @@ mod tests {
             ],
         );
         assert!(parse(&tiff).gps.is_none());
+    }
+
+    #[test]
+    fn the_compass_heading_is_read_when_the_phone_recorded_it() {
+        let gps = |dir: Option<(u32, u32)>| {
+            let mut e = vec![
+                ascii(0x0001, "N"),
+                rationals(0x0002, &[(43, 1), (46, 1), (0, 1)]),
+                ascii(0x0003, "E"),
+                rationals(0x0004, &[(11, 1), (15, 1), (0, 1)]),
+            ];
+            if let Some(d) = dir {
+                // GPSImgDirection
+                e.push(rationals(0x0011, &[d]));
+            }
+            build(vec![], vec![], e)
+        };
+        let h = parse(&gps(Some((2_475, 10)))).heading.unwrap();
+        assert!((h - 247.5).abs() < 1e-4);
+        assert!(parse(&gps(None)).heading.is_none());
     }
 
     #[test]
