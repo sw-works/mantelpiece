@@ -88,6 +88,10 @@
 - [ ] T033 [US1] Remember the toggle per TV: `StoredSession.fieldNotes` in `packages/tv-ui/src/session.ts`, read and written by `packages/tv-ui/src/App.tsx`; test in `packages/tv-ui/test/session.test.ts`
 - [ ] T034 [US1] Trip view mark and full-screen field note on focused highlights in `packages/tv-ui/src/screens/TripView.tsx`; test in `packages/tv-ui/test/screens.test.tsx`
 
+- [ ] T046 [US1] Reference look (spec FR-005, FR-005a, FR-007): translucent water and park fills, peak elevation labels, generic pictograms by kind (peak, hut, church, castle, bridge, station), and a title block (place and country in spaced capitals, "no larger than 4 percent of the frame's height") with scale bar and north mark in a calm corner, in `services/crates/fieldnotes/src/drawing.rs` and `services/crates/fieldnotes/src/raster.rs`
+- [ ] T047 [US1] Shaded relief under contours in mountain mode from the same terrain tiles (`services/crates/fieldnotes/src/contours.rs`), faint enough that the photo shows through
+- [ ] T048 [US1] View cone (FR-005b): parse EXIF `GPSImgDirection` into `MediaItem.heading: Option<f32>` in `services/crates/ingest/src/exif.rs` and `services/lambdas/ingest/src/signal.rs`; draw a narrow cone from the dot when present, never for approximate places
+
 **Checkpoint**: the MVP. A trip's highlights become field notes on the TV.
 
 ---
