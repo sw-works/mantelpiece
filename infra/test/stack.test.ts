@@ -183,6 +183,16 @@ describe("Mantelpiece stack", () => {
     expect(JSON.stringify(ivs.Resource)).not.toContain('"*"');
   });
 
+  it("makes field notes after the final organize, four at a time", () => {
+    const machines = Object.values(template.findResources("AWS::StepFunctions::StateMachine"));
+    const organize = machines.find((m) => JSON.stringify(m.Properties.DefinitionString).includes("OrganizeFinal"));
+    if (!organize) throw new Error("no organize machine");
+    const def = JSON.stringify(organize.Properties.DefinitionString);
+    expect(def).toContain("FieldNotes");
+    expect(def).toContain("field_notes_manifest");
+    expect(def).toContain("field_note");
+  });
+
   it("records only into its own expiring bucket and turns a finished recording into a video", () => {
     template.resourceCountIs("AWS::IVS::RecordingConfiguration", 1);
     template.hasResourceProperties("AWS::IVS::RecordingConfiguration", {

@@ -401,6 +401,7 @@ export class MantelpieceStack extends Stack {
         resultSelector: {
           "keepers.$": "$.Payload.keepers",
           "keepers_manifest.$": "$.Payload.keepers_manifest",
+          "field_notes_manifest.$": "$.Payload.field_notes_manifest",
           "trips.$": "$.Payload.trips",
         },
         resultPath,
@@ -424,12 +425,35 @@ export class MantelpieceStack extends Stack {
     enrichMap.itemProcessor(
       new sfnTasks.LambdaInvoke(this, "Enrich", { lambdaFunction: ingestFn, outputPath: "$.Payload" }),
     );
+    // F-711: field notes for highlights whose note is missing or stale, after the final
+    // organize has settled the highlights. Map data comes from OpenStreetMap and open
+    // terrain tiles over HTTPS; four in flight per household keeps tile fetches polite.
+    const fieldNotesMap = new sfn.DistributedMap(this, "FieldNotes", {
+      itemReader: new sfn.S3JsonItemReader({
+        bucket: this.bucket,
+        key: sfn.JsonPath.stringAt("$.final.field_notes_manifest"),
+      }),
+      maxConcurrency: 4,
+      itemSelector: {
+        task: "field_note",
+        household: sfn.JsonPath.stringAt("$.household"),
+        media_id: sfn.JsonPath.stringAt("$$.Map.Item.Value.media_id"),
+      },
+      resultPath: sfn.JsonPath.DISCARD,
+    });
+    fieldNotesMap.itemProcessor(
+      new sfnTasks.LambdaInvoke(this, "FieldNote", { lambdaFunction: ingestFn, outputPath: "$.Payload" }).addRetry({
+        maxAttempts: 2,
+        interval: Duration.seconds(10),
+      }),
+    );
     const organizeChain = new sfn.Wait(this, "SettleUploads", {
       time: sfn.WaitTime.duration(Duration.seconds(30)),
     })
       .next(organize("OrganizeFirst", "$.organize"))
       .next(enrichMap)
-      .next(organize("OrganizeFinal", "$.final"));
+      .next(organize("OrganizeFinal", "$.final"))
+      .next(fieldNotesMap);
     const organizeMachine = new sfn.StateMachine(this, "OrganizeMachine", {
       definitionBody: sfn.DefinitionBody.fromChainable(organizeChain),
       timeout: Duration.hours(1),
