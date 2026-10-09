@@ -134,6 +134,32 @@ notes appear for the new highlights and vanish for the dropped ones.
 
 ---
 
+### User Story 6 - Open the map from the remote (Priority: P2)
+
+In Field notes mode, someone presses Up on the remote and focus moves onto the map. It
+brightens and gains a soft outline, the slideshow pauses, and a short hint says Select
+opens it. Select opens "This place": the same map drawn large on its own, the place's facts
+when the trip knows the landmark, and a strip of the trip's other photos from the same
+place. Back returns to the photo the slideshow was on.
+
+**Why this priority**: it turns the map from decoration into a way into the trip, and the
+TV is a lean-back screen where a remote press is the only interaction. It needs User
+Story 1.
+
+**Independent Test**: on the Virtual Device, in Field notes mode, press Up until the map is
+focused, see it highlighted and the slideshow paused, press Select, see the large map and
+nearby photos, press Back and land on the same slide.
+
+**Acceptance Scenarios**:
+
+1. **Given** a highlight with a field note on screen in Field notes mode, **When** the remote moves focus up from the controls, **Then** the map takes focus, is visibly highlighted, and the slideshow pauses.
+2. **Given** the map is focused, **When** Select is pressed, **Then** "This place" opens with the map drawn large, the landmark's facts when known, and up to twelve of the trip's photos within the note's ring or 1 km of its dot.
+3. **Given** "This place" is open, **When** Back is pressed, **Then** the slideshow returns to the same photo, still paused, with focus on the map.
+4. **Given** a slide without a field note, **When** the remote moves up, **Then** focus does not land on an empty area.
+5. **Given** a public-form note (a member household's TV), **When** "This place" opens, **Then** the large map also shows only the ring, never a dot or coordinates.
+
+---
+
 ### Edge Cases
 
 - A highlight is a video: its field note is laid over the poster frame only, and the TV shows it while the video's poster is on screen, not during playback.
@@ -184,6 +210,9 @@ notes appear for the new highlights and vanish for the dropped ones.
 - **FR-018**: The TV MUST mark highlights that have a field note in Trip view and show one full screen on request.
 - **FR-019**: Turning field notes off MUST show the photo exactly as without the feature.
 - **FR-020**: The owner and co-editors MUST be able to view a field note on the phone, switch to the plain photo, and share or save the composed picture at the original's full resolution.
+
+- **FR-020a**: In Field notes mode the map MUST be reachable by remote focus, MUST show a visible focused state, and MUST pause the slideshow while focused; slides without a note MUST NOT offer an empty focus target.
+- **FR-020b**: Selecting a focused map MUST open "This place": the same drawing rendered large on its own (in the form the viewer is allowed to see), the landmark's facts when the trip has one there, and up to twelve of the trip's photos from the same place; Back MUST return to the same slide.
 
 **Keeping up**
 

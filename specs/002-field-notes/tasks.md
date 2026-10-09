@@ -109,6 +109,19 @@
 
 ---
 
+## Phase 6b: User Story 6 - Open the map from the remote (Priority: P2)
+
+**Goal**: the map is a focus target in Field notes mode and opens a "This place" view.
+
+**Independent Test**: on the Virtual Device, Up focuses the map (highlighted, slideshow paused), Select opens "This place", Back returns to the same slide.
+
+- [ ] T049 [US6] Map-only rendition: `rendition=fieldnote_map` in `GET /media/{id}/url` returns `renditions/{h}/{m}/fieldnote-map.png`, the drawing rasterised alone at 1920 px wide on a transparent ground (owner or public form by caller), made by the field-note task beside the layer; `raster::map_only()` in `services/crates/fieldnotes/src/raster.rs`; tests in `services/lambdas/api/tests/api.rs`
+- [ ] T050 [US6] `GET /trips/{id}/places/{media_id}` in `services/lambdas/api/src/handlers/trips.rs`: up to twelve of the trip's photos within the note's ring or 1 km of its dot, and the landmark facts when one is there; tests
+- [ ] T051 [P] [US6] Focusable map in `packages/tv-ui/src/components/FieldNoteImage.tsx`: a `Pressable` placed over `field_note.placement` (mapped through the `contain` rect), focused state at full strength with a soft outline and the hint "Select: open the map", only when the slide has a note; `Slideshow.tsx` pauses while it is focused
+- [ ] T052 [US6] "This place" screen in `packages/tv-ui/src/screens/ThisPlace.tsx` and route in `packages/tv-ui/src/App.tsx`: large map, `LandmarkCard` when known, photo strip; Back returns to the same slide with focus on the map; jest tests in `packages/tv-ui/test/screens.test.tsx`
+
+---
+
 ## Phase 7: User Story 5 - Field notes keep up with the trip (Priority: P3)
 
 **Goal**: notes follow highlight changes, removals and corrected places.
