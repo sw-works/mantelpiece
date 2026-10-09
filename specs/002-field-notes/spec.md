@@ -138,9 +138,11 @@ notes appear for the new highlights and vanish for the dropped ones.
 
 In Field notes mode, someone presses Up on the remote and focus moves onto the map. It
 brightens and gains a soft outline, the slideshow pauses, and a short hint says Select
-opens it. Select opens "This place": the same map drawn large on its own, the place's facts
-when the trip knows the landmark, and a strip of the trip's other photos from the same
-place. Back returns to the photo the slideshow was on.
+opens it. Select opens "This place": when the photo was taken (date and local time), where (the
+place, its town and country, and coordinates where allowed), the main feature on the map
+with a short credited description of it, the photo's own description, the same map drawn
+large on its own, and a strip of the trip's other photos from the same place. Back returns
+to the photo the slideshow was on.
 
 **Why this priority**: it turns the map from decoration into a way into the trip, and the
 TV is a lean-back screen where a remote press is the only interaction. It needs User
@@ -153,7 +155,9 @@ nearby photos, press Back and land on the same slide.
 **Acceptance Scenarios**:
 
 1. **Given** a highlight with a field note on screen in Field notes mode, **When** the remote moves focus up from the controls, **Then** the map takes focus, is visibly highlighted, and the slideshow pauses.
-2. **Given** the map is focused, **When** Select is pressed, **Then** "This place" opens with the map drawn large, the landmark's facts when known, and up to twelve of the trip's photos within the note's ring or 1 km of its dot.
+2. **Given** the map is focused, **When** Select is pressed, **Then** "This place" opens with the date and local time the photo was taken, the place line, the main feature's name and credited description, the map drawn large, and up to twelve of the trip's photos within the note's ring or 1 km of its dot.
+6. **Given** a photo whose camera recorded no time zone, **When** "This place" opens, **Then** it shows the date only, not a guessed time.
+7. **Given** an approximate place, **When** "This place" opens, **Then** the place line reads "Around ..." and no coordinates are shown.
 3. **Given** "This place" is open, **When** Back is pressed, **Then** the slideshow returns to the same photo, still paused, with focus on the map.
 4. **Given** a slide without a field note, **When** the remote moves up, **Then** focus does not land on an empty area.
 5. **Given** a public-form note (a member household's TV), **When** "This place" opens, **Then** the large map also shows only the ring, never a dot or coordinates.
@@ -212,7 +216,7 @@ nearby photos, press Back and land on the same slide.
 - **FR-020**: The owner and co-editors MUST be able to view a field note on the phone, switch to the plain photo, and share or save the composed picture at the original's full resolution.
 
 - **FR-020a**: In Field notes mode the map MUST be reachable by remote focus, MUST show a visible focused state, and MUST pause the slideshow while focused; slides without a note MUST NOT offer an empty focus target.
-- **FR-020b**: Selecting a focused map MUST open "This place": the same drawing rendered large on its own (in the form the viewer is allowed to see), the landmark's facts when the trip has one there, and up to twelve of the trip's photos from the same place; Back MUST return to the same slide.
+- **FR-020b**: Selecting a focused map MUST open "This place": the date and local time the photo was taken (date only when the time zone is unknown); the place line (feature or neighbourhood, town, country; "Around ..." for an approximate place; coordinates only where FR-012, FR-015 and FR-016 allow); the main feature (the trip's landmark for the photo, else the most prominent named feature near the marker) with its encyclopedia summary, quoted and credited, never model-written; the photo's own checked description when it has one; the same drawing rendered large in the form the viewer may see; and up to twelve of the trip's photos from the same place. Back MUST return to the same slide.
 
 **Keeping up**
 

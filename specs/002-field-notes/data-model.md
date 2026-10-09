@@ -40,6 +40,7 @@ says where it is and what it was made from.
 | `drawing_key` | String | `renditions/{h}/{m}/fieldnote.json`, the display list |
 | `fingerprint` | String | Hash of what it was made from: photo sha256, certainty and position, the day's route, the style version. A different fingerprint at organize means remake |
 | `made_at` | RFC 3339 | |
+| `feature` | `Feature { name, kind: landmark \| peak \| water \| place, at, region: Option<String>, country: Option<String> }` | The main feature for "This place" (US6): the trip landmark tied to the photo, else the most prominent named feature near the marker. Its description comes from the cached encyclopedia facts (F-210) by name and position. |
 
 ### Certainty
 
