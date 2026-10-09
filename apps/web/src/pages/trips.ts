@@ -7,6 +7,7 @@ import { OWNER_TOKEN_KEY } from "../auth.js";
 import { loadConfig } from "../config.js";
 import { tripLines } from "./trip.js";
 import { castConfirmation, groupByYear, type NowShowing, tripSummaryLine, untilConfirmed } from "../trips.js";
+import { fieldNoteView, withNotes } from "../fieldnote.js";
 import { button, el, icon, link, mount, photo, topbar } from "../ui.js";
 
 const BACK = "/?owner=1";
@@ -144,5 +145,25 @@ function renderDetail(api: Api, token: string, trip: TripView, cast: (start?: st
     playDay.onclick = () => void cast(d.media[0], dayLabel);
     days.append(el("li", {}, el("p", { class: "meta fg" }, lines[i] ?? `Day ${d.index}`), thumbs, el("div", { class: "row" }, playDay)));
   });
-  return el("div", { class: "detail" }, ...(trip.narrative ? [el("p", { class: "story" }, trip.narrative.text)] : []), days);
+  // F-711: the highlights that have a field note, each viewable and shareable.
+  const noted = withNotes(trip.highlights, trip.field_notes);
+  const notes: HTMLElement[] = noted.length
+    ? [
+        el(
+          "section",
+          { class: "stack tight" },
+          el("p", { class: "meta fg" }, `Field notes · ${noted.length}`),
+          ...noted.slice(0, 6).map((m) =>
+            fieldNoteView({
+              photo: api.mediaUrl(token, m, "tv").then((r) => r.url),
+              layer: api.mediaUrl(token, m, "fieldnote").then((r) => r.url),
+              credit: trip.field_notes![m]!.credit,
+              share: () => api.fieldNoteFull(token, m).then((r) => r.url),
+              name: `${trip.name} field note.jpg`,
+            }),
+          ),
+        ),
+      ]
+    : [];
+  return el("div", { class: "detail" }, ...(trip.narrative ? [el("p", { class: "story" }, trip.narrative.text)] : []), days, ...notes);
 }

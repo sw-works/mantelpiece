@@ -4,6 +4,7 @@
 
 import { Api, type ReactionTarget, type ReactionsView, type TripView } from "../api.js";
 import { loadConfig } from "../config.js";
+import { fieldNoteView, withNotes } from "../fieldnote.js";
 import { latestComment, reactionLine, targetKey, VIEWER_NAME_KEY, viewerName } from "../reactions.js";
 import { el, eyebrow, field, icon, link, mount, photo, topbar } from "../ui.js";
 
@@ -114,6 +115,24 @@ export async function main(root: HTMLElement, location: Location, storage: Stora
     );
   };
   renderDays();
+  // F-711: field notes in their public form (a ring, never coordinates), with the credit.
+  const noted = withNotes(trip.highlights, trip.field_notes);
+  const notes: HTMLElement[] = noted.length
+    ? [
+        el(
+          "section",
+          { class: "stack tight" },
+          el("span", { class: "day-title" }, "Field notes"),
+          ...noted.slice(0, 6).map((m) =>
+            fieldNoteView({
+              photo: api.mediaUrlByCode(code, m, "tv").then((r) => r.url),
+              layer: api.mediaUrlByCode(code, m, "fieldnote").then((r) => r.url),
+              credit: trip.field_notes![m]!.credit,
+            }),
+          ),
+        ),
+      ]
+    : [];
   const photos = trip.days.reduce((n, d) => n + d.media.length, 0);
   mount(
     root,
@@ -128,6 +147,7 @@ export async function main(root: HTMLElement, location: Location, storage: Stora
     trip.narrative ? el("p", { class: "story" }, trip.narrative.text) : el("p", {}, "The story of this trip is being written."),
     field("Your name, so the TV can say who reacted", nameInput),
     days,
+    ...notes,
     el("p", { class: "small" }, `${trip.highlights.length} highlight${trip.highlights.length === 1 ? "" : "s"}. Add your own photos from the Add photos code on the TV.`),
   );
 }

@@ -71,6 +71,8 @@ export interface TripView {
   narrative: { text: string } | null;
   contributor_names?: Record<string, string>;
   media_credits?: Record<string, string>;
+  /** Media id to its field note (F-711); the public form on the read-only view. */
+  field_notes?: Record<string, import("./fieldnote.js").FieldNoteSummary>;
 }
 
 /** What the TV said about this phone's photos (family channel). */
@@ -221,7 +223,7 @@ export class Api {
     return this.call<unknown>("POST", `/trips/${tripId}/reactions?code=${encodeURIComponent(code)}`, body);
   }
 
-  mediaUrlByCode(code: string, mediaId: string, rendition: "thumb" | "tv") {
+  mediaUrlByCode(code: string, mediaId: string, rendition: "thumb" | "tv" | "fieldnote") {
     return this.call<{ url: string }>("GET", `/media/${mediaId}/url?rendition=${rendition}&code=${encodeURIComponent(code)}`);
   }
 
@@ -305,7 +307,12 @@ export class Api {
     return this.call<{ requested: boolean; trip: string; name: string; start: string | null }>("POST", `/trips/${id}/play`, { source: "phone", ...(start ? { start } : {}) }, { bearer });
   }
 
-  mediaUrl(bearer: string, mediaId: string, rendition: "thumb" | "tv") {
+  mediaUrl(bearer: string, mediaId: string, rendition: "thumb" | "tv" | "fieldnote") {
     return this.call<{ url: string }>("GET", `/media/${mediaId}/url?rendition=${rendition}`, undefined, { bearer });
+  }
+
+  /** The original with its field note composed in, full size, for sharing (F-711). */
+  fieldNoteFull(bearer: string, mediaId: string) {
+    return this.call<{ url: string }>("POST", `/media/${mediaId}/fieldnote/full`, undefined, { bearer });
   }
 }
