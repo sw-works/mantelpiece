@@ -6,7 +6,7 @@
 
 **Status**: Draft
 
-**Input**: User description: "Field notes: editorial map overlays on trip highlights. Inspired by the 'travel zine' idea (a travel photo with a restrained, real map of where it was taken laid over its empty space), but built for Mantelpiece and without an image model."
+**Input**: User description: "Field notes: editorial map overlays on trip highlights. Inspired by the 'travel zine' idea (a travel photo with a restrained, real map of where it was taken laid over its empty space), but built for Mantelpiece and without an image model." Reference look: the sixteen examples in the original post (Barcelona, Gran Paradiso, Pisa, Budapest, Florence, Turin, Tre Cime, Hemu), reviewed 2026-10-10.
 
 Implements a new requirement, **F-711 Field notes**, to be added to `specs/architecture.md`
 section 4.8. Builds on F-206 (route, inferred when GPS is missing), F-207 (route maps),
@@ -157,9 +157,11 @@ notes appear for the new highlights and vanish for the dropped ones.
 - **FR-002**: System MUST never alter the original photo or its existing renditions; a field note is a separate layer, sized and positioned against the photo's own frame, with the photo's aspect ratio and orientation.
 - **FR-003**: System MUST draw only real geography for the photo's place from a map data source: coastlines and water, streets, paths and trails, contour lines, and at most four English place names chosen by importance and distance.
 - **FR-004**: System MUST choose the map's character from the geography in view: coast, mountains (contours), town (streets), or trail; and MUST draw the day's route as a fine line when the trip has one for that day, with the photo's position on it.
-- **FR-005**: The map MUST use thin lines, a low-saturation palette, a subtle paper-like grain confined to the map layer, and line and label colour chosen for contrast with the region underneath.
+- **FR-005**: The map MUST use thin lines, a low-saturation palette, a subtle paper-like grain confined to the map layer, and line and label colour chosen for contrast with the region underneath. Water MAY be a soft translucent fill (a river as a pale band), parks a fainter one; in mountain mode, shaded relief from elevation data MAY sit under the contours, faint enough that the photo shows through.
+- **FR-005a**: Peaks MUST carry their elevation when the map data has it ("Tre Cime di Lavaredo 2,999 m"); known kinds of place (peak, hut, church, castle, bridge, station) MAY carry a small generic pictogram; no bespoke landmark illustrations.
+- **FR-005b**: When the photo records the compass direction it was taken in, the marker MUST show it as a narrow view cone; otherwise no direction is drawn.
 - **FR-006**: The map MUST occupy between 15 and 25 percent of the frame and MUST NOT be enclosed in an opaque box or card; its edges fade into the photo.
-- **FR-007**: A field note MAY carry one short caption line with the place name and the day's date, in small type; it MUST NOT add titles, borders or other decoration.
+- **FR-007**: A field note MAY carry a small title block (place and country in spaced capitals, no larger than 4 percent of the frame's height) with a scale bar and a north mark, placed in a calm corner clear of subjects, and one caption line with the date and, where allowed, coordinates. It MUST NOT add borders, frames, banners or other decoration.
 - **FR-008**: Making field notes MUST NOT use image-generation models, and MUST make at most one model call per highlight (to find its landscape subjects), never for photos that are not highlights, and none when a highlight's field note is already up to date.
 
 **Placement**
