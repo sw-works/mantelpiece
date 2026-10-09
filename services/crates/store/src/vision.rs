@@ -39,6 +39,7 @@ a 0 to 1000 scale from the top left. Answer [] if nothing stands out.";
 /// Parse the model's answer leniently: the first JSON array in the text, boxes on the 0 to
 /// 1000 grid, anything malformed skipped.
 #[must_use]
+#[allow(clippy::cast_possible_truncation)]
 pub fn parse_subjects(answer: &str) -> Vec<Subject> {
     let (Some(start), Some(end)) = (answer.find('['), answer.rfind(']')) else {
         return vec![];

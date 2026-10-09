@@ -22,7 +22,9 @@ pub mod raster;
 use drawing::{Candidate, Class, Drawing, Label, LabelKind, Marker, MarkerKind, Shape, Title};
 use geo::{TileId, View};
 use image::{DynamicImage, GenericImageView};
-use mantelpiece_core::field_note::{Caption, Certainty, Ink, MapMode, NormBox, Subject};
+use mantelpiece_core::field_note::{
+    Caption, Certainty, Feature, FeatureKind, Ink, MapMode, NormBox, Subject,
+};
 use mantelpiece_core::geo::GeoPoint;
 use mantelpiece_core::media::MediaItem;
 use mantelpiece_core::trip::Trip;
@@ -61,6 +63,69 @@ pub struct Made {
     pub credit: String,
     /// Metres across the map, for the public form's ring.
     pub width_m: f32,
+    /// What the map is mainly about, for "This place".
+    pub feature: Option<Feature>,
+}
+
+/// Inverse of the view's projection: a box point back to latitude and longitude.
+fn geo_of(view: &View, u: f32, v: f32) -> GeoPoint {
+    let wx = view.centre.x - view.half_w + f64::from(u) * 2.0 * view.half_w;
+    let wy = view.centre.y - view.half_h + f64::from(v) * 2.0 * view.half_h;
+    let lat = (std::f64::consts::PI * (1.0 - 2.0 * wy))
+        .sinh()
+        .atan()
+        .to_degrees();
+    GeoPoint::new(lat, wx * 360.0 - 180.0)
+}
+
+/// The trip's landmark tied to the photo, else the most prominent named feature within a
+/// third of the map's width of the marker: peaks first, then water, then towns.
+fn main_feature(
+    input: &Input<'_>,
+    candidates: &[Candidate],
+    view: &View,
+    marker: &Marker,
+    aspect: f32,
+) -> Option<Feature> {
+    let landmarks = || input.trip.days.iter().flat_map(|d| d.landmarks.iter());
+    let country = landmarks().find_map(|l| l.country.clone());
+    if let Some(l) = landmarks().find(|l| l.media.contains(&input.media.id)) {
+        return Some(Feature {
+            name: l.name.clone(),
+            kind: FeatureKind::Landmark,
+            at: l.at,
+            detail: None,
+            country: l.country.clone(),
+        });
+    }
+    let near =
+        |c: &&Candidate| (c.label.x - marker.x).hypot((c.label.y - marker.y) / aspect) <= 1.0 / 3.0;
+    let rank = |k: LabelKind| match k {
+        LabelKind::Peak => 0,
+        LabelKind::Landmark => 1,
+        LabelKind::Water => 2,
+        LabelKind::Place => 3,
+    };
+    candidates
+        .iter()
+        .filter(near)
+        .min_by(|a, b| {
+            rank(a.label.kind)
+                .cmp(&rank(b.label.kind))
+                .then(a.priority.total_cmp(&b.priority))
+        })
+        .map(|c| Feature {
+            name: c.label.text.clone(),
+            kind: match c.label.kind {
+                LabelKind::Peak => FeatureKind::Peak,
+                LabelKind::Water => FeatureKind::Water,
+                LabelKind::Landmark => FeatureKind::Landmark,
+                LabelKind::Place => FeatureKind::Place,
+            },
+            at: geo_of(view, c.label.x, c.label.y),
+            detail: c.label.sub.clone(),
+            country,
+        })
 }
 
 /// Why a highlight got no note.
@@ -297,6 +362,7 @@ pub fn make(input: &Input<'_>, tiles: &dyn Tiles) -> Result<Made, Skip> {
         }
     }
     let label_size = 0.02 * pw.min(ph) as f32 / (bbox.height * ph as f32);
+    let feature = main_feature(input, &candidates, &view, &marker, aspect);
     // Keep the title block (top left) and the caption line (bottom) free of names.
     let labels = drawing::choose_labels(
         candidates,
@@ -338,5 +404,6 @@ pub fn make(input: &Input<'_>, tiles: &dyn Tiles) -> Result<Made, Skip> {
         caption,
         credit,
         width_m: view.width_m() as f32,
+        feature,
     })
 }

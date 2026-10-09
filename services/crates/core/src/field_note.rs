@@ -161,6 +161,30 @@ pub struct Caption {
     pub coords: Option<String>,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FeatureKind {
+    Landmark,
+    Peak,
+    Water,
+    Place,
+}
+
+/// What the map is mainly about, for "This place": the trip's landmark for the photo, else
+/// the most prominent named feature near the marker. Its description is looked up from
+/// the encyclopedia by name and position, never written by a model.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Feature {
+    pub name: String,
+    pub kind: FeatureKind,
+    pub at: GeoPoint,
+    /// "2,999 m" for a peak.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub detail: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub country: Option<String>,
+}
+
 /// The map layer for one highlight. The drawing is a display list in S3 at `drawing_key`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct FieldNote {
@@ -178,6 +202,8 @@ pub struct FieldNote {
     pub fingerprint: String,
     #[serde(with = "time::serde::rfc3339")]
     pub made_at: OffsetDateTime,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub feature: Option<Feature>,
 }
 
 impl FieldNote {
