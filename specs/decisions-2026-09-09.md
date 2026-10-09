@@ -869,3 +869,26 @@ compile-checked only.
   winds down, which should cover it); the static ffmpeg build's HLS demuxer on Lambda; the
   web broadcast SDK's bitrate changes mid-stream (IVS lists a known issue with merged
   reconnects, which stay off here).
+
+## 36. Field notes: map data, placement and the first look on real photos (2026-10-09)
+
+- Spec 002 (F-711). Amazon Location's service terms (section 82.4) bar storing map tiles
+  or other Location content, so field notes are drawn from OpenStreetMap vector tiles
+  (OpenFreeMap, OpenMapTiles schema) and contoured from AWS Open Data Terrain Tiles, both
+  kept with credit. Open question raised by the same terms: the baseline's F-207 route
+  maps store `GetStaticMap` images under `Route.map_key`, which section 82.4 appears to
+  forbid. Not changed here; needs a decision before launch.
+- `crates/fieldnotes` is pure (no AWS, no network): placement, certainty, tile decode,
+  contours, mode, display list, rasteriser (tiny-skia, Instrument Serif outlines).
+- Spike (`cargo run --release -p mantelpiece-fieldnotes --example spike`) over the 48
+  Iceland test photos, no subject boxes (offline): a note on all 48, modes coast, mountains,
+  town and trail as the place suggests; Reykjavik, Eskifjörður, Keflavík and Ólafsvík get
+  a title; peaks carry elevations. A note renders in 0.3 s from cached tiles; first fetch
+  7 to 29 s per photo.
+- Placement tuning from the spike: feather each axis and multiply (hard box edges showed
+  on large water fills); light ink below mean luminance 0.68 (white reads on blue sky as in
+  the reference post); sky bonus 0.06; every row and column of the box must stay under
+  detail 0.14 (a calm average hid a horizon band); tone spread at most 0.17 (a
+  long-exposure waterfall is smooth but not empty). Still wrong offline: a calm road or a
+  smooth waterfall wins when no subject box excludes it. That is what the per-highlight
+  Nova subject call is for; untested, the AWS session had expired.

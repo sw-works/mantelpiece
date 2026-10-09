@@ -14,8 +14,13 @@ pub const FRAME_MARGIN: f32 = 0.03;
 pub const AREAS: [f32; 3] = [0.20, 0.25, 0.15];
 /// Above this mean detail no region is calm enough for thin lines (tuned in the spike).
 pub const MAX_DETAIL: f32 = 0.085;
-/// Under this mean luminance the ink is light.
-pub const DARK_REGION: f32 = 0.45;
+/// Above this spread of brightness a region holds something, however smooth.
+pub const MAX_TONE_SPREAD: f32 = 0.17;
+/// No single row of the box may be busier than this.
+pub const MAX_ROW_DETAIL: f32 = 0.14;
+/// Under this mean luminance the ink is light: white lines read on blue sky, as in the
+/// reference posts; only bright, pale regions (overcast) take dark ink.
+pub const DARK_REGION: f32 = 0.68;
 
 /// One cell of the reduced photo.
 #[derive(Clone, Copy, Debug, Default)]
@@ -171,6 +176,7 @@ pub fn place(grid: &Grid, photo_aspect: f32, subjects: &[Subject]) -> Option<Pla
     let detail = Integral::new(grid, |c| c.detail);
     let bonus = Integral::new(grid, |c| c.sky.max(c.water));
     let tone = Integral::new(grid, |c| c.luma);
+    let tone_sq = Integral::new(grid, |c| c.luma * c.luma);
     // Padding is a share of the shorter side, in each axis's own fraction.
     let (pad_x, pad_y) = if photo_aspect >= 1.0 {
         (SUBJECT_PAD / photo_aspect, SUBJECT_PAD)
@@ -209,6 +215,21 @@ pub fn place(grid: &Grid, photo_aspect: f32, subjects: &[Subject]) -> Option<Pla
                     };
                     if !blocked.iter().any(|b| b.intersects(&bbox)) {
                         let d = detail.mean(x, y, x + cw, y + ch);
+                        // A calm average can hide a busy band (a horizon, a ridge) that the
+                        // caption or a label would sit on; every row must be readable too.
+                        let worst_row = (y..y + ch)
+                            .map(|r| detail.mean(x, r, x + cw, r + 1))
+                            .fold(0.0f32, f32::max);
+                        let worst_col = (x..x + cw)
+                            .map(|c| detail.mean(c, y, c + 1, y + ch))
+                            .fold(0.0f32, f32::max);
+                        let worst = worst_row.max(worst_col);
+                        // Smooth subjects (a long-exposure waterfall, a snowfield against
+                        // rock) are calm but not empty: the tone spread gives them away.
+                        let mean_tone = tone.mean(x, y, x + cw, y + ch);
+                        let spread = (tone_sq.mean(x, y, x + cw, y + ch) - mean_tone * mean_tone)
+                            .max(0.0)
+                            .sqrt();
                         let b = bonus.mean(x, y, x + cw, y + ch);
                         // The middle third is where photos keep their subject.
                         let cx = bbox.left + bbox.width / 2.0;
@@ -222,8 +243,12 @@ pub fn place(grid: &Grid, photo_aspect: f32, subjects: &[Subject]) -> Option<Pla
                         };
                         // Prefer the 20 percent size slightly over the others.
                         let size = (area - 0.20).abs() * 0.05;
-                        let score = d - 0.02 * b + centre + size;
-                        if d <= MAX_DETAIL && best.as_ref().is_none_or(|(s, _)| score < *s) {
+                        let score = d - 0.06 * b + centre + size + 0.25 * spread;
+                        if d <= MAX_DETAIL
+                            && worst <= MAX_ROW_DETAIL
+                            && spread <= MAX_TONE_SPREAD
+                            && best.as_ref().is_none_or(|(s, _)| score < *s)
+                        {
                             let ink = if tone.mean(x, y, x + cw, y + ch) < DARK_REGION {
                                 Ink::Light
                             } else {
@@ -249,7 +274,11 @@ pub fn place(grid: &Grid, photo_aspect: f32, subjects: &[Subject]) -> Option<Pla
 }
 
 #[cfg(test)]
-#[allow(clippy::cast_precision_loss, clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+#[allow(
+    clippy::cast_precision_loss,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss
+)]
 mod tests {
     use super::*;
     use image::{Rgb, RgbImage};
@@ -284,7 +313,19 @@ mod tests {
         assert!(p.bbox.bottom() <= 0.52, "{p:?}");
         assert!(!person.bbox.padded(0.04 / 1.5, 0.04).intersects(&p.bbox));
         assert!((0.14..=0.26).contains(&p.bbox.area()), "{}", p.bbox.area());
-        assert_eq!(p.ink, Ink::Dark, "the sky is light");
+        assert_eq!(p.ink, Ink::Light, "white lines on blue sky");
+        let overcast = DynamicImage::ImageRgb8(RgbImage::from_fn(1920, 1280, |x, y| {
+            if y < 640 {
+                Rgb([222, 224, 228])
+            } else {
+                Rgb([(((x / 12) * 7919 + (y / 12) * 104_729) % 251) as u8, 90, 40])
+            }
+        }));
+        assert_eq!(
+            place(&grid(&overcast), 1.5, &[]).unwrap().ink,
+            Ink::Dark,
+            "dark lines on a pale overcast sky"
+        );
     }
 
     #[test]

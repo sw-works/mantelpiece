@@ -2494,6 +2494,7 @@ dependencies = [
  "hex",
  "image",
  "mantelpiece-core",
+ "mantelpiece-ingest",
  "mvt-reader",
  "serde",
  "serde_json",
@@ -2501,6 +2502,7 @@ dependencies = [
  "time",
  "tiny-skia",
  "ttf-parser",
+ "ureq",
 ]
 
 [[package]]

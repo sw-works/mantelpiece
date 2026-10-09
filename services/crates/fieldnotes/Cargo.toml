@@ -22,3 +22,7 @@ geo-types = "0.7"
 
 [lints]
 workspace = true
+
+[dev-dependencies]
+mantelpiece-ingest.workspace = true
+ureq.workspace = true
