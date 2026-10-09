@@ -2,6 +2,7 @@
 
 use mantelpiece_core::confirmation::ConfirmedAction;
 use mantelpiece_core::events::EventKind;
+use mantelpiece_core::field_note::FieldNote;
 use mantelpiece_core::ids::{HouseholdId, MediaId};
 use mantelpiece_core::media::{MediaItem, ProcessingState};
 use mantelpiece_ingest::embed;
@@ -44,9 +45,22 @@ pub async fn url(app: &App, req: &Req, id: &str) -> Result<Resp, ApiError> {
         "original" => media.original_key.clone(),
         "thumb" => format!("renditions/{}/{}/thumb.jpg", media.household, media.id),
         "tv" => format!("renditions/{}/{}/tv.jpg", media.household, media.id),
+        // F-711: the owner household's own sessions see the note as made; a code-gated
+        // viewer gets the public form (ring only, no coordinates).
+        "fieldnote" => {
+            if media.field_note.is_none() {
+                return Err(ApiError::not_found("no field note"));
+            }
+            let (h, m) = (media.household.as_str(), media.id.as_str());
+            if caller.is_some() {
+                FieldNote::layer_key(h, m)
+            } else {
+                FieldNote::public_layer_key(h, m)
+            }
+        }
         _ => {
             return Err(ApiError::bad_request(
-                "rendition must be thumb, tv or original",
+                "rendition must be thumb, tv, original or fieldnote",
             ))
         }
     };
@@ -463,7 +477,14 @@ pub async fn purge_expired(app: &App, req: &Req) -> Result<Resp, ApiError> {
             format!("renditions/{}/{}/thumb.jpg", m.household, m.id),
             format!("renditions/{}/{}/tv.jpg", m.household, m.id),
             format!("renditions/{}/{}/poster.jpg", m.household, m.id),
-        ];
+        ]
+        .into_iter()
+        .chain(FieldNote::keys(m.household.as_str(), m.id.as_str()))
+        .chain([format!(
+            "{}.fingerprint",
+            FieldNote::full_key(m.household.as_str(), m.id.as_str())
+        )])
+        .collect::<Vec<_>>();
         app.blobs.delete(&keys).await?;
         app.vectors.delete(&household, &m.id).await?;
         app.storage.delete_media(&household, &m.id).await?;

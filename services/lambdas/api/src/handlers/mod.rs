@@ -6,6 +6,7 @@ pub mod contributors;
 pub mod device;
 pub mod events;
 pub mod family;
+pub mod fieldnotes;
 pub mod landmarks;
 pub mod live;
 pub mod media;

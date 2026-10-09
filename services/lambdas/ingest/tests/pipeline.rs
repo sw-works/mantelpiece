@@ -1025,7 +1025,13 @@ async fn highlights_get_field_notes_once_and_lose_them_when_they_stop_being_high
         .await
         .unwrap();
     assert_eq!(made["made"], true, "{made}");
-    assert!(h.geography.fetched.lock().unwrap().iter().any(|k| k == "vector/13/4352/2986"));
+    assert!(h
+        .geography
+        .fetched
+        .lock()
+        .unwrap()
+        .iter()
+        .any(|k| k == "vector/13/4352/2986"));
     let m = h
         .storage
         .get_media(&HouseholdId::new(H), &first)

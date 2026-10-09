@@ -338,6 +338,9 @@ impl App {
             (Method::Get, ["trips"]) => handlers::trips::list(self, req).await,
             (Method::Get, ["trips", trip]) => handlers::trips::get(self, req, trip).await,
             (Method::Get, ["trips", trip, "map"]) => handlers::trips::map(self, req, trip).await,
+            (Method::Get, ["trips", trip, "places", media]) => {
+                handlers::fieldnotes::place(self, req, trip, media).await
+            }
             (Method::Post, ["trips", trip, "play"]) => handlers::trips::play(self, req, trip).await,
             (Method::Patch, ["trips", trip]) => handlers::trips::rename(self, req, trip).await,
             (Method::Post, ["trips", trip, "roles"]) => {
@@ -378,6 +381,9 @@ impl App {
                 handlers::media::restore(self, req, media).await
             }
             (Method::Get, ["media", media, "url"]) => handlers::media::url(self, req, media).await,
+            (Method::Post, ["media", media, "fieldnote", "full"]) => {
+                handlers::fieldnotes::full(self, req, media).await
+            }
             (Method::Delete, ["media", media]) => handlers::media::delete(self, req, media).await,
             (Method::Post, ["media", media, "pin"]) => {
                 handlers::media::set_flag(self, req, media, "pin").await

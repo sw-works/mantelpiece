@@ -4640,3 +4640,222 @@ async fn an_unanswered_request_lapses_and_a_phone_can_take_it_back() {
     let feed = h.bearer(Method::Get, "/events?since=0", None, &tv).await;
     assert!(feed.body.to_string().contains("live.request_closed"));
 }
+
+/// A highlight in Kyoto with a field note: a drawing in the bucket, an original to share.
+async fn field_noted(h: &Harness) -> MediaId {
+    use mantelpiece_core::field_note::{
+        Caption, Certainty, Feature, FeatureKind, FieldNote, Ink, MapMode, NormBox,
+    };
+    let id = enriched(
+        h,
+        "IMG_9.jpg",
+        9,
+        &["Temple"],
+        Some(("Kiyomizu-dera", "A wooden stage over the trees.")),
+    )
+    .await;
+    let household = HouseholdId::new("amzn-owner");
+    let mut m = h.storage.get_media(&household, &id).await.unwrap().unwrap();
+    let at = mantelpiece_core::geo::GeoPoint::new(34.9949, 135.7850);
+    m.gps = Some(at);
+    m.captured = Some(mantelpiece_core::media::CaptureTime::new(
+        datetime!(2026-04-04 05:00:00 UTC),
+        Some(time::UtcOffset::from_hms(9, 0, 0).unwrap()),
+    ));
+    m.trip = Some(TripId::new("kyoto"));
+    let drawing = mantelpiece_fieldnotes::drawing::Drawing {
+        version: 1,
+        aspect: 1.5,
+        mode: MapMode::Town,
+        ink: Ink::Light,
+        fills: vec![],
+        strokes: vec![],
+        labels: vec![],
+        marker: mantelpiece_fieldnotes::drawing::Marker {
+            kind: mantelpiece_fieldnotes::drawing::MarkerKind::Dot,
+            x: 0.5,
+            y: 0.5,
+            r: 0.0,
+            heading: None,
+        },
+        title: None,
+        scale: None,
+        caption: Some("4 April 2026".into()),
+        coords: Some("34.99° N, 135.79° E".into()),
+        fade: 0.22,
+        grain_seed: 1,
+        credit: "© OpenStreetMap contributors".into(),
+    };
+    let (hh, mm) = ("amzn-owner", id.as_str());
+    h.blobs
+        .put(
+            &FieldNote::drawing_key(hh, mm),
+            serde_json::to_vec(&drawing).unwrap(),
+            "application/json",
+        )
+        .await
+        .unwrap();
+    let mut original = Vec::new();
+    image::codecs::jpeg::JpegEncoder::new_with_quality(&mut original, 90)
+        .encode_image(&image::RgbImage::from_pixel(
+            300,
+            200,
+            image::Rgb([90, 140, 200]),
+        ))
+        .unwrap();
+    h.blobs
+        .put(&m.original_key, original, "image/jpeg")
+        .await
+        .unwrap();
+    m.field_note = Some(FieldNote {
+        placement: NormBox::new(0.55, 0.05, 0.4, 0.4).unwrap(),
+        mode: MapMode::Town,
+        certainty: Certainty::Precise { at },
+        ink: Ink::Light,
+        caption: Caption {
+            place: Some("Kiyomizu-dera".into()),
+            date: Some("4 April 2026".into()),
+            coords: Some("34.99° N, 135.79° E".into()),
+        },
+        source: "openstreetmap".into(),
+        credit: "© OpenStreetMap contributors".into(),
+        drawing_key: FieldNote::drawing_key(hh, mm),
+        fingerprint: "fp1".into(),
+        made_at: h.app.now(),
+        feature: Some(Feature {
+            name: "Kiyomizu-dera".into(),
+            kind: FeatureKind::Landmark,
+            at,
+            detail: None,
+            country: Some("Japan".into()),
+        }),
+    });
+    h.storage.put_media(&m).await.unwrap();
+    let mut kyoto = trip("amzn-owner", "kyoto");
+    kyoto.highlights = vec![id.clone()];
+    kyoto.contributors = vec![mantelpiece_core::ids::ContributorId::new("amzn-owner")];
+    h.storage.put_trip(&kyoto).await.unwrap();
+    h.storage
+        .put_landmark_facts(&serde_json::from_value(json!({
+            "key": mantelpiece_core::landmark::key("Kiyomizu-dera"), "name": "Kiyomizu-dera", "title": "Kiyomizu-dera",
+            "tagline": "Buddhist temple in Kyoto", "summary": "Kiyomizu-dera is an independent Buddhist temple in eastern Kyoto.",
+            "url": "https://en.wikipedia.org/wiki/Kiyomizu-dera", "credit": "Wikipedia, CC BY-SA 4.0", "at": null, "fetched_at": "2026-04-01T00:00:00Z"
+        })).unwrap())
+        .await
+        .unwrap();
+    id
+}
+
+#[tokio::test]
+async fn field_notes_are_served_in_the_form_each_viewer_may_see() {
+    use mantelpiece_core::field_note::FieldNote;
+    let h = harness();
+    let id = field_noted(&h).await;
+
+    // The owner household sees the note as made.
+    let url = h
+        .owner(
+            Method::Get,
+            &format!("/media/{id}/url?rendition=fieldnote"),
+            None,
+        )
+        .await;
+    assert_eq!(url.status, 200, "{}", url.body);
+    assert!(url.body["url"]
+        .as_str()
+        .unwrap()
+        .ends_with(&FieldNote::layer_key("amzn-owner", id.as_str())));
+    let t = h.owner(Method::Get, "/trips/kyoto", None).await;
+    assert_eq!(t.body["field_notes"][id.as_str()]["certainty"], "precise");
+
+    // "This place": when, where, what, and the description, with coordinates for the owner.
+    let p = h
+        .owner(Method::Get, &format!("/trips/kyoto/places/{id}"), None)
+        .await;
+    assert_eq!(p.status, 200, "{}", p.body);
+    assert_eq!(p.body["taken"], "Saturday 4 April 2026, 14:00");
+    assert_eq!(p.body["place"], "Kiyomizu-dera, Japan");
+    assert_eq!(p.body["coords"], "34.99° N, 135.79° E");
+    assert_eq!(
+        p.body["feature"]["summary"],
+        "Kiyomizu-dera is an independent Buddhist temple in eastern Kyoto."
+    );
+    assert_eq!(p.body["feature"]["credit"], "Wikipedia, CC BY-SA 4.0");
+    assert_eq!(p.body["description"], "A wooden stage over the trees.");
+
+    // The read-only view gets the public form only.
+    let code = h
+        .owner(
+            Method::Post,
+            "/trips/kyoto/code",
+            Some(json!({ "expires_in_days": 7 })),
+        )
+        .await;
+    let code = code.body["code"].as_str().unwrap().to_owned();
+    let view = h
+        .call(Method::Get, &format!("/view?code={code}"), None, None, None)
+        .await;
+    assert_eq!(
+        view.body["trip"]["field_notes"][id.as_str()]["certainty"],
+        "approximate"
+    );
+    let public = h
+        .call(
+            Method::Get,
+            &format!("/media/{id}/url?rendition=fieldnote&code={code}"),
+            None,
+            None,
+            None,
+        )
+        .await;
+    assert!(public.body["url"]
+        .as_str()
+        .unwrap()
+        .ends_with(&FieldNote::public_layer_key("amzn-owner", id.as_str())));
+
+    // A photo without a note has no field-note rendition.
+    let plain = enriched(&h, "IMG_10.jpg", 10, &[], None).await;
+    assert_eq!(
+        h.owner(
+            Method::Get,
+            &format!("/media/{plain}/url?rendition=fieldnote"),
+            None
+        )
+        .await
+        .status,
+        404
+    );
+}
+
+#[tokio::test]
+async fn the_owner_can_share_a_field_note_at_full_resolution() {
+    use mantelpiece_core::field_note::FieldNote;
+    let h = harness();
+    let id = field_noted(&h).await;
+    let full = h
+        .owner(Method::Post, &format!("/media/{id}/fieldnote/full"), None)
+        .await;
+    assert_eq!(full.status, 200, "{}", full.body);
+    let key = FieldNote::full_key("amzn-owner", id.as_str());
+    let jpeg = h.blobs.get(&key).await.unwrap();
+    let img = image::load_from_memory(&jpeg).unwrap();
+    assert_eq!(
+        (img.width(), img.height()),
+        (300, 200),
+        "the original's own size"
+    );
+    // Made once while the note is unchanged.
+    let puts = |h: &Harness| {
+        h.blobs
+            .log
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|l| l.starts_with(&format!("put {key} ")))
+            .count()
+    };
+    assert_eq!(puts(&h), 1);
+    h.owner(Method::Post, &format!("/media/{id}/fieldnote/full"), None)
+        .await;
+    assert_eq!(puts(&h), 1);
+}

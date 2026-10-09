@@ -84,6 +84,12 @@ pub async fn delete_account(app: &App, req: &Req) -> Result<Resp, ApiError> {
         for r in ["thumb", "tv", "poster"] {
             keys.push(format!("renditions/{}/{}/{r}.jpg", m.household, m.id));
         }
+        let (h, id) = (m.household.as_str(), m.id.as_str());
+        keys.extend(mantelpiece_core::field_note::FieldNote::keys(h, id));
+        keys.push(format!(
+            "{}.fingerprint",
+            mantelpiece_core::field_note::FieldNote::full_key(h, id)
+        ));
         app.vectors.delete(&household, &m.id).await?;
     }
     if !keys.is_empty() {

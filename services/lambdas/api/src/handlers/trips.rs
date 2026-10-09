@@ -217,6 +217,8 @@ pub async fn trip_json_for(
         // Faces are the household's own business; a joined household does not see them.
         json!([])
     };
+    // F-711: where each highlight's field note sits; joined households see the public form.
+    v["field_notes"] = super::fieldnotes::summaries(&media, !own);
     v["contributor_names"] = Value::Object(names);
     v["contributor_roles"] = Value::Object(roles);
     v["media_credits"] = Value::Object(credits);
@@ -460,8 +462,11 @@ pub async fn regenerate(app: &App, req: &Req, id: &str) -> Result<Resp, ApiError
 pub async fn view(app: &App, req: &Req) -> Result<Resp, ApiError> {
     let (household, trip) = app.viewer(req).await?;
     let record = app.storage.get_household(&household).await?;
+    let mut trip = trip_json(app, &household, &trip).await?;
+    // The read-only view is public: rings only, no coordinates (FR-016).
+    super::fieldnotes::make_public(&mut trip);
     Resp::ok(json!({
         "household_name": record.map(|h| h.name),
-        "trip": trip_json(app, &household, &trip).await?,
+        "trip": trip,
     }))
 }
