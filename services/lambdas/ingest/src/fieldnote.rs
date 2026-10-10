@@ -34,7 +34,7 @@ fn skipped(media_id: MediaId, why: &str) -> Output {
 }
 
 /// The store's map data as the drawing crate's tile source.
-struct GeoTiles(Arc<dyn Geography>);
+pub(crate) struct GeoTiles(pub(crate) Arc<dyn Geography>);
 
 impl Tiles for GeoTiles {
     fn vector(&self, id: TileId) -> std::result::Result<Option<Vec<u8>>, String> {

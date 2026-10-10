@@ -102,6 +102,20 @@ fn fixture_geography() -> mantelpiece_store::geography::MemoryGeography {
         "vector/13/4352/2986".into(),
         std::fs::read(format!("{dir}/omt-13-4352-2986.pbf")).unwrap(),
     );
+    // Sketch maps frame wider than a field note; serve the one tile at the zooms they use
+    // (the geometry lands in the wrong place there, which these tests do not look at).
+    let view = mantelpiece_fieldnotes::geo::View::new(
+        mantelpiece_core::geo::GeoPoint::new(43.7679, 11.2531),
+        40_000.0,
+        16.0 / 9.0,
+    );
+    let fixture = g.tiles["vector/13/4352/2986"].clone();
+    for z in [10, 11, 12, 14] {
+        for id in view.tiles(z) {
+            g.tiles
+                .insert(format!("vector/{}", id.key()), fixture.clone());
+        }
+    }
     g.tiles.insert(
         "terrain/12/2176/1493".into(),
         std::fs::read(format!("{dir}/terrarium-12-2176-1493.png")).unwrap(),
@@ -456,22 +470,9 @@ async fn organize_groups_bursts_builds_trip_and_is_idempotent() {
         trip.name
     );
     assert!(!trip.route.points.is_empty());
-    // F-207: a route map for the trip and each day with GPS, drawn once.
-    assert_eq!(
-        trip.route.map_key.as_deref(),
-        Some(format!("maps/{H}/{}.png", trip.id).as_str())
-    );
-    assert!(h
-        .blobs
-        .get(trip.route.map_key.as_ref().unwrap())
-        .await
-        .is_ok());
-    assert!(trip
-        .days
-        .iter()
-        .all(|d| d.route.points.is_empty() || d.route.map_key.is_some()));
-    let drawn = h.maps.log.lock().unwrap().len();
-    assert!(drawn >= 1);
+    // F-712: route maps are no longer drawn by organize; sketch maps are, after it.
+    assert!(trip.route.map_key.is_none());
+    assert!(h.maps.log.lock().unwrap().is_empty());
     assert_eq!(trip.hero, trip.highlights.first().cloned());
     assert!(
         !trip.highlights.contains(&MediaId::new("a")),
@@ -511,11 +512,6 @@ async fn organize_groups_bursts_builds_trip_and_is_idempotent() {
     assert_eq!(
         h.storage.list_trips(&HouseholdId::new(H)).await.unwrap()[0].id,
         trip.id
-    );
-    assert_eq!(
-        h.maps.log.lock().unwrap().len(),
-        drawn,
-        "no new maps on a no-op re-run"
     );
     assert_eq!(h.bus.published.lock().unwrap().len(), 1);
     // F-106: a re-run over a completed batch writes no new records and no new events.
@@ -1016,6 +1012,51 @@ async fn highlights_get_field_notes_once_and_lose_them_when_they_stop_being_high
         .remove(0);
     let first = MediaId::new(manifest[0]["media_id"].as_str().unwrap());
     assert!(trip.highlights.contains(&first));
+
+    // F-712: one sketch-map item for the trip and one per day; each draws once, then is
+    // up to date, and the public form sits beside the owner's.
+    let maps: Vec<serde_json::Value> = serde_json::from_slice(
+        &h.blobs
+            .get(out["sketch_maps_manifest"].as_str().unwrap())
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(maps.len(), 1 + trip.days.len(), "{maps:?}");
+    let keys = mantelpiece_core::sketch::SketchKeys::new(&HouseholdId::new(H), &trip.id);
+    let drew = h
+        .ingest
+        .run(Task::SketchMap {
+            household: HouseholdId::new(H),
+            trip: trip.id.clone(),
+            day: None,
+        })
+        .await
+        .unwrap();
+    assert_eq!(drew["made"], true, "{drew}");
+    let which = mantelpiece_core::sketch::Which::Trip;
+    assert!(h.blobs.get(&keys.png(which)).await.is_ok());
+    assert!(h.blobs.get(&keys.public_png(which)).await.is_ok());
+    let again = h
+        .ingest
+        .run(Task::SketchMap {
+            household: HouseholdId::new(H),
+            trip: trip.id.clone(),
+            day: None,
+        })
+        .await
+        .unwrap();
+    assert_eq!(again["skipped"], "up to date");
+    let gone = h
+        .ingest
+        .run(Task::SketchMap {
+            household: HouseholdId::new(H),
+            trip: trip.id.clone(),
+            day: Some(99),
+        })
+        .await
+        .unwrap();
+    assert_eq!(gone["skipped"], "no such day");
 
     let made = h
         .ingest

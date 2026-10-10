@@ -17,8 +17,9 @@ pub mod fieldnote;
 pub mod landmarks;
 pub mod organize;
 pub mod signal;
+pub mod sketch;
 
-use mantelpiece_core::ids::{HouseholdId, MediaId};
+use mantelpiece_core::ids::{HouseholdId, MediaId, TripId};
 use mantelpiece_store::{
     Blobs, Bus, Faces, Geography, Maps, Storage, StorageError, Vectors, Vision,
 };
@@ -57,6 +58,13 @@ pub enum Task {
     FieldNote {
         household: HouseholdId,
         media_id: MediaId,
+    },
+    /// Draw or refresh one sketch map (F-712): the trip's when `day` is absent.
+    SketchMap {
+        household: HouseholdId,
+        trip: TripId,
+        #[serde(default)]
+        day: Option<u32>,
     },
 }
 
@@ -116,6 +124,14 @@ impl Ingest {
                 media_id,
             } => {
                 let out = fieldnote::run(self, &household, &media_id).await?;
+                Ok(serde_json::to_value(out).expect("serialisable"))
+            }
+            Task::SketchMap {
+                household,
+                trip,
+                day,
+            } => {
+                let out = sketch::run(self, &household, &trip, day).await?;
                 Ok(serde_json::to_value(out).expect("serialisable"))
             }
         }

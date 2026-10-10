@@ -37,6 +37,10 @@ pub struct Output {
     /// missing or stale (F-711), for the field-notes Distributed Map.
     pub field_notes_manifest: String,
     pub field_notes: usize,
+    /// S3 key of a JSON array of `{household, trip, day}`: every trip and day sketch map
+    /// (F-712), for the sketch-maps Distributed Map; each item skips itself when current.
+    pub sketch_maps_manifest: String,
+    pub sketch_maps: usize,
 }
 
 /// Cell size for the home area, in degrees (about 2 km).
@@ -156,7 +160,6 @@ pub async fn run(ingest: &Ingest, household: &HouseholdId) -> Result<Output> {
             undated: &c.undated,
         });
         attach_landmarks(ingest, &mut trip, &sample_by_id, &mut place_cache).await;
-        render_maps(ingest, household, &mut trip, previous).await?;
         ingest.storage.put_trip(&trip).await?;
         built.push(trip.clone());
         for s in members.iter().map(|s| &s.id).chain(c.undated.iter()) {
@@ -253,7 +256,35 @@ pub async fn run(ingest: &Ingest, household: &HouseholdId) -> Result<Output> {
         )
         .await?;
 
+    // F-712: every trip and day map; the task itself skips maps whose fingerprint matches.
+    let sketch_maps_manifest = format!(
+        "manifests/{household}/sketch-maps-{}.json",
+        now.unix_timestamp_nanos()
+    );
+    let maps: Vec<serde_json::Value> = if ingest.field_notes {
+        built
+            .iter()
+            .flat_map(|t| {
+                std::iter::once(None)
+                    .chain(t.days.iter().map(|d| Some(d.index)))
+                    .map(|day| serde_json::json!({ "household": household, "trip": t.id, "day": day }))
+            })
+            .collect()
+    } else {
+        vec![]
+    };
+    ingest
+        .blobs
+        .put(
+            &sketch_maps_manifest,
+            serde_json::to_vec(&maps).expect("manifest serialises"),
+            "application/json",
+        )
+        .await?;
+
     Ok(Output {
+        sketch_maps_manifest,
+        sketch_maps: maps.len(),
         field_notes_manifest,
         field_notes: notes.len(),
         media: media.len(),
@@ -315,45 +346,6 @@ fn assign_groups(media: &mut [MediaItem], groups: &[burst::BurstGroup]) {
         let uniqueness = 1.0 / *size as f32;
         m.quality_score = Some(quality::score(&m.signals, &m.enrichment, uniqueness));
     }
-}
-
-/// Static route maps for the trip and each day (F-207) through `Maps`. Skipped when the
-/// previous run drew the same number of points, so a no-op organize costs no map calls.
-async fn render_maps(
-    ingest: &Ingest,
-    household: &HouseholdId,
-    trip: &mut Trip,
-    previous: Option<&Trip>,
-) -> Result<()> {
-    let unchanged = |prev: &mantelpiece_core::trip::Route, now: &mantelpiece_core::trip::Route| {
-        prev.map_key.is_some() && prev.points.len() == now.points.len()
-    };
-    if trip.route.points.is_empty() {
-        trip.route.map_key = None;
-    } else if let Some(p) = previous.filter(|p| unchanged(&p.route, &trip.route)) {
-        trip.route.map_key.clone_from(&p.route.map_key);
-    } else {
-        let points: Vec<_> = trip.route.points.iter().map(|p| p.at).collect();
-        let png = ingest.maps.route_map(&points, 1280, 720).await?;
-        let key = format!("maps/{household}/{}.png", trip.id);
-        ingest.blobs.put(&key, png, "image/png").await?;
-        trip.route.map_key = Some(key);
-    }
-    for day in &mut trip.days {
-        let prev_day = previous.and_then(|p| p.days.iter().find(|d| d.index == day.index));
-        if day.route.points.is_empty() {
-            day.route.map_key = None;
-        } else if let Some(pd) = prev_day.filter(|pd| unchanged(&pd.route, &day.route)) {
-            day.route.map_key.clone_from(&pd.route.map_key);
-        } else {
-            let points: Vec<_> = day.route.points.iter().map(|p| p.at).collect();
-            let png = ingest.maps.route_map(&points, 1280, 720).await?;
-            let key = format!("maps/{household}/{}/day-{}.png", trip.id, day.index);
-            ingest.blobs.put(&key, png, "image/png").await?;
-            day.route.map_key = Some(key);
-        }
-    }
-    Ok(())
 }
 
 fn to_samples(media: &[MediaItem]) -> Vec<Sample> {
