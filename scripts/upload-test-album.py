@@ -73,8 +73,16 @@ def main():
         parts = []
         for n, url in enumerate(init["part_urls"], 1):
             chunk = data[(n - 1) * init["part_size"] : n * init["part_size"]]
-            with urllib.request.urlopen(urllib.request.Request(url, method="PUT", data=chunk), timeout=300, context=CTX) as r:
-                parts.append({"part_number": n, "etag": r.headers["ETag"]})
+            # A dropped connection on one part should not end a 48-photo run: try three times.
+            for attempt in range(3):
+                try:
+                    with urllib.request.urlopen(urllib.request.Request(url, method="PUT", data=chunk), timeout=300, context=CTX) as r:
+                        parts.append({"part_number": n, "etag": r.headers["ETag"]})
+                    break
+                except (urllib.error.URLError, ConnectionError, TimeoutError):
+                    if attempt == 2:
+                        raise
+                    time.sleep(2 + attempt * 3)
         call(args.api, "POST", "/uploads/complete", {"media_id": init["media_id"], "upload_id": init["upload_id"], "parts": parts, "batch_done": i, "batch_total": len(files)}, phone)
         print(f"{i}/{len(files)} {pathlib.Path(f).name}")
     print("Done. The TV shows the trip once it is organised, usually within a minute or two.")
