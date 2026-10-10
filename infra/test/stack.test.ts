@@ -189,6 +189,8 @@ describe("Mantelpiece stack", () => {
     if (!organize) throw new Error("no organize machine");
     const def = JSON.stringify(organize.Properties.DefinitionString);
     expect(def).toContain("FieldNotes");
+    expect(def).toContain("SketchMaps");
+    expect(def).toContain("sketch_map");
     expect(def).toContain("field_notes_manifest");
     expect(def).toContain("field_note");
   });

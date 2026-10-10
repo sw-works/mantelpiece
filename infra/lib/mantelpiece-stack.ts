@@ -402,6 +402,7 @@ export class MantelpieceStack extends Stack {
           "keepers.$": "$.Payload.keepers",
           "keepers_manifest.$": "$.Payload.keepers_manifest",
           "field_notes_manifest.$": "$.Payload.field_notes_manifest",
+          "sketch_maps_manifest.$": "$.Payload.sketch_maps_manifest",
           "trips.$": "$.Payload.trips",
         },
         resultPath,
@@ -447,13 +448,36 @@ export class MantelpieceStack extends Stack {
         interval: Duration.seconds(10),
       }),
     );
+    // F-712: the trip's and each day's sketch map, one item per map so a draw with cold
+    // tiles stays inside the Lambda's time; each item skips itself when its map is current.
+    const sketchMapsMap = new sfn.DistributedMap(this, "SketchMaps", {
+      itemReader: new sfn.S3JsonItemReader({
+        bucket: this.bucket,
+        key: sfn.JsonPath.stringAt("$.final.sketch_maps_manifest"),
+      }),
+      maxConcurrency: 4,
+      itemSelector: {
+        task: "sketch_map",
+        household: sfn.JsonPath.stringAt("$.household"),
+        trip: sfn.JsonPath.stringAt("$$.Map.Item.Value.trip"),
+        day: sfn.JsonPath.objectAt("$$.Map.Item.Value.day"),
+      },
+      resultPath: sfn.JsonPath.DISCARD,
+    });
+    sketchMapsMap.itemProcessor(
+      new sfnTasks.LambdaInvoke(this, "SketchMap", { lambdaFunction: ingestFn, outputPath: "$.Payload" }).addRetry({
+        maxAttempts: 2,
+        interval: Duration.seconds(10),
+      }),
+    );
     const organizeChain = new sfn.Wait(this, "SettleUploads", {
       time: sfn.WaitTime.duration(Duration.seconds(30)),
     })
       .next(organize("OrganizeFirst", "$.organize"))
       .next(enrichMap)
       .next(organize("OrganizeFinal", "$.final"))
-      .next(fieldNotesMap);
+      .next(fieldNotesMap)
+      .next(sketchMapsMap);
     const organizeMachine = new sfn.StateMachine(this, "OrganizeMachine", {
       definitionBody: sfn.DefinitionBody.fromChainable(organizeChain),
       timeout: Duration.hours(1),
