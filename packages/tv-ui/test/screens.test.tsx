@@ -240,7 +240,7 @@ describe("screens", () => {
     api.tripDetail = {
       ...trip,
       days: [
-        { index: 1, date: "2026-04-03", media: ["m1", "m2"], title: "Day 1: Kinkaku-ji", route: { points: [], inferred: false, map_key: "maps/h/kyoto/day-1.png" }, story: "The golden day." },
+        { index: 1, date: "2026-04-03", media: ["m1", "m2"], title: "Day 1: Kinkaku-ji", route: { points: [{ at: { lat: 35.04, lon: 135.73 }, media: "m1" }], inferred: false, map_key: null }, story: "The golden day." },
         { index: 2, date: "2026-04-04", media: ["m3"], title: "Day 2", route: { points: [], inferred: true, map_key: null }, undated: ["m3"] },
       ],
       narrative: { text: "We walked the golden pavilion.", model_id: "m", generated_at: "", check: "passed" },
@@ -261,8 +261,11 @@ describe("screens", () => {
     expect(screen.getByTestId("narrative").props.children).toBe("The golden day.");
     expect(screen.getByTestId("day-summary").props.children).toBe("April 3, 2026 · 2 photos from Hanyu, Maya");
     expect(screen.getByTestId("clock-hints").props.children).toBe("Maya's clock corrected by 3 min");
+    // F-712: the whole trip's sketch map first; the chip switches to the day's.
     await waitFor(() => expect(screen.getByTestId("map")).toBeTruthy());
-    expect(api.calls).toContain("map kyoto day 1");
+    expect(api.calls).toContain("map kyoto");
+    await fireEvent.press(screen.getByTestId("map-toggle"));
+    await waitFor(() => expect(api.calls).toContain("map kyoto day 1"));
     await fireEvent.press(screen.getByTestId("day-2"));
     expect(screen.getByTestId("day-summary").props.children).toBe("April 4, 2026 · 1 photo from Maya · route inferred · 1 undated");
     expect(screen.getByTestId("narrative").props.children).toBe("We walked the golden pavilion.");

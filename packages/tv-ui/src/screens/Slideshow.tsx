@@ -6,6 +6,7 @@ import { FieldNoteImage } from "../components/FieldNoteImage";
 import { FocusButton } from "../components/FocusButton";
 import { KenBurns } from "../components/KenBurns";
 import { LandmarkCard } from "../components/LandmarkCard";
+import { MapImage } from "../components/MapImage";
 import { RemoteImage } from "../components/RemoteImage";
 import { Eyebrow, Meta } from "../components/Type";
 import { useRemoteKeys } from "../hooks/useRemoteKeys";
@@ -44,6 +45,7 @@ export function Slideshow({
   onOpenPlace,
   startPaused = false,
   focusMap = false,
+  dayMapMs = 4000,
 }: {
   api: TvApi;
   token: string;
@@ -67,6 +69,8 @@ export function Slideshow({
   /** Coming back from "This place": still paused, focus on the map. */
   startPaused?: boolean;
   focusMap?: boolean;
+  /** How long each new day's sketch map shows before its first photo; 0 turns it off. */
+  dayMapMs?: number;
 }) {
   const slides = useMemo(() => slidesOf(trip), [trip]);
   const [index, setIndex] = useState(() => Math.max(0, startAt ? slides.findIndex((s) => s.media === startAt) : 0));
@@ -80,7 +84,22 @@ export function Slideshow({
   const current = slides[index];
   // A focused map holds the slide still; leaving it lets the show carry on.
   const [mapFocused, setMapFocused] = useState(false);
-  const held = paused || mapFocused;
+  // F-712: each new day opens on its sketch map for a few seconds; Pause holds it there.
+  const [intro, setIntro] = useState<number | null>(null);
+  const lastDay = useRef<number | null>(null);
+  const currentDay = current?.day;
+  useEffect(() => {
+    if (currentDay === undefined || currentDay === lastDay.current) return;
+    lastDay.current = currentDay;
+    const d = trip.days.find((x) => x.index === currentDay);
+    if (dayMapMs > 0 && d && d.route.points.length > 0) setIntro(currentDay);
+  }, [currentDay, trip.days, dayMapMs]);
+  useEffect(() => {
+    if (intro === null || paused) return;
+    const t = setTimeout(() => setIntro(null), dayMapMs);
+    return () => clearTimeout(t);
+  }, [intro, paused, dayMapMs]);
+  const held = paused || mapFocused || intro !== null;
 
   useEffect(() => {
     if (held || slides.length < 2) return;
@@ -184,6 +203,11 @@ export function Slideshow({
         <KenBurns slideKey={current.media} paused={paused} durationMs={intervalMs}>
           <RemoteImage api={api} token={token} mediaId={current.media} rendition="tv" width={1920} height={1080} radius={0} />
         </KenBurns>
+      )}
+      {intro !== null && (
+        <View testID="day-map" style={{ position: "absolute", left: 0, top: 0, width: 1920, height: 1080, backgroundColor: "#000", alignItems: "center", justifyContent: "center" }}>
+          <MapImage api={api} token={token} tripId={trip.id} day={intro} width={1760} height={990} credit={false} onMissing={() => setIntro(null)} />
+        </View>
       )}
       {!notesMode && <View pointerEvents="none" style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 300, backgroundColor: "#000", opacity: 0.55 }} />}
       {notesMode && noteCount === 0 && (

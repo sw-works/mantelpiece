@@ -464,7 +464,7 @@ export class TvApi {
 
   tripMap(token: string, tripId: string, day?: number) {
     const q = day === undefined ? "" : `?day=${day}`;
-    return this.call<{ url: string; inferred: boolean }>("GET", `/trips/${tripId}/map${q}`, undefined, token);
+    return this.call<{ url: string; inferred: boolean; credit?: string }>("GET", `/trips/${tripId}/map${q}`, undefined, token);
   }
 
   regenerateNarrative(token: string, tripId: string) {

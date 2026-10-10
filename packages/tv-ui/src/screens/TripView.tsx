@@ -71,6 +71,7 @@ export function TripView({
   const [full, setTrip] = useState<Trip | null>(null);
   const [only, setOnly] = useState<string[]>([]);
   const [day, setDay] = useState(0);
+  const [showDayMap, setShowDayMap] = useState(false);
   const [rewriting, setRewriting] = useState(false);
   const [roles, setRoles] = useState<Record<string, string>>({});
   useEffect(() => {
@@ -92,6 +93,7 @@ export function TripView({
     setDay(0);
   };
   const current = trip.days[Math.min(day, trip.days.length - 1)];
+  const hasRoute = (current?.route.points.length ?? 0) > 0;
   const facts = current ? dayFacts(trip, current) : [];
   const credits = current ? dayCredits(trip, current.media) : [];
   const hints = clockHints(trip);
@@ -188,7 +190,16 @@ export function TripView({
             )}
           </View>
           <View style={{ flex: 1, gap: 16 }}>
-            <MapImage api={api} token={token} tripId={trip.id} day={current.route.map_key ? current.index : undefined} width={440} height={248} />
+            {/* F-712: the whole trip's sketch map, or the chosen day's. */}
+            <MapImage api={api} token={token} tripId={trip.id} day={showDayMap && hasRoute ? current.index : undefined} width={440} height={248} />
+            {hasRoute && (
+              <FocusButton
+                variant="chip"
+                label={showDayMap ? "Whole trip map" : `Map of day ${current.index}`}
+                testID="map-toggle"
+                onPress={() => setShowDayMap((v) => !v)}
+              />
+            )}
             {facts.slice(0, 2).map((f) => (
               <LandmarkCard key={f.key} facts={f} lines={1} width={440} />
             ))}
