@@ -27,9 +27,9 @@ export function shareMethod(nav: { canShare?: (data: { files: File[] }) => boole
 }
 
 /** Fetch the composed picture and hand it to the share sheet, or download it. */
-export async function shareFile(url: string, name: string, fetchFn: typeof fetch = fetch): Promise<"share" | "download"> {
+export async function shareFile(url: string, name: string, fetchFn: typeof fetch = fetch, type = "image/jpeg"): Promise<"share" | "download"> {
   const blob = await (await fetchFn(url)).blob();
-  const file = new File([blob], name, { type: "image/jpeg" });
+  const file = new File([blob], name, { type });
   const nav = globalThis.navigator as Navigator | undefined;
   if (shareMethod(nav, file) === "share") {
     await nav!.share({ files: [file] });

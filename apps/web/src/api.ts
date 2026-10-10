@@ -211,7 +211,7 @@ export class Api {
   }
 
   viewTrip(code: string) {
-    return this.call<{ household_name: string | null; trip: TripView }>("GET", `/view?code=${encodeURIComponent(code)}`);
+    return this.call<{ household_name: string | null; trip: TripView; map?: { url: string; credit: string } | null }>("GET", `/view?code=${encodeURIComponent(code)}`);
   }
 
   /** Reactions on the read-only page (F-710): by code, with the viewer's name. */
@@ -309,6 +309,12 @@ export class Api {
 
   mediaUrl(bearer: string, mediaId: string, rendition: "thumb" | "tv" | "fieldnote") {
     return this.call<{ url: string }>("GET", `/media/${mediaId}/url?rendition=${rendition}`, undefined, { bearer });
+  }
+
+  /** The trip's hand-drawn sketch map, or one day's (F-712); 404 until drawn. */
+  tripMap(bearer: string, id: string, day?: number) {
+    const q = day === undefined ? "" : `?day=${day}`;
+    return this.call<{ url: string; credit: string; inferred: boolean }>("GET", `/trips/${id}/map${q}`, undefined, { bearer });
   }
 
   /** The original with its field note composed in, full size, for sharing (F-711). */

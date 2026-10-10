@@ -5,6 +5,7 @@
 import { Api, type ReactionTarget, type ReactionsView, type TripView } from "../api.js";
 import { loadConfig } from "../config.js";
 import { fieldNoteView, withNotes } from "../fieldnote.js";
+import { sketchMapView } from "../sketchmap.js";
 import { latestComment, reactionLine, targetKey, VIEWER_NAME_KEY, viewerName } from "../reactions.js";
 import { el, eyebrow, field, icon, link, mount, photo, topbar } from "../ui.js";
 
@@ -133,6 +134,8 @@ export async function main(root: HTMLElement, location: Location, storage: Stora
         ),
       ]
     : [];
+  // F-712: the public form of the trip map (no home end of the route), view only.
+  const sketch: HTMLElement[] = view.map ? [sketchMapView({ map: Promise.resolve(view.map) })] : [];
   const photos = trip.days.reduce((n, d) => n + d.media.length, 0);
   mount(
     root,
@@ -144,6 +147,7 @@ export async function main(root: HTMLElement, location: Location, storage: Stora
       el("h1", {}, trip.name),
       el("p", { class: "lead" }, `${trip.start.slice(0, 10)} to ${trip.end.slice(0, 10)} · ${photos} photo${photos === 1 ? "" : "s"} · ${trip.days.length} day${trip.days.length === 1 ? "" : "s"}`),
     ),
+    ...sketch,
     trip.narrative ? el("p", { class: "story" }, trip.narrative.text) : el("p", {}, "The story of this trip is being written."),
     field("Your name, so the TV can say who reacted", nameInput),
     days,

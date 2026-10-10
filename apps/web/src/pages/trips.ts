@@ -8,6 +8,7 @@ import { loadConfig } from "../config.js";
 import { tripLines } from "./trip.js";
 import { castConfirmation, groupByYear, type NowShowing, tripSummaryLine, untilConfirmed } from "../trips.js";
 import { fieldNoteView, withNotes } from "../fieldnote.js";
+import { sketchMapView } from "../sketchmap.js";
 import { button, el, icon, link, mount, photo, topbar } from "../ui.js";
 
 const BACK = "/?owner=1";
@@ -165,5 +166,7 @@ function renderDetail(api: Api, token: string, trip: TripView, cast: (start?: st
         ),
       ]
     : [];
-  return el("div", { class: "detail" }, ...(trip.narrative ? [el("p", { class: "story" }, trip.narrative.text)] : []), days, ...notes);
+  // F-712: the hand-drawn map of the whole trip, shareable.
+  const map = sketchMapView({ map: api.tripMap(token, trip.id), share: true, name: `${trip.name} map.png` });
+  return el("div", { class: "detail" }, map, ...(trip.narrative ? [el("p", { class: "story" }, trip.narrative.text)] : []), days, ...notes);
 }
