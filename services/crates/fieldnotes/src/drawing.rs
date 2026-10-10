@@ -31,6 +31,9 @@ pub enum Class {
     Contour,
     ContourIndex,
     Route,
+    /// Glaciers and ice caps (`landcover` class `ice`); sketch maps wash them, field notes
+    /// leave them out.
+    Ice,
 }
 
 /// Polygons (fills) or polylines (strokes), each a list of points.
@@ -392,6 +395,13 @@ pub fn features(tiles: &[(TileId, Vec<u8>)], view: &View, aspect: f32, box_px: f
                             }
                         }
                     }
+                    "landcover" if class == "ice" => f.fills.push(Shape {
+                        class: Class::Ice,
+                        parts: rings_of(&feat.geometry)
+                            .iter()
+                            .map(|r| proj.line(r))
+                            .collect(),
+                    }),
                     "park" => f.fills.push(Shape {
                         class: Class::Park,
                         parts: rings_of(&feat.geometry)

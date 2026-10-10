@@ -70,3 +70,9 @@ doc_markdown = "allow"
 lto = "thin"
 codegen-units = 1
 strip = true
+
+# Drawing maps pixel by pixel is slow unoptimised; tests that draw them stay quick.
+[profile.dev.package.mantelpiece-fieldnotes]
+opt-level = 2
+[profile.dev.package.tiny-skia]
+opt-level = 2

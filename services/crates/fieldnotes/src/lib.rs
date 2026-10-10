@@ -15,9 +15,12 @@ pub mod certainty;
 pub mod contours;
 pub mod drawing;
 pub mod geo;
+pub mod hand;
 pub mod mode;
+pub mod pictogram;
 pub mod placement;
 pub mod raster;
+pub mod sketch;
 
 use drawing::{Candidate, Class, Drawing, Label, LabelKind, Marker, MarkerKind, Shape, Title};
 use geo::{TileId, View};
@@ -179,7 +182,11 @@ pub fn fingerprint(media: &MediaItem, trip: &Trip, home: Option<GeoPoint>) -> St
     hex::encode(h.finalize())
 }
 
-fn fetch(tiles: &dyn Tiles, ids: &[TileId], vector: bool) -> Result<Vec<(TileId, Vec<u8>)>, Skip> {
+pub(crate) fn fetch(
+    tiles: &dyn Tiles,
+    ids: &[TileId],
+    vector: bool,
+) -> Result<Vec<(TileId, Vec<u8>)>, Skip> {
     let mut out = Vec::new();
     for id in ids {
         let got = if vector {

@@ -22,6 +22,7 @@ pub mod presence;
 pub mod proposal;
 pub mod reaction;
 pub mod share_link;
+pub mod sketch;
 pub mod trip;
 pub mod trip_code;
 

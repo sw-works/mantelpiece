@@ -42,7 +42,7 @@ fn palette(ink: Ink) -> Palette {
     }
 }
 
-fn paint(rgb: (u8, u8, u8), alpha: f32) -> Paint<'static> {
+pub(crate) fn paint(rgb: (u8, u8, u8), alpha: f32) -> Paint<'static> {
     let mut p = Paint::default();
     p.set_color(Color::from_rgba8(
         rgb.0,
@@ -54,7 +54,12 @@ fn paint(rgb: (u8, u8, u8), alpha: f32) -> Paint<'static> {
     p
 }
 
-fn path_of(parts: &[Vec<[f32; 2]>], w: f32, h: f32, close: bool) -> Option<tiny_skia::Path> {
+pub(crate) fn path_of(
+    parts: &[Vec<[f32; 2]>],
+    w: f32,
+    h: f32,
+    close: bool,
+) -> Option<tiny_skia::Path> {
     let mut pb = PathBuilder::new();
     for part in parts {
         let mut it = part.iter();
@@ -121,7 +126,7 @@ fn class_layer(
     );
 }
 
-fn stroke(width: f32, dash: Option<[f32; 2]>) -> Stroke {
+pub(crate) fn stroke(width: f32, dash: Option<[f32; 2]>) -> Stroke {
     Stroke {
         width,
         line_cap: LineCap::Round,
@@ -132,11 +137,11 @@ fn stroke(width: f32, dash: Option<[f32; 2]>) -> Stroke {
 }
 
 /// Glyph outlines into a path builder, in pixels from a pen position.
-struct Pen<'a> {
-    pb: &'a mut PathBuilder,
-    x: f32,
-    y: f32,
-    scale: f32,
+pub(crate) struct Pen<'a> {
+    pub(crate) pb: &'a mut PathBuilder,
+    pub(crate) x: f32,
+    pub(crate) y: f32,
+    pub(crate) scale: f32,
 }
 
 impl OutlineBuilder for Pen<'_> {
@@ -172,7 +177,12 @@ impl OutlineBuilder for Pen<'_> {
 }
 
 /// Text set in the bundled face: its path with the baseline at y = 0 and its width.
-fn text_path(face: &Face<'_>, s: &str, px: f32, tracking: f32) -> (Option<tiny_skia::Path>, f32) {
+pub(crate) fn text_path(
+    face: &Face<'_>,
+    s: &str,
+    px: f32,
+    tracking: f32,
+) -> (Option<tiny_skia::Path>, f32) {
     let scale = px / f32::from(face.units_per_em());
     let mut pb = PathBuilder::new();
     let mut x = 0.0;
@@ -221,12 +231,12 @@ fn draw_text(
     width
 }
 
-fn circle(cx: f32, cy: f32, r: f32) -> Option<tiny_skia::Path> {
+pub(crate) fn circle(cx: f32, cy: f32, r: f32) -> Option<tiny_skia::Path> {
     PathBuilder::from_circle(cx, cy, r.max(0.1))
 }
 
 /// Small hash noise in 0 to 1, stable for a seed.
-fn noise(seed: u64, x: u32, y: u32) -> f32 {
+pub(crate) fn noise(seed: u64, x: u32, y: u32) -> f32 {
     let mut v = seed ^ (u64::from(x) << 32 | u64::from(y));
     v ^= v >> 33;
     v = v.wrapping_mul(0xff51_afd7_ed55_8ccd);
