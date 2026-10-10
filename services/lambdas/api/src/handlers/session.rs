@@ -92,6 +92,14 @@ pub async fn delete_account(app: &App, req: &Req) -> Result<Resp, ApiError> {
         ));
         app.vectors.delete(&household, &m.id).await?;
     }
+    // F-712: every trip's sketch maps, and the old F-207 route maps.
+    for t in app.storage.list_trips(&household).await? {
+        #[allow(clippy::cast_possible_truncation)]
+        let days = t.days.len() as u32;
+        keys.extend(mantelpiece_core::sketch::SketchKeys::new(&household, &t.id).all(days));
+        keys.push(format!("maps/{household}/{}.png", t.id));
+        keys.extend((1..=days).map(|n| format!("maps/{household}/{}/day-{n}.png", t.id)));
+    }
     if !keys.is_empty() {
         app.blobs.delete(&keys).await?;
     }

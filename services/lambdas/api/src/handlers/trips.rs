@@ -4,6 +4,7 @@
 use mantelpiece_core::events::EventKind;
 use mantelpiece_core::ids::{HouseholdId, MediaId, TripId};
 use mantelpiece_core::narrative_check::{check, Allowed};
+use mantelpiece_core::sketch::{SketchKeys, Which};
 use mantelpiece_core::trip::{Narrative, NarrativeCheck, Trip};
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -296,32 +297,56 @@ pub async fn set_role(app: &App, req: &Req, id: &str) -> Result<Resp, ApiError> 
     Resp::ok(json!({ "contributor": c.id, "role": c.role }))
 }
 
-/// `GET /trips/{trip}/map?day=` : a presigned URL for the trip's route map, or one day's.
+/// A sketch map's presigned URL and credit, in the owner's or the public form (F-712), or
+/// nothing when it has not been drawn.
+pub async fn sketch_map(
+    app: &App,
+    owner: &HouseholdId,
+    trip: &TripId,
+    which: Which,
+    public: bool,
+) -> Result<Option<(String, String)>, ApiError> {
+    let keys = SketchKeys::new(owner, trip);
+    let Ok(marker) = app.blobs.get(&keys.marker(which)).await else {
+        return Ok(None);
+    };
+    let (_, credit) = SketchKeys::read_marker(&marker);
+    let key = if public {
+        keys.public_png(which)
+    } else {
+        keys.png(which)
+    };
+    Ok(Some((app.blobs.presign_get(&key).await?, credit)))
+}
+
+/// `GET /trips/{trip}/map?day=` : the trip's sketch map, or one day's (F-712). Member
+/// households get the public form, without the soft area around the owner's home.
 pub async fn map(app: &App, req: &Req, id: &str) -> Result<Resp, ApiError> {
     let id = TripId::new(id);
     let access = app.trip_access(req, &id).await?;
+    let owner = access.owner_household().clone();
+    let public = access.viewing_household() != &owner;
     let trip = app
         .storage
-        .get_trip(access.owner_household(), &id)
+        .get_trip(&owner, &id)
         .await?
         .ok_or_else(|| ApiError::not_found("no such trip"))?;
-    let key = match req.query.get("day") {
-        None => trip.route.map_key.clone(),
+    let which = match req.query.get("day") {
+        None => Which::Trip,
         Some(d) => {
             let index: u32 = d
                 .parse()
                 .map_err(|_| ApiError::bad_request("day must be an integer"))?;
-            trip.days
-                .iter()
-                .find(|day| day.index == index)
-                .ok_or_else(|| ApiError::not_found("no such day"))?
-                .route
-                .map_key
-                .clone()
+            if !trip.days.iter().any(|day| day.index == index) {
+                return Err(ApiError::not_found("no such day"));
+            }
+            Which::Day(index)
         }
     };
-    let key = key.ok_or_else(|| ApiError::not_found("no map yet"))?;
-    Resp::ok(json!({ "url": app.blobs.presign_get(&key).await?, "inferred": trip.route.inferred }))
+    let (url, credit) = sketch_map(app, &owner, &id, which, public)
+        .await?
+        .ok_or_else(|| ApiError::not_found("no map yet"))?;
+    Resp::ok(json!({ "url": url, "inferred": trip.route.inferred, "credit": credit }))
 }
 
 /// Everything the metadata lets a story mention (constitution IV).
@@ -460,13 +485,16 @@ pub async fn regenerate(app: &App, req: &Req, id: &str) -> Result<Resp, ApiError
 /// `GET /view?code=` for the phone's read-only page (F-159): the trip with credits and the
 /// household name, and nothing that needs a session.
 pub async fn view(app: &App, req: &Req) -> Result<Resp, ApiError> {
-    let (household, trip) = app.viewer(req).await?;
+    let (household, trip_id) = app.viewer(req).await?;
     let record = app.storage.get_household(&household).await?;
-    let mut trip = trip_json(app, &household, &trip).await?;
-    // The read-only view is public: rings only, no coordinates (FR-016).
+    let mut trip = trip_json(app, &household, &trip_id).await?;
+    // The read-only view is public: rings only, no coordinates (FR-016), and the trip map
+    // without the home end of the route (F-712).
     super::fieldnotes::make_public(&mut trip);
+    let map = sketch_map(app, &household, &trip_id, Which::Trip, true).await?;
     Resp::ok(json!({
         "household_name": record.map(|h| h.name),
         "trip": trip,
+        "map": map.map(|(url, credit)| json!({ "url": url, "credit": credit })),
     }))
 }

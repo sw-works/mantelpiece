@@ -1127,6 +1127,7 @@ async fn people_opt_in_naming_merging_search_and_deletion() {
         .is_empty());
 
     // Account deletion: uploads answer 410 while it runs, and everything is gone after.
+    let had_trips = !h.storage.list_trips(&house).await.unwrap().is_empty();
     let deleted = h.owner(Method::Delete, "/me", None).await;
     assert_eq!(deleted.status, 200, "{}", deleted.body);
     assert_eq!(deleted.body["media"], 2);
@@ -1149,6 +1150,16 @@ async fn people_opt_in_naming_merging_search_and_deletion() {
         .unwrap()
         .iter()
         .any(|l| l.starts_with("delete originals/")));
+    assert!(
+        !had_trips
+            || h.blobs
+                .log
+                .lock()
+                .unwrap()
+                .iter()
+                .any(|l| l.contains("sketch/")),
+        "sketch maps go with the trips (F-712)"
+    );
     assert!(h
         .storage
         .get_household(&house)
@@ -4869,4 +4880,106 @@ async fn the_owner_can_share_a_field_note_at_full_resolution() {
     h.owner(Method::Post, &format!("/media/{id}/fieldnote/full"), None)
         .await;
     assert_eq!(puts(&h), 1);
+}
+
+#[tokio::test]
+async fn sketch_maps_are_served_in_the_form_each_viewer_may_see() {
+    use mantelpiece_core::sketch::{SketchKeys, Which};
+    let h = harness();
+    // The trip exists through the usual upload and organize path of other tests; here it is
+    // enough that the owner can see "kyoto" and that its maps were drawn.
+    let _ = field_noted(&h).await;
+    let keys = SketchKeys::new(&HouseholdId::new("amzn-owner"), &TripId::new("kyoto"));
+    assert_eq!(
+        h.owner(Method::Get, "/trips/kyoto/map", None).await.status,
+        404,
+        "no map until one is drawn"
+    );
+    let mut trip = h
+        .storage
+        .get_trip(&HouseholdId::new("amzn-owner"), &TripId::new("kyoto"))
+        .await
+        .unwrap()
+        .unwrap();
+    trip.days.push(
+        serde_json::from_value(json!({
+            "index": 1, "date": "2026-04-04", "media": [], "title": "Day 1: Kyoto",
+            "route": { "points": [], "inferred": false, "map_key": null }
+        }))
+        .unwrap(),
+    );
+    h.storage.put_trip(&trip).await.unwrap();
+    let first_day = 1;
+    for which in [Which::Trip, Which::Day(first_day)] {
+        h.blobs
+            .put(&keys.png(which), vec![1], "image/png")
+            .await
+            .unwrap();
+        h.blobs
+            .put(&keys.public_png(which), vec![2], "image/png")
+            .await
+            .unwrap();
+        h.blobs
+            .put(
+                &keys.marker(which),
+                SketchKeys::marker_body("f", "© OpenStreetMap contributors"),
+                "text/plain",
+            )
+            .await
+            .unwrap();
+    }
+    let own = h.owner(Method::Get, "/trips/kyoto/map", None).await;
+    assert_eq!(own.status, 200, "{}", own.body);
+    assert!(own.body["url"]
+        .as_str()
+        .unwrap()
+        .ends_with("sketch/amzn-owner/kyoto/trip.png"));
+    assert_eq!(own.body["credit"], "© OpenStreetMap contributors");
+    let day = h
+        .owner(
+            Method::Get,
+            &format!("/trips/kyoto/map?day={first_day}"),
+            None,
+        )
+        .await;
+    assert!(
+        day.body["url"]
+            .as_str()
+            .unwrap()
+            .ends_with(&format!("day-{first_day}.png")),
+        "{}",
+        day.body
+    );
+
+    // A member household gets the public form.
+    let ruth = h
+        .member_household("amzn-ruth", "Ruth's living room", "kyoto")
+        .await;
+    let theirs = h.bearer(Method::Get, "/trips/kyoto/map", None, &ruth).await;
+    assert_eq!(theirs.status, 200, "{}", theirs.body);
+    assert!(theirs.body["url"]
+        .as_str()
+        .unwrap()
+        .ends_with("trip-public.png"));
+
+    // So does the read-only view.
+    let code = h
+        .owner(
+            Method::Post,
+            "/trips/kyoto/code",
+            Some(json!({ "expires_in_days": 7 })),
+        )
+        .await;
+    let code = code.body["code"].as_str().unwrap().to_owned();
+    let view = h
+        .call(Method::Get, &format!("/view?code={code}"), None, None, None)
+        .await;
+    assert!(
+        view.body["map"]["url"]
+            .as_str()
+            .unwrap()
+            .ends_with("trip-public.png"),
+        "{}",
+        view.body
+    );
 }
