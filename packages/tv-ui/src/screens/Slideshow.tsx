@@ -230,7 +230,7 @@ export function Slideshow({
           <LandmarkCard facts={facts} overlay testID="landmark-card" />
         </View>
       )}
-      {caption && !dim && (
+      {caption && !dim && intro === null && (
         <View testID="caption-story" style={{ position: "absolute", left: theme.safe.x, right: theme.safe.x, bottom: 230, padding: 22, borderRadius: 20, backgroundColor: "#0b0b0fb3" }}>
           <Text style={{ color: theme.fg, fontSize: theme.heading, lineHeight: 40 }}>{caption}</Text>
         </View>
