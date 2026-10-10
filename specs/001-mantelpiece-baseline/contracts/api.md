@@ -58,7 +58,7 @@ sessions) or Cognito JWTs (`/join/amazon`). Errors are `{ "error": "<message>" }
 | GET | /trips/{trip}/places/{media} | any with access | NEW (F-711) This place: taken, place, coords (owner, precise only), feature with its credited summary, description, nearby photos |
 | POST | /media/{media}/pin, /hide | owner or member household | per household (F-163) |
 | POST | /trips/{trip}/narrative/regenerate | owner | NEW (F-302) |
-| GET | /trips/{trip}/map?day= | owner, member, contributor (web view) | NEW presigned URL for the trip map or one day's map (F-207) |
+| GET | /trips/{trip}/map?day= | owner, member, contributor (web view) | NEW presigned URL and credit for the trip's or one day's sketch map (F-712, replaces F-207's static map); members get the public form, 404 until drawn |
 | POST | /media/{media}/keeper | owner, co-editor | NEW moves the burst group's keeper; non-keepers re-inherit (F-201, F-164) |
 | PATCH | /trips/{trip} | owner, co-editor | NEW rename |
 | POST | /trips/{trip}/roles | owner | NEW `{contributor, role}` promote or demote (F-164) |

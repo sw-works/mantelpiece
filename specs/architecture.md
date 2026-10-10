@@ -211,7 +211,7 @@ account or guest, can add and remove their own photos, view, react), **member ho
 | F-204 | Quality and interest score 0 to 10 per photo: faces, smiles, landmark, sharpness, uniqueness |
 | F-205 | Event clustering by time gap and geographic proximity; trip = multi-day cluster |
 | F-206 | Trip route from GPS; when GPS missing, infer from landmarks and scene progression, flagged as inferred |
-| F-207 | Route rendered as a static map image per trip and per day |
+| F-207 | Route rendered as a static map image per trip and per day. Met by F-712's sketch maps since spec 003 (the Amazon Location static maps could not be kept) |
 | F-208 | Auto-named albums per trip and per event |
 | F-209 | Highlights: top N per trip, user can pin or hide |
 | F-210 | Landmark facts: recognition picks from the sights near the photo's position; each recognised landmark gets its encyclopedia summary (Wikipedia, credited on screen), cached once for all households; the Concierge writes up to three trivia lines, stored only when every number, date and name is in the summary. Shown on the first slideshow photo of a place, in the day panel, and in "what's that?" answers |
@@ -272,6 +272,7 @@ in `decisions-2026-09-09.md` section 9.
 | F-709 | Narrated memories: Polly reads the trip narrative during the slideshow; gated on the Vega audio spike (open question 10) |
 | F-710 | Reactions and comments from contributors on the F-159 read-only trip view (like, short comment per photo or day); they stream to the TV ticker ("Grandma loved day 3") and appear beside the photo in the trip view |
 | F-711 | **Field notes.** Each trip highlight gets a quiet map of where it was taken, drawn from OpenStreetMap and open terrain data into the photo's calmest empty space, clear of its subjects, as a separate layer: the photo is never altered. A dot and rounded coordinates only for the photo's own GPS, a ring for an inferred place, none for an unknown one, rings only near home and on shared or member views. A one-button Field notes mode in the TV slideshow; the map takes remote focus and opens This place (when, where, the main feature with its credited description); the phone views and shares it at full resolution. Spec 002 |
+| F-712 | **Trip sketch maps.** A hand-drawn map of each trip and each day from OpenStreetMap and open terrain data: wobbly ink coast, watercolour sea and glaciers, pencil hachures, the route as dashed ink with circled day numbers, sketched pictograms at the trip's places, a hand-lettered title box. Nothing invented; estimated legs fainter; route points near home left out, with a soft home area on the owner's form only. Shown in TV Trip view and for four seconds at each new day in the slideshow; shared from the phone. Spec 003 |
 
 ### 4.7 Sharing, Security, Operations
 

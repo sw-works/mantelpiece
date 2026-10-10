@@ -145,8 +145,8 @@ map and the trip map are redrawn and the other days' maps are not.
 
 ### Edge Cases
 
-- A one-day trip: the trip map and the day map show the same ground; only the day map is
-  drawn and the trip map uses it.
+- A one-day trip: the trip map and the day map cover the same ground; both are drawn, the
+  trip map with its title box and the day map with its day note.
 - A trip spanning a sea crossing or a flight (a leg longer than 300 km between consecutive
   points): the long hop is drawn as a thin dotted arc, not along roads, and does not force
   the map to the scale of a continent when it is only the journey out; when the hop is the

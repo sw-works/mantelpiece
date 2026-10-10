@@ -140,12 +140,13 @@ package.
 
 ### Map data
 
-Field notes (spec 002) are drawn from OpenStreetMap data, © OpenStreetMap contributors,
+Field notes (spec 002) and trip sketch maps (spec 003) are drawn from OpenStreetMap data, © OpenStreetMap contributors,
 available under the Open Database Licence (https://www.openstreetmap.org/copyright), served
 as vector tiles by OpenFreeMap, and from Terrain Tiles (AWS Open Data,
 https://registry.opendata.aws/terrain-tiles/). Every surface that shows a field note
 carries the credit. Amazon Location is not used for them: its service terms do not allow
-keeping map content.
+keeping map content. Sketch maps are lettered in Patrick Hand by Patrick Wagesreiter, under
+the SIL Open Font Licence (`services/crates/fieldnotes/assets/OFL-PatrickHand.txt`).
 
 ## Contributing
 
