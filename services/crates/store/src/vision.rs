@@ -19,7 +19,8 @@ pub trait Vision: Send + Sync {
     async fn describe(&self, jpeg: &[u8], prompt: &str) -> Result<String>;
     /// The photo's main subjects as boxes, scenery included (a peak, a temple roof), for
     /// field-note placement (F-711). One model call; an unreadable answer is no boxes.
-    async fn subjects(&self, jpeg: &[u8]) -> Result<Vec<Subject>>;
+    /// `hint` names the landmark the photo is tied to, when known.
+    async fn subjects(&self, jpeg: &[u8], hint: Option<&str>) -> Result<Vec<Subject>>;
 }
 
 /// Text found in a photo: the lines, and where they are.
@@ -29,43 +30,82 @@ pub struct Text {
     pub boxes: Vec<Subject>,
 }
 
-/// The question put to the model for subject boxes.
-pub const SUBJECTS_PROMPT: &str = "List the main subjects of this photo: people, animals, \
-vehicles, buildings, monuments, statues, peaks, waterfalls, trees or anything else the photo \
-is about. Do not list sky, clouds, plain water, plain ground or empty background. Answer with \
-JSON only, an array of objects {\"label\": string, \"box\": [x1, y1, x2, y2]}, coordinates on \
-a 0 to 1000 scale from the top left. Answer [] if nothing stands out.";
+/// The question put to the model for subject boxes. Landscape subjects are named because
+/// without them Nova Lite answers `[]` for sea stacks, cliffs and geysers (decision 37).
+pub const SUBJECTS_PROMPT: &str = "Find the parts of this travel photo that a viewer looks \
+at: people, animals, vehicles, buildings, monuments, statues, and landscape subjects such as \
+rock formations, sea stacks, cliffs, peaks, waterfalls, geysers and steam, icebergs and trees. \
+Box each one tightly; a large landform may get one big box. Never box sky, clouds, plain \
+water, plain ground or empty background.";
 
-/// Parse the model's answer leniently: the first JSON array in the text, boxes on the 0 to
-/// 1000 grid, anything malformed skipped.
+/// The answer format, after the optional landmark hint.
+const SUBJECTS_FORMAT: &str = "Answer with JSON only, an array of objects {\"label\": \
+string, \"box\": [x1, y1, x2, y2]}, one per subject, coordinates as integers on a 0 to 1000 \
+scale from the top left. Answer [] if nothing stands out.";
+
+/// The whole subjects question, with the landmark the photo is tied to when known.
+#[must_use]
+pub fn subjects_prompt(hint: Option<&str>) -> String {
+    match hint {
+        Some(h) => format!(
+            "{SUBJECTS_PROMPT} The photo was taken near {h}; if it is in view, box it. {SUBJECTS_FORMAT}"
+        ),
+        None => format!("{SUBJECTS_PROMPT} {SUBJECTS_FORMAT}"),
+    }
+}
+
+/// Labels that name background, which the prompt asks the model to leave out but it
+/// sometimes boxes anyway.
+const BACKGROUND: &[&str] = &[
+    "sky",
+    "cloud",
+    "clouds",
+    "water",
+    "sea",
+    "ocean",
+    "lake",
+    "river",
+    "grass",
+    "grassland",
+    "ground",
+    "field",
+    "background",
+    "horizon",
+];
+
+/// Parse the model's answer leniently. Nova sometimes closes a box with `]]` or opens the
+/// next object with `[`, so each `"label"` is read with the four numbers after it rather
+/// than parsing the answer as JSON. Boxes on the 0 to 1000 grid; background labels and
+/// anything short of four numbers are skipped.
 #[must_use]
 #[allow(clippy::cast_possible_truncation)]
 pub fn parse_subjects(answer: &str) -> Vec<Subject> {
-    let (Some(start), Some(end)) = (answer.find('['), answer.rfind(']')) else {
-        return vec![];
-    };
-    let Ok(items) =
-        serde_json::from_str::<Vec<serde_json::Value>>(answer.get(start..=end).unwrap_or("[]"))
-    else {
-        return vec![];
-    };
-    items
+    let parts: Vec<&str> = answer.split("\"label\"").collect();
+    parts
         .iter()
-        .filter_map(|v| {
-            let b = v.get("box")?.as_array()?;
-            let n: Vec<f32> = b
-                .iter()
-                .filter_map(serde_json::Value::as_f64)
-                .map(|f| f as f32 / 1000.0)
+        .skip(1)
+        .filter_map(|part| {
+            let rest = part.trim_start().strip_prefix(':')?.trim_start();
+            let rest = rest.strip_prefix('"')?;
+            let end = rest.find('"')?;
+            let label = rest[..end].trim();
+            if BACKGROUND.contains(&label.to_lowercase().as_str()) {
+                return None;
+            }
+            let after = &rest[end + 1..];
+            let open = after.find('[')?;
+            let close = open + after[open..].find(']')?;
+            let n: Vec<f32> = after[open + 1..close]
+                .split(|c: char| !(c.is_ascii_digit() || c == '.'))
+                .filter(|t| !t.is_empty())
+                .take(4)
+                .filter_map(|t| t.parse::<f32>().ok())
+                .map(|f| f / 1000.0)
                 .collect();
             let [x1, y1, x2, y2] = n[..] else { return None };
-            let label = v
-                .get("label")
-                .and_then(serde_json::Value::as_str)
-                .unwrap_or("subject");
             Subject::new(
                 SubjectKind::Landscape,
-                label,
+                if label.is_empty() { "subject" } else { label },
                 NormBox::new(x1.min(x2), y1.min(y2), (x2 - x1).abs(), (y2 - y1).abs())?,
                 0.8,
             )
@@ -114,11 +154,8 @@ impl Vision for MemoryVision {
         self.prompts.lock().unwrap().push(prompt.to_owned());
         Ok(self.description.clone())
     }
-    async fn subjects(&self, _jpeg: &[u8]) -> Result<Vec<Subject>> {
-        self.prompts
-            .lock()
-            .unwrap()
-            .push(SUBJECTS_PROMPT.to_owned());
+    async fn subjects(&self, _jpeg: &[u8], hint: Option<&str>) -> Result<Vec<Subject>> {
+        self.prompts.lock().unwrap().push(subjects_prompt(hint));
         Ok(self.subjects.clone())
     }
 }
@@ -305,7 +342,7 @@ impl Vision for AwsVision {
         Ok(text)
     }
 
-    async fn subjects(&self, jpeg: &[u8]) -> Result<Vec<Subject>> {
+    async fn subjects(&self, jpeg: &[u8], hint: Option<&str>) -> Result<Vec<Subject>> {
         use aws_sdk_bedrockruntime::primitives::Blob;
         use aws_sdk_bedrockruntime::types::{
             ContentBlock, ConversationRole, ImageBlock, ImageFormat, ImageSource,
@@ -320,7 +357,7 @@ impl Vision for AwsVision {
         let message = Message::builder()
             .role(ConversationRole::User)
             .content(ContentBlock::Image(image))
-            .content(ContentBlock::Text(SUBJECTS_PROMPT.to_owned()))
+            .content(ContentBlock::Text(subjects_prompt(hint)))
             .build()
             .map_err(backend)?;
         let out = self
@@ -353,17 +390,42 @@ mod tests {
 
     #[test]
     fn subject_answers_parse_leniently() {
-        let a = "Here you go:\n```json\n[{\"label\": \"waterfall\", \"box\": [600, 50, 760, 900]}, {\"label\": \"bad\", \"box\": [1, 2]}, {\"box\": [900, 900, 800, 800]}]\n```";
+        let a = "Here you go:\n```json\n[{\"label\": \"waterfall\", \"box\": [600, 50, 760, 900]}, {\"label\": \"bad\", \"box\": [1, 2]}, {\"label\": \"rock\", \"box\": [900, 900, 800, 800]}]\n```";
         let s = parse_subjects(a);
-        assert_eq!(s.len(), 2);
+        assert_eq!(s.len(), 2, "a box short of four numbers is skipped");
         assert_eq!(s[0].label, "waterfall");
         assert!((s[0].bbox.left - 0.6).abs() < 1e-6 && (s[0].bbox.height - 0.85).abs() < 1e-6);
-        assert_eq!(s[1].label, "subject");
         assert!(
             (s[1].bbox.left - 0.8).abs() < 1e-6,
             "corners given in reverse still read"
         );
         assert!(parse_subjects("I cannot see anything.").is_empty());
         assert!(parse_subjects("[not json]").is_empty());
+    }
+
+    #[test]
+    fn nova_answers_with_broken_brackets_still_give_their_boxes() {
+        // Seen from Nova Lite on the Deildartunguhver photo, 2026-10-09.
+        let a = r#"[{"label": "waterfall", "box": [0, 580, 749, 1000]], ["label": "flowers", [590, 290, 930, 410]]]"#;
+        let s = parse_subjects(a);
+        assert_eq!(s.len(), 2);
+        assert_eq!(s[1].label, "flowers");
+        assert!((s[1].bbox.top - 0.29).abs() < 1e-6);
+        let b = r#"[ {"label": "person", "box": [500, 600, 620, 900] ]}"#;
+        assert_eq!(parse_subjects(b).len(), 1);
+    }
+
+    #[test]
+    fn background_labels_are_not_subjects() {
+        let a = r#"[{"label": "Sky", "box": [0, 0, 1000, 200]}, {"label": "geyser", "box": [0, 520, 1000, 1000]}]"#;
+        let s = parse_subjects(a);
+        assert_eq!(s.len(), 1);
+        assert_eq!(s[0].label, "geyser");
+    }
+
+    #[test]
+    fn the_prompt_names_the_landmark_when_known() {
+        assert!(subjects_prompt(Some("Dettifoss")).contains("near Dettifoss"));
+        assert!(!subjects_prompt(None).contains("near"));
     }
 }

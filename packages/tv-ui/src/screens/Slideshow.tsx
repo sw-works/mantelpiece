@@ -93,6 +93,7 @@ export function Slideshow({
   const noteCount = Object.keys(notes).length;
   const notesMode = fieldNotes;
   const [awake, setAwake] = useState(true);
+  const dim = notesMode && !awake;
   const wakeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wake = useCallback(() => {
     setAwake(true);
@@ -199,17 +200,18 @@ export function Slideshow({
           </Text>
         </View>
       )}
-      {showFacts && facts && (
+      {/* In Field notes mode the card and the day's story step aside with the controls, so they never sit on the map. */}
+      {showFacts && facts && !dim && (
         <View style={{ position: "absolute", top: theme.safe.y, right: theme.safe.x }}>
           <LandmarkCard facts={facts} overlay testID="landmark-card" />
         </View>
       )}
-      {caption && (
+      {caption && !dim && (
         <View testID="caption-story" style={{ position: "absolute", left: theme.safe.x, right: theme.safe.x, bottom: 230, padding: 22, borderRadius: 20, backgroundColor: "#0b0b0fb3" }}>
           <Text style={{ color: theme.fg, fontSize: theme.heading, lineHeight: 40 }}>{caption}</Text>
         </View>
       )}
-      <View testID="slideshow-controls" style={{ position: "absolute", left: theme.safe.x, right: theme.safe.x, bottom: theme.safe.y, flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", gap: 24, opacity: notesMode && !awake ? 0.12 : 1 }}>
+      <View testID="slideshow-controls" style={{ position: "absolute", left: theme.safe.x, right: theme.safe.x, bottom: theme.safe.y, flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", gap: 24, opacity: dim ? 0.12 : 1 }}>
         <View style={{ gap: 10, flex: 1 }}>
           <Eyebrow>{`${trip.name} · day ${current.day} of ${dayCount}`}</Eyebrow>
           <Text style={{ color: theme.fg, fontSize: 44, fontWeight: "700" }}>{dayLabel}</Text>

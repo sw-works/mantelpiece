@@ -1,6 +1,20 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Pressable, Text } from "react-native";
 import { theme } from "../theme";
+
+/**
+ * `hasTVPreferredFocus` for one render only, when `preferred` turns true. Vega re-applies a
+ * true preference on every re-render, which pulled focus back from wherever the remote had
+ * moved it (a fading control bar re-rendering the slideshow took focus off the map).
+ */
+export function usePreferOnce(preferred: boolean): boolean {
+  const was = useRef(false);
+  const now = preferred && !was.current;
+  useEffect(() => {
+    was.current = preferred;
+  });
+  return now;
+}
 
 export type ButtonVariant = "solid" | "ghost" | "chip";
 
@@ -30,6 +44,7 @@ export function FocusButton({
   onFocus?: () => void;
 }) {
   const [focused, setFocused] = useState(false);
+  const prefer = usePreferOnce(preferred);
   const chip = variant === "chip";
   const background = focused ? theme.accent : selected ? theme.fg : variant === "ghost" ? "#ffffff14" : chip ? "#ffffff12" : theme.panel2;
   const color = focused || selected ? theme.onAccent : theme.fg;
@@ -38,7 +53,7 @@ export function FocusButton({
       testID={testID}
       accessibilityRole="button"
       accessibilityState={{ disabled, selected }}
-      hasTVPreferredFocus={preferred}
+      hasTVPreferredFocus={prefer}
       onFocus={() => {
         setFocused(true);
         onFocus?.();

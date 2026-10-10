@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { type FieldNoteSummary, type NormBox, type TvApi } from "../api/client";
 import { theme } from "../theme";
+import { usePreferOnce } from "./FocusButton";
 import { RemoteImage } from "./RemoteImage";
 
 /** Where a `contain` image of `aspect` (width / height) sits inside a `w` × `h` box. */
@@ -55,6 +56,7 @@ export function FieldNoteImage({
 }) {
   const [aspect, setAspect] = useState<number | null>(null);
   const [focused, setFocused] = useState(false);
+  const prefer = usePreferOnce(preferred);
   const rect = aspect ? mapRect(note, aspect, width, height) : null;
   return (
     <View testID="field-note" style={{ width, height }}>
@@ -67,7 +69,7 @@ export function FieldNoteImage({
           testID="field-note-map"
           accessibilityRole="button"
           accessibilityLabel="Open the map"
-          hasTVPreferredFocus={preferred}
+          hasTVPreferredFocus={prefer}
           onFocus={() => {
             setFocused(true);
             onFocusChange?.(true);

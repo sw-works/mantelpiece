@@ -102,7 +102,14 @@ pub async fn run(ingest: &Ingest, household: &HouseholdId, media_id: &MediaId) -
         .await?;
     // Scenery the Rekognition boxes miss; a failed call leaves the boxes we have.
     let mut subjects: Vec<Subject> = media.enrichment.subjects.clone();
-    match ingest.vision.subjects(&jpeg).await {
+    // The landmark the trip tied this photo to, so the model boxes it when it is in view.
+    let hint = trip
+        .days
+        .iter()
+        .flat_map(|d| &d.landmarks)
+        .find(|l| l.media.contains(&media.id))
+        .map(|l| l.name.clone());
+    match ingest.vision.subjects(&jpeg, hint.as_deref()).await {
         Ok(found) => subjects.extend(found),
         Err(e) => tracing::warn!(error = %e, media = %media_id, "subject call failed"),
     }

@@ -892,3 +892,36 @@ compile-checked only.
   long-exposure waterfall is smooth but not empty). Still wrong offline: a calm road or a
   smooth waterfall wins when no subject box excludes it. That is what the per-highlight
   Nova subject call is for; untested, the AWS session had expired.
+
+## 37. Field notes on the deployed stack (2026-10-09)
+
+- `make up` in us-west-2, Iceland test album (48 photos, GPS) uploaded through the pairing
+  flow from `scripts/upload-test-album.py`. Organize built "Iceland, June 2015" (8 days, 12
+  highlights) in about 4 minutes; the FieldNotes Distributed Map ran after OrganizeFinal and
+  made 11 notes. The 12th (Mývatn crater, Rekognition "Plant" box over the lower two thirds)
+  was skipped. The view cone from `GPSImgDirection` showed on every precise note.
+- Sky placement looked right on Skógafoss, Dettifoss, Keflavík and Jökulsárlón. Two misses:
+  the map sat on the Lóndrangar cliff and on the Deildartunguhver steam. Cause: Nova Lite
+  answered `[]` for the cliffs, and for the geyser it answered
+  `[{"label": "waterfall", "box": [0, 580, 749, 1000]], ["label": "flowers", [...]]]`, which
+  the JSON parser rejected whole, so placement had no subject boxes on either photo.
+- Tried: a prompt naming landscape subjects (sea stacks, cliffs, geysers and steam,
+  icebergs) plus the trip landmark as a hint. An example label in the format line ("cliff")
+  made every answer a cliff, so the format names no label. Nova Pro found the right
+  subjects more often but also boxed "sky" and "mountain" over most of the frame. Converse
+  tool use (forced JSON) failed with "Model produced invalid sequence as part of ToolUse"
+  on about half the calls, on both Lite and Pro.
+- Kept Nova Lite with the new prompt and hint, a parser that reads each `"label"` with the
+  four numbers inside the next brackets (so broken brackets still give boxes), and
+  background labels (sky, water, grass, ...) dropped. `STYLE_VERSION` 2 remakes stored
+  notes. Not yet verified on the stack: the redeploy needs the user's go-ahead.
+- TV on the Virtual Device: Field notes toggle works and the label flips; the map takes
+  remote focus with the outline and hint. Two bugs fixed: focus jumped back to Pause
+  whenever the slideshow re-rendered (Vega re-applies a true `hasTVPreferredFocus`; the
+  preference now holds for one render only, `usePreferOnce`), so Select on the map pressed
+  Play instead of opening This place; and the landmark card and day caption covered the
+  map (they now step aside with the faded controls). This place itself not yet seen on the
+  device for the same reason.
+- Seen, not chased: each TV rendition took 10 to 20 s to appear on the Virtual Device, longer
+  than a slide, so the slideshow shows black frames until it is paused; the day 1 narrative
+  names Frankfurt (the photographer's connection, from photo metadata).

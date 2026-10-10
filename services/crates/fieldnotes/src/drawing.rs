@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// Bumped whenever the drawing changes enough that stored notes should be remade.
-pub const STYLE_VERSION: u32 = 1;
+pub const STYLE_VERSION: u32 = 2;
 /// At most this many names on a map (FR-003).
 pub const MAX_LABELS: usize = 4;
 /// Credit for every note drawn from OpenStreetMap data.
