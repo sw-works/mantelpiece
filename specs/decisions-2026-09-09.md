@@ -914,14 +914,28 @@ compile-checked only.
 - Kept Nova Lite with the new prompt and hint, a parser that reads each `"label"` with the
   four numbers inside the next brackets (so broken brackets still give boxes), and
   background labels (sky, water, grass, ...) dropped. `STYLE_VERSION` 2 remakes stored
-  notes. Not yet verified on the stack: the redeploy needs the user's go-ahead.
+  notes. Verified after a redeploy: 7 notes instead of 11, the same 7 on a second
+  household (temperature 0). Lóndrangar and Deildartunguhver now get none, since their
+  subjects leave no calm region, which is what FR-003 asks; the red cliff above the sea lost
+  a sky map it had before. All 7 sit on sky or plain grass, none over a subject.
+- This place (`GET /trips/{trip}/places/{media}`) checked through a phone session on all 7:
+  date, place, coordinates for the owner, description, credits and nearby photos come
+  back. The main feature was the municipality for most photos ("Norðurþing" for
+  Dettifoss, "Rangárþing eystra" for Skógafoss), because the first tied trip landmark
+  was the `city`-kind region. Fixed: the nearest tied landmark that is not a region wins,
+  then the map's labels, then the region (`STYLE_VERSION` 3; not yet run on the stack).
+  Also seen: the Hrunamannahreppur summary is Gullfoss's Wikipedia text, a facts lookup
+  mismatch not chased.
 - TV on the Virtual Device: Field notes toggle works and the label flips; the map takes
   remote focus with the outline and hint. Two bugs fixed: focus jumped back to Pause
   whenever the slideshow re-rendered (Vega re-applies a true `hasTVPreferredFocus`; the
   preference now holds for one render only, `usePreferOnce`), so Select on the map pressed
   Play instead of opening This place; and the landmark card and day caption covered the
-  map (they now step aside with the faded controls). This place itself not yet seen on the
-  device for the same reason.
+  map (they now step aside with the faded controls). After the fix, a pairing request's
+  Allow took focus when it appeared (edge-triggered preference still works for buttons that
+  arrive later). This place itself not seen on the device: the developer shell died once
+  more (decision 34) and, after the restart, the debug build's LogBox banner ("2 warnings")
+  kept taking focus, so remote navigation to a noted slide was unreliable.
 - Seen, not chased: each TV rendition took 10 to 20 s to appear on the Virtual Device, longer
   than a slide, so the slideshow shows black frames until it is paused; the day 1 narrative
   names Frankfurt (the photographer's connection, from photo metadata).
