@@ -939,3 +939,34 @@ compile-checked only.
 - Seen, not chased: each TV rendition took 10 to 20 s to appear on the Virtual Device, longer
   than a slide, so the slideshow shows black frames until it is paused; the day 1 narrative
   names Frankfurt (the photographer's connection, from photo metadata).
+
+## 38. Trip sketch maps on the deployed stack (2026-10-10)
+
+- Spec 003 (F-712) built on branch `003-trip-sketch-maps`: hand-drawn trip and day maps from
+  the field-notes tiles, drawn in Rust (seeded wobble, watercolour washes, pencil hachures
+  above sea level, dashed route with circled days, pictograms, Patrick Hand lettering). They
+  replace F-207's Amazon Location static maps, which could not be kept and had no public
+  form (the shared view used to show the route's home end).
+- Look tuned offline on the stored Iceland trip with the `sketch` example. Fixed on the way:
+  a lone photo from Frankfurt airport set the frame to half of Europe (a point reached only
+  by flights now draws its arc but does not frame); neighbouring tiles' sea polygons
+  overlapped in their buffers and one even-odd path turned the overlaps into white seams
+  (each polygon is now filled on its own); the terrain tiles carry the seabed, so hachures
+  covered the ocean (hatch above sea level only); "Atlantic Ocean" came through as a trip
+  landmark (open water dropped).
+- Deployed run (`make up`, Iceland album, 48 photos): Organize → EnrichKeepers →
+  OrganizeFinal → FieldNotes → SketchMaps, all succeeded; the trip map and eight day maps in
+  both forms were stored. Field notes now name the landmark in the photo (Dettifoss,
+  Skógarfoss, Diamond Beach) instead of the municipality (decision 37's fix verified); two
+  still name a weak nearest landmark (a workshop, an art installation).
+- On the Virtual Device: Trip view shows the trip map with its credit and the day-map chip;
+  the slideshow opened day 1 on its map before the first photo. The day's story caption
+  covered the lower part of the map; it now waits until the map has gone (not re-run on
+  the device).
+- Each sketch map was a 2.3 MB PNG because of the paper grain; they are now JPEG at quality 88
+  (385 KB for the trip map, same look). Not re-run on the stack.
+- Seen, not chased: Back from Trip view left the app for the launcher (twice), and the
+  debug build's LogBox banner ("2 warnings") keeps taking remote focus; the upload script's
+  part PUT failed once on a dropped connection (it now retries three times). Each `make up`
+  leaves another retained table behind: three `Mantelpiece-Table…` tables exist now.
+- `make down` after the run.

@@ -8,11 +8,11 @@
 
 Add F-712: a hand-drawn map of each trip and of each trip day, drawn in Rust from the same
 OpenStreetMap vector tiles and open terrain tiles field notes use (decision 36), and stored
-as two PNGs per map: the owner form and a public form with the home end of the route cut.
+as two JPEGs per map: the owner form and a public form with the home end of the route cut.
 They replace the F-207 route maps, which came from Amazon Location `GetStaticMap` (terms
 bar keeping them, decision 36) and had no public form. A new `sketch_map` ingest task runs
 per map in a Distributed Map after FieldNotes, over a manifest organize writes; each map
-keeps its fingerprint in a marker object beside its PNG, so parallel items never write the
+keeps its fingerprint in a marker object beside its picture, so parallel items never write the
 trip record. The API serves the right form by viewer; the TV shows the trip map in Trip view,
 each day's map on its day, and a four-second day map at each day change in the slideshow; the
 phone shows the trip map with Share.
@@ -23,7 +23,7 @@ phone shows the trip map with Share.
 
 **Primary Dependencies**: existing `mvt-reader`, `tiny-skia`, `ttf-parser`, `contour`, `image`, `sha2`; no new crates. Bundled font: Patrick Hand (OFL), beside Instrument Serif.
 
-**Storage**: PNGs and fingerprint markers in S3 under `sketch/{h}/{trip}/` (data-model.md). No DynamoDB change.
+**Storage**: JPEGs and fingerprint markers in S3 under `sketch/{h}/{trip}/` (data-model.md). No DynamoDB change.
 
 **Testing**: cargo test with the existing fixture tiles (Florence, zoom 13, and terrain zoom 12) plus a zoom-6 Iceland fixture; determinism by byte-comparing two draws; home cut asserted on the public display list. jest for the TV day intro and Trip view; vitest for the phone page. No network in `make test`.
 
@@ -31,7 +31,7 @@ phone shows the trip map with Share.
 
 **Project Type**: serverless backend + TV app + web app (existing monorepo).
 
-**Performance Goals**: one map in under 30 s with cold tiles (up to 12 vector and 6 terrain tiles), well inside the 5-minute ingest timeout; TV shows a stored PNG (SC-005).
+**Performance Goals**: one map in under 30 s with cold tiles (up to 12 vector and 6 terrain tiles), well inside the 5-minute ingest timeout; TV shows a stored JPEG of about 400 KB (SC-005).
 
 **Constraints**: nothing invented (FR-002); no model calls (FR-019); tiles fetched at make time only; deterministic output (FR-006): all noise seeded from the trip id and day, no clock or random source.
 

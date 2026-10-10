@@ -6,10 +6,10 @@ No database change. Everything is in S3 beside the trip.
 
 | Key | Content |
 |-----|---------|
-| `sketch/{h}/{trip}/trip.png` | trip map, owner form, 1600 × 900 PNG |
-| `sketch/{h}/{trip}/trip-public.png` | trip map, public form |
+| `sketch/{h}/{trip}/trip.jpg` | trip map, owner form, 1600 × 900 JPEG (quality 88; a PNG is six times larger with the paper grain) |
+| `sketch/{h}/{trip}/trip-public.jpg` | trip map, public form |
 | `sketch/{h}/{trip}/trip.fingerprint` | hex sha256 the pair was drawn from |
-| `sketch/{h}/{trip}/day-{n}.png`, `day-{n}-public.png`, `day-{n}.fingerprint` | the same per day, `n` the day's index |
+| `sketch/{h}/{trip}/day-{n}.jpg`, `day-{n}-public.jpg`, `day-{n}.fingerprint` | the same per day, `n` the day's index |
 
 `mantelpiece_core::sketch::SketchKeys` builds them; `keys(trip, days)` lists every object of
 a trip for deletion.

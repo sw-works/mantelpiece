@@ -23,7 +23,7 @@
 - [x] T008 [US1] Labels and marks in `sketch.rs`: "at most twelve" landmarks by prominence and spread, label beside the pictogram in the first of four free positions; circled day numbers at each leg's end; title cartouche (trip name, dates) in the emptiest corner; compass; hand scale bar; credit line
 - [x] T009 [US1] Hatching in `sketch.rs`: terrain at vector zoom plus one, contours at the field-notes interval, hachures across contour lines pointing downhill where relief exceeds 200 m
 - [x] T010 [US1] `sketch::draw(trip, which, home, tiles) -> Result<Sketch{owner_png, public_png, fingerprint, credit}, Skip>` and `fingerprint(...)` per data-model.md, in `sketch.rs`; tests in `services/crates/fieldnotes/tests/sketch.rs`
-- [x] T011 [US1] Ingest task `sketch_map` in `services/lambdas/ingest/src/sketch.rs` and `Task::SketchMap` in `lib.rs`: load trip and home, compare marker, draw on a blocking thread, put both PNGs and the marker; delete a day's objects when the day no longer exists; test in `services/lambdas/ingest/tests/pipeline.rs`
+- [x] T011 [US1] Ingest task `sketch_map` in `services/lambdas/ingest/src/sketch.rs` and `Task::SketchMap` in `lib.rs`: load trip and home, compare marker, draw on a blocking thread, put both pictures and the marker; delete a day's objects when the day no longer exists; test in `services/lambdas/ingest/tests/pipeline.rs`
 - [x] T012 [US1] Organize in `services/lambdas/ingest/src/organize.rs`: write `manifests/{h}/sketch-maps-{run}.json` (one item per trip and per day) and return `sketch_maps_manifest`; remove the `Maps::route_map` calls (`render_maps`)
 - [x] T013 [US1] Infra in `infra/lib/mantelpiece-stack.ts`: `SketchMaps` Distributed Map (concurrency 4, retry 2) after `FieldNotes`, and `sketch_maps_manifest` in the organize result selector
 - [x] T014 [US1] API `GET /trips/{id}/map` in `services/lambdas/api/src/handlers/trips.rs`: owner form for the owner household, public form for members and code views, 404 without the marker, `credit` in the response; tests in `services/lambdas/api/tests/api.rs`
@@ -50,7 +50,7 @@
 
 - [x] T021 [P] Example `services/crates/fieldnotes/examples/sketch.rs` per quickstart; run it on the Iceland album and tune
 - [x] T022 [P] F-712 in `specs/architecture.md`, F-207 row updated; API contract rows in `specs/001-mantelpiece-baseline/contracts/api.md`; README credits for Patrick Hand
-- [ ] T023 `make lint`, `make test`, deployed run per quickstart; record in `specs/decisions-2026-09-09.md`
+- [x] T023 `make lint`, `make test`, deployed run per quickstart; record in `specs/decisions-2026-09-09.md`
 
 ## Dependencies
 
@@ -65,4 +65,4 @@ Setup, then Foundational (T003, T004), then US1 (T005 to T015) which US2 and US3
 - T020: account deletion removes every trip's sketch maps and the old F-207 route maps; there
   is no separate trip-deletion path in the API to hook.
 - T021: the example reads a stored trip record (`trip.json`), not the album's EXIF.
-- Open: T023 deployed run.
+- T023: deployed run done (decision 38); the JPEG switch and the caption fix came after it.

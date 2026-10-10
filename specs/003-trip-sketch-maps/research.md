@@ -55,7 +55,7 @@ organize: one item per trip and per trip day. The task computes the fingerprint,
 once when the marker matches, else draws and stores both forms and the marker.
 
 **Rationale**: one Lambda per map keeps a cold-tile run (up to about 30 s) far inside the
-5-minute timeout. Markers beside the PNGs (as field notes' share marker does) mean parallel
+5-minute timeout. Markers beside the pictures (as field notes' share marker does) mean parallel
 items never read-modify-write the trip record.
 
 **Alternatives**: drawing inside organize (serial, timeout risk, and organize runs twice);

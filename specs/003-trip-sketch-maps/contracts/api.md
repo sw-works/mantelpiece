@@ -5,7 +5,7 @@
 Same request. The response now points at the sketch map:
 
 ```json
-{ "url": "https://…/sketch/h/t/day-3.png?…", "inferred": false, "credit": "© OpenStreetMap contributors · Terrain Tiles (AWS Open Data)" }
+{ "url": "https://…/sketch/h/t/day-3.jpg?…", "inferred": false, "credit": "© OpenStreetMap contributors · Terrain Tiles (AWS Open Data)" }
 ```
 
 - Owner household: the owner form. Member households and code views (`?code=`): the public
