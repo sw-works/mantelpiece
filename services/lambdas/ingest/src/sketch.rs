@@ -1,7 +1,7 @@
 //! Per-map task: draw a trip's sketch map or one day's (F-712). Runs in the SketchMaps
 //! Distributed Map after field notes; one item per map, so a cold-tile draw stays well
 //! inside the Lambda's time and parallel items never write the trip record. A map is up to
-//! date when the fingerprint marker beside its PNGs matches.
+//! date when the fingerprint marker beside its pictures matches.
 
 use mantelpiece_core::ids::{HouseholdId, TripId};
 use mantelpiece_core::sketch::{SketchKeys, Which};
@@ -74,11 +74,11 @@ pub async fn run(
         Ok(s) => {
             ingest
                 .blobs
-                .put(&keys.png(which), s.owner, "image/png")
+                .put(&keys.picture(which), s.owner, "image/jpeg")
                 .await?;
             ingest
                 .blobs
-                .put(&keys.public_png(which), s.public, "image/png")
+                .put(&keys.public_picture(which), s.public, "image/jpeg")
                 .await?;
             ingest
                 .blobs

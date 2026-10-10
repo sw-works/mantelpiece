@@ -4912,11 +4912,11 @@ async fn sketch_maps_are_served_in_the_form_each_viewer_may_see() {
     let first_day = 1;
     for which in [Which::Trip, Which::Day(first_day)] {
         h.blobs
-            .put(&keys.png(which), vec![1], "image/png")
+            .put(&keys.picture(which), vec![1], "image/jpeg")
             .await
             .unwrap();
         h.blobs
-            .put(&keys.public_png(which), vec![2], "image/png")
+            .put(&keys.public_picture(which), vec![2], "image/jpeg")
             .await
             .unwrap();
         h.blobs
@@ -4933,7 +4933,7 @@ async fn sketch_maps_are_served_in_the_form_each_viewer_may_see() {
     assert!(own.body["url"]
         .as_str()
         .unwrap()
-        .ends_with("sketch/amzn-owner/kyoto/trip.png"));
+        .ends_with("sketch/amzn-owner/kyoto/trip.jpg"));
     assert_eq!(own.body["credit"], "© OpenStreetMap contributors");
     let day = h
         .owner(
@@ -4946,7 +4946,7 @@ async fn sketch_maps_are_served_in_the_form_each_viewer_may_see() {
         day.body["url"]
             .as_str()
             .unwrap()
-            .ends_with(&format!("day-{first_day}.png")),
+            .ends_with(&format!("day-{first_day}.jpg")),
         "{}",
         day.body
     );
@@ -4960,7 +4960,7 @@ async fn sketch_maps_are_served_in_the_form_each_viewer_may_see() {
     assert!(theirs.body["url"]
         .as_str()
         .unwrap()
-        .ends_with("trip-public.png"));
+        .ends_with("trip-public.jpg"));
 
     // So does the read-only view.
     let code = h
@@ -4978,7 +4978,7 @@ async fn sketch_maps_are_served_in_the_form_each_viewer_may_see() {
         view.body["map"]["url"]
             .as_str()
             .unwrap()
-            .ends_with("trip-public.png"),
+            .ends_with("trip-public.jpg"),
         "{}",
         view.body
     );

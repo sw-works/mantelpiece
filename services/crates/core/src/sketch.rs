@@ -36,14 +36,14 @@ impl SketchKeys {
 
     /// The owner form.
     #[must_use]
-    pub fn png(&self, which: Which) -> String {
-        format!("{}/{}.png", self.base, which.stem())
+    pub fn picture(&self, which: Which) -> String {
+        format!("{}/{}.jpg", self.base, which.stem())
     }
 
     /// The form for member households, shared links and code views.
     #[must_use]
-    pub fn public_png(&self, which: Which) -> String {
-        format!("{}/{}-public.png", self.base, which.stem())
+    pub fn public_picture(&self, which: Which) -> String {
+        format!("{}/{}-public.jpg", self.base, which.stem())
     }
 
     /// The fingerprint the pair was drawn from.
@@ -69,7 +69,11 @@ impl SketchKeys {
     /// Every object of one map.
     #[must_use]
     pub fn of(&self, which: Which) -> [String; 3] {
-        [self.png(which), self.public_png(which), self.marker(which)]
+        [
+            self.picture(which),
+            self.public_picture(which),
+            self.marker(which),
+        ]
     }
 
     /// Every object of the trip map and of days `1..=days`, for deleting the trip.
@@ -89,8 +93,11 @@ mod tests {
     #[test]
     fn keys_sit_beside_each_other_under_the_trip() {
         let k = SketchKeys::new(&HouseholdId::new("h"), &TripId::new("t"));
-        assert_eq!(k.png(Which::Trip), "sketch/h/t/trip.png");
-        assert_eq!(k.public_png(Which::Day(3)), "sketch/h/t/day-3-public.png");
+        assert_eq!(k.picture(Which::Trip), "sketch/h/t/trip.jpg");
+        assert_eq!(
+            k.public_picture(Which::Day(3)),
+            "sketch/h/t/day-3-public.jpg"
+        );
         assert_eq!(k.marker(Which::Day(3)), "sketch/h/t/day-3.fingerprint");
         assert_eq!(k.all(2).len(), 9);
         let body = SketchKeys::marker_body("abc", "© OpenStreetMap contributors");

@@ -2,8 +2,8 @@
 //!
 //!     cargo run --release -p mantelpiece-fieldnotes --example sketch -- <trip.json> <out-dir> [lat,lon home]
 //!
-//! `trip.json` is a trip record as the API returns it. Writes `trip.png`, `trip-public.png`
-//! and `day-N.png` per day, and prints timings. Tiles are cached under `<out-dir>/tiles`.
+//! `trip.json` is a trip record as the API returns it. Writes `trip.jpg`, `trip-public.jpg`
+//! and `day-N.jpg` per day, and prints timings. Tiles are cached under `<out-dir>/tiles`.
 
 use mantelpiece_core::geo::GeoPoint;
 use mantelpiece_core::sketch::Which;
@@ -95,8 +95,8 @@ fn main() {
         };
         match sketch::draw(&trip, w, home, &http) {
             Ok(s) => {
-                std::fs::write(out.join(format!("{name}.png")), &s.owner).unwrap();
-                std::fs::write(out.join(format!("{name}-public.png")), &s.public).unwrap();
+                std::fs::write(out.join(format!("{name}.jpg")), &s.owner).unwrap();
+                std::fs::write(out.join(format!("{name}-public.jpg")), &s.public).unwrap();
                 println!(
                     "{name}: {:.1}s {}",
                     started.elapsed().as_secs_f32(),

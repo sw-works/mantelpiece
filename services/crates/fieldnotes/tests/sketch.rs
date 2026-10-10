@@ -105,8 +105,8 @@ fn a_day_map_draws_the_same_picture_every_time() {
     assert_eq!(a.owner, b.owner, "byte-identical (FR-006)");
     assert_eq!(a.fingerprint, b.fingerprint);
     assert!(a.credit.contains("OpenStreetMap"));
-    let png = image::load_from_memory(&a.owner).unwrap();
-    assert_eq!((png.width(), png.height()), (sketch::W, sketch::H));
+    let pic = image::load_from_memory(&a.owner).unwrap();
+    assert_eq!((pic.width(), pic.height()), (sketch::W, sketch::H));
 }
 
 #[test]

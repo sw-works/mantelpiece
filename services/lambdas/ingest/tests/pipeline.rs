@@ -1035,8 +1035,8 @@ async fn highlights_get_field_notes_once_and_lose_them_when_they_stop_being_high
         .unwrap();
     assert_eq!(drew["made"], true, "{drew}");
     let which = mantelpiece_core::sketch::Which::Trip;
-    assert!(h.blobs.get(&keys.png(which)).await.is_ok());
-    assert!(h.blobs.get(&keys.public_png(which)).await.is_ok());
+    assert!(h.blobs.get(&keys.picture(which)).await.is_ok());
+    assert!(h.blobs.get(&keys.public_picture(which)).await.is_ok());
     let again = h
         .ingest
         .run(Task::SketchMap {

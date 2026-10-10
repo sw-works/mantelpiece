@@ -1130,6 +1130,23 @@ fn draw_run(map: &mut Pixmap, run: &[[f32; 2]], estimated: bool, seed: u64) {
     hand::ink(map, &[run.to_vec()], pen, seed);
 }
 
+/// The sheet as a JPEG: it is opaque, and paper grain makes a PNG about six times larger,
+/// slow for a TV to fetch.
+fn jpeg(map: &Pixmap) -> Vec<u8> {
+    let rgb = image::RgbImage::from_fn(map.width(), map.height(), |x, y| {
+        let p = map.pixel(x, y).map_or_else(
+            || tiny_skia::ColorU8::from_rgba(0, 0, 0, 255),
+            |c| c.demultiply(),
+        );
+        image::Rgb([p.red(), p.green(), p.blue()])
+    });
+    let mut out = Vec::new();
+    image::codecs::jpeg::JpegEncoder::new_with_quality(&mut out, 88)
+        .encode_image(&rgb)
+        .expect("a sheet encodes");
+    out
+}
+
 /// Draw one map of a trip in both forms.
 ///
 /// # Errors
@@ -1144,8 +1161,8 @@ pub fn draw(
     let face = hand::face();
     let l = layout(trip, which, home, tiles, &face)?;
     Ok(Sketch {
-        owner: raster::png(&ink(&l, which, false, &face)),
-        public: raster::png(&ink(&l, which, true, &face)),
+        owner: jpeg(&ink(&l, which, false, &face)),
+        public: jpeg(&ink(&l, which, true, &face)),
         fingerprint: fingerprint(trip, which, home),
         credit: l.credit,
     })

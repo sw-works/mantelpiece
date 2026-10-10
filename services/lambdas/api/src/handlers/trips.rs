@@ -312,9 +312,9 @@ pub async fn sketch_map(
     };
     let (_, credit) = SketchKeys::read_marker(&marker);
     let key = if public {
-        keys.public_png(which)
+        keys.public_picture(which)
     } else {
-        keys.png(which)
+        keys.picture(which)
     };
     Ok(Some((app.blobs.presign_get(&key).await?, credit)))
 }
