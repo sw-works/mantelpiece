@@ -178,3 +178,40 @@ fn the_fingerprint_follows_the_place_not_the_run() {
         fingerprint(&a, &t, Some(GeoPoint::new(43.768, 11.253)))
     );
 }
+
+#[test]
+fn a_landmark_in_the_photo_wins_over_the_municipality_around_it() {
+    let at = GeoPoint::new(43.7680, 11.2531);
+    let m = media(Some(at));
+    let mut t = trip();
+    let tied = |name: &str, kind: &str, lat: f64| mantelpiece_core::trip::Landmark {
+        name: name.into(),
+        at: GeoPoint::new(lat, 11.2531),
+        distance_m: 0.0,
+        source: "aws".into(),
+        kind: Some(kind.into()),
+        dim_m: None,
+        media: vec![MediaId::new("m1")],
+        country: Some("Italy".into()),
+    };
+    t.days[0].landmarks = vec![
+        tied("Comune di Firenze", "city", 43.7690),
+        tied("Uffizi", "landmark", 43.7700),
+        tied("Ponte Vecchio", "landmark", 43.7681),
+    ];
+    let p = photo();
+    let input = Input {
+        media: &m,
+        trip: &t,
+        home: None,
+        photo: &p,
+        subjects: &[],
+        heading: None,
+    };
+    let made = make(&input, &Fixtures { fail: false }).expect("a note");
+    assert_eq!(
+        made.feature.unwrap().name,
+        "Ponte Vecchio",
+        "the nearest landmark, not the region"
+    );
+}

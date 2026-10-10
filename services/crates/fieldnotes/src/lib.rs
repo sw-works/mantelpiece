@@ -79,7 +79,9 @@ fn geo_of(view: &View, u: f32, v: f32) -> GeoPoint {
 }
 
 /// The trip's landmark tied to the photo, else the most prominent named feature within a
-/// third of the map's width of the marker: peaks first, then water, then towns.
+/// third of the map's width of the marker: peaks first, then water, then towns. A tied
+/// landmark that is only a municipality or region comes last: on the deployed run it named
+/// "Norðurþing" for a photo of Dettifoss, which the map itself labels.
 fn main_feature(
     input: &Input<'_>,
     candidates: &[Candidate],
@@ -89,14 +91,21 @@ fn main_feature(
 ) -> Option<Feature> {
     let landmarks = || input.trip.days.iter().flat_map(|d| d.landmarks.iter());
     let country = landmarks().find_map(|l| l.country.clone());
-    if let Some(l) = landmarks().find(|l| l.media.contains(&input.media.id)) {
-        return Some(Feature {
-            name: l.name.clone(),
-            kind: FeatureKind::Landmark,
-            at: l.at,
-            detail: None,
-            country: l.country.clone(),
-        });
+    let tied = || landmarks().filter(|l| l.media.contains(&input.media.id));
+    let landmark = |l: &mantelpiece_core::trip::Landmark| Feature {
+        name: l.name.clone(),
+        kind: FeatureKind::Landmark,
+        at: l.at,
+        detail: None,
+        country: l.country.clone(),
+    };
+    // Several places can be within reach of one photo; the nearest is the one in it.
+    let from = input.media.gps.unwrap_or(marker_at(view, marker));
+    if let Some(l) = tied()
+        .filter(|l| !l.is_region() && l.prominence() > 0)
+        .min_by(|a, b| a.at.distance_m(from).total_cmp(&b.at.distance_m(from)))
+    {
+        return Some(landmark(l));
     }
     let near =
         |c: &&Candidate| (c.label.x - marker.x).hypot((c.label.y - marker.y) / aspect) <= 1.0 / 3.0;
@@ -126,6 +135,12 @@ fn main_feature(
             detail: c.label.sub.clone(),
             country,
         })
+        .or_else(|| tied().next().map(landmark))
+}
+
+/// Where the marker sits on the ground.
+fn marker_at(view: &View, marker: &Marker) -> GeoPoint {
+    geo_of(view, marker.x, marker.y)
 }
 
 /// Why a highlight got no note.
