@@ -52,6 +52,20 @@ async fn main() -> Result<(), Error> {
         geography: Arc::new(mantelpiece_store::geography::OpenGeography::default()),
         field_notes: !std::env::var("FIELD_NOTES").is_ok_and(|v| v == "off"),
         cluster: mantelpiece_trips::cluster::Params::default(),
+        films: match (
+            std::env::var("FILM_FUNCTION_ARN").unwrap_or_default(),
+            std::env::var("FILM_SCHEDULER_ROLE_ARN").unwrap_or_default(),
+        ) {
+            (function, role) if !function.is_empty() && !role.is_empty() => Arc::new(
+                mantelpiece_ingest_lambda::films::SchedulerDayFilms::from_config(
+                    &aws,
+                    std::env::var("FILM_SCHEDULE_GROUP").unwrap_or_else(|_| "default".into()),
+                    function,
+                    role,
+                ),
+            ),
+            _ => Arc::new(mantelpiece_ingest_lambda::films::MemoryDayFilms::default()),
+        },
         clock: Arc::new(OffsetDateTime::now_utc),
     });
     run(service_fn(move |event: LambdaEvent<Task>| {

@@ -241,6 +241,7 @@ async fn main() {
             min_trip_days: args.min_trip_days,
             ..mantelpiece_trips::cluster::Params::default()
         },
+        films: Arc::new(mantelpiece_ingest_lambda::films::MemoryDayFilms::default()),
         clock: Arc::new(OffsetDateTime::now_utc),
     };
     let household = HouseholdId::new("local");

@@ -256,6 +256,11 @@ pub async fn run(ingest: &Ingest, household: &HouseholdId) -> Result<Output> {
         )
         .await?;
 
+    // F-714: a film of each recent day at the end of that day (or soon, for a past day).
+    let films =
+        crate::films::schedule_days(ingest.films.as_ref(), household, &built, &media, now).await;
+    tracing::info!(%household, films, "day films scheduled");
+
     // F-712: every trip and day map; the task itself skips maps whose fingerprint matches.
     let sketch_maps_manifest = format!(
         "manifests/{household}/sketch-maps-{}.json",

@@ -14,6 +14,7 @@
 
 pub mod enrich;
 pub mod fieldnote;
+pub mod films;
 pub mod landmarks;
 pub mod organize;
 pub mod signal;
@@ -88,6 +89,8 @@ pub struct Ingest {
     pub field_notes: bool,
     /// Clustering thresholds; the defaults are the product rules, tools may relax them.
     pub cluster: mantelpiece_trips::cluster::Params,
+    /// End-of-day film schedules (F-714).
+    pub films: Arc<dyn films::DayFilms>,
     pub clock: Clock,
 }
 

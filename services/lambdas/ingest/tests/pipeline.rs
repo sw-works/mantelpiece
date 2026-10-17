@@ -76,6 +76,7 @@ fn harness_with(vision: MemoryVision) -> Harness {
         geography: geography.clone(),
         field_notes: true,
         cluster: mantelpiece_trips::cluster::Params::default(),
+        films: Arc::new(mantelpiece_ingest_lambda::films::MemoryDayFilms::default()),
         clock: Arc::new(|| datetime!(2026-09-08 10:00:00 UTC)),
     };
     Harness {
