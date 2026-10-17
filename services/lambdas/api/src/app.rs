@@ -66,6 +66,8 @@ pub struct App {
     /// IVS channels for phone broadcasts (live from the event).
     pub live: Arc<dyn Live>,
     pub starter: Arc<dyn crate::starter::Starter>,
+    /// Queues day films (F-714).
+    pub films: Arc<dyn crate::films::Films>,
     pub signer: Signer,
     pub config: Config,
     pub clock: Clock,
@@ -271,6 +273,9 @@ impl App {
             (Method::Post, ["trips", trip, "narration"]) => {
                 handlers::narration::synthesize(self, req, trip).await
             }
+            (Method::Get, ["trips", trip, "reel"]) => handlers::reels::reel(self, req, trip).await,
+            (Method::Get, ["trips", trip, "film"]) => handlers::reels::film(self, req, trip).await,
+            (Method::Post, ["trips", trip, "film"]) => handlers::reels::make(self, req, trip).await,
             (Method::Get, ["trips", trip, "narration"]) => {
                 handlers::narration::url(self, req, trip).await
             }

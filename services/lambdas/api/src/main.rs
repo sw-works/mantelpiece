@@ -8,6 +8,7 @@
 use lambda_http::{Body, Error, Request, RequestExt};
 use lambda_runtime::{run, service_fn, LambdaEvent};
 use mantelpiece_api::app::{App, Config};
+use mantelpiece_api::films::{LambdaFilms, NoFilms};
 use mantelpiece_api::req::{Jwt, Method, Req};
 use mantelpiece_api::starter::SfnStarter;
 use mantelpiece_api::tokens::Signer;
@@ -118,6 +119,10 @@ async fn main() -> Result<(), Error> {
             &aws,
             env("ORGANIZE_STATE_MACHINE_ARN")?,
         )),
+        films: match std::env::var("FILM_FUNCTION_NAME").unwrap_or_default() {
+            name if name.is_empty() => Arc::new(NoFilms),
+            name => Arc::new(LambdaFilms::from_config(&aws, name)),
+        },
         signer: Signer::new(token_secret),
         config: Config {
             link_base: env("LINK_BASE")?,

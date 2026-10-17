@@ -19,6 +19,7 @@ pub mod playlists;
 pub mod presence;
 pub mod proposals;
 pub mod reactions;
+pub mod reels;
 pub mod search;
 pub mod session;
 pub mod shares;

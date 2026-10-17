@@ -3,6 +3,7 @@
 #![allow(clippy::too_many_lines)]
 
 use mantelpiece_api::app::{App, Config};
+use mantelpiece_api::films::MemoryFilms;
 use mantelpiece_api::req::{Jwt, Method, Req, Resp};
 use mantelpiece_api::starter::MemoryStarter;
 use mantelpiece_api::tokens::Signer;
@@ -32,6 +33,7 @@ struct Harness {
     bus: Arc<MemoryBus>,
     vectors: Arc<MemoryVectors>,
     starter: Arc<MemoryStarter>,
+    films: Arc<MemoryFilms>,
     mailer: Arc<MemoryMailer>,
     push: Arc<MemoryPush>,
     live: Arc<MemoryLive>,
@@ -48,6 +50,7 @@ fn harness_with(live: MemoryLive) -> Harness {
     let bus = Arc::new(MemoryBus::default());
     let vectors = Arc::new(MemoryVectors::default());
     let starter = Arc::new(MemoryStarter::default());
+    let films = Arc::new(MemoryFilms::default());
     let mailer = Arc::new(MemoryMailer::default());
     let push = Arc::new(MemoryPush::default());
     let live = Arc::new(live);
@@ -65,6 +68,7 @@ fn harness_with(live: MemoryLive) -> Harness {
         push: push.clone(),
         live: live.clone(),
         starter: starter.clone(),
+        films: films.clone(),
         signer: Signer::new("test-secret"),
         config: Config {
             poll_hold: Duration::ZERO,
@@ -80,6 +84,7 @@ fn harness_with(live: MemoryLive) -> Harness {
         bus,
         vectors,
         starter,
+        films,
         mailer,
         push,
         live,
@@ -4981,5 +4986,125 @@ async fn sketch_maps_are_served_in_the_form_each_viewer_may_see() {
             .ends_with("trip-public.jpg"),
         "{}",
         view.body
+    );
+}
+
+/// F-713, F-714: a reel is planned on demand with its music presigned; a day film is served
+/// once stored and can be queued by the owner.
+#[tokio::test]
+async fn reels_are_planned_on_demand_and_day_films_are_served_and_queued() {
+    use mantelpiece_core::film::FilmKeys;
+    let h = harness();
+    let owner = HouseholdId::new("amzn-owner");
+    let mut ids = Vec::new();
+    for i in 0..6u8 {
+        let id = enriched(&h, &format!("IMG_{i}.jpg"), 40 + i, &["Street"], None).await;
+        let mut m = h.storage.get_media(&owner, &id).await.unwrap().unwrap();
+        m.trip = Some(TripId::new("rome"));
+        m.signals.width = Some(4032);
+        m.signals.height = Some(3024);
+        if i == 1 {
+            m.enrichment.landmark = Some(mantelpiece_core::media::Tag {
+                name: "Colosseum".into(),
+                confidence: 0.9,
+            });
+        }
+        h.storage.put_media(&m).await.unwrap();
+        ids.push(id.to_string());
+    }
+    let trip: mantelpiece_core::trip::Trip = serde_json::from_value(json!({
+        "id": "rome", "household": "amzn-owner", "name": "Rome",
+        "start": "2026-04-04T05:00:00Z", "end": "2026-04-05T20:00:00Z",
+        "days": [
+            { "index": 1, "date": "2026-04-04", "media": ids[..4], "title": null,
+              "route": { "points": [], "inferred": false, "map_key": null } },
+            { "index": 2, "date": "2026-04-05", "media": ids[4..], "title": null,
+              "route": { "points": [], "inferred": false, "map_key": null } }
+        ],
+        "route": { "points": [], "inferred": false, "map_key": null },
+        "highlights": [], "contributors": [], "clock_offsets": [], "narrative": null, "hero": null
+    }))
+    .unwrap();
+    h.storage.put_trip(&trip).await.unwrap();
+
+    let day = h.owner(Method::Get, "/trips/rome/reel?day=1", None).await;
+    assert_eq!(day.status, 200, "{}", day.body);
+    assert_eq!(day.body["title"]["text"], "Rome");
+    assert_eq!(day.body["title"]["sub"], "Day 1");
+    assert_eq!(day.body["slides"].as_array().unwrap().len(), 4);
+    assert_eq!(day.body["slides"][1]["label"]["text"], "Colosseum");
+    let url = day.body["track"]["url"].as_str().unwrap();
+    assert!(
+        url.starts_with("https://blobs.test/music/")
+            && std::path::Path::new(url)
+                .extension()
+                .is_some_and(|e| e.eq_ignore_ascii_case("m4a")),
+        "{url}"
+    );
+    assert!(day.body["credit"]["text"]
+        .as_str()
+        .unwrap()
+        .contains("CC BY"));
+
+    let whole = h.owner(Method::Get, "/trips/rome/reel", None).await;
+    assert_eq!(whole.status, 200, "{}", whole.body);
+    assert_eq!(whole.body["slides"].as_array().unwrap().len(), 6);
+    assert!(whole.body["title"]["sub"].is_null());
+    assert_eq!(
+        h.owner(Method::Get, "/trips/rome/reel?day=2", None)
+            .await
+            .status,
+        422,
+        "two photos are too few"
+    );
+    assert_eq!(
+        h.owner(Method::Get, "/trips/rome/reel?day=9", None)
+            .await
+            .status,
+        404
+    );
+
+    assert_eq!(
+        h.owner(Method::Get, "/trips/rome/film?day=1", None)
+            .await
+            .status,
+        404,
+        "no film yet"
+    );
+    let keys = FilmKeys::new(&owner, &TripId::new("rome"));
+    h.blobs
+        .put(&keys.film(1), vec![1], "video/mp4")
+        .await
+        .unwrap();
+    h.blobs
+        .put(
+            &keys.marker(1),
+            FilmKeys::marker_body("f", 30_000, "2026-04-04T21:00:00Z"),
+            "text/plain",
+        )
+        .await
+        .unwrap();
+    let film = h.owner(Method::Get, "/trips/rome/film?day=1", None).await;
+    assert_eq!(film.status, 200, "{}", film.body);
+    assert!(film.body["url"]
+        .as_str()
+        .unwrap()
+        .ends_with("films/amzn-owner/rome/day-1.mp4"));
+    assert_eq!(film.body["duration_ms"], 30_000);
+    assert_eq!(film.body["made_at"], "2026-04-04T21:00:00Z");
+
+    let queued = h
+        .owner(Method::Post, "/trips/rome/film", Some(json!({ "day": 2 })))
+        .await;
+    assert_eq!(queued.status, 202, "{}", queued.body);
+    assert_eq!(
+        h.films.queued.lock().unwrap().as_slice(),
+        &[(owner.clone(), TripId::new("rome"), 2)]
+    );
+    assert_eq!(
+        h.owner(Method::Post, "/trips/rome/film", Some(json!({ "day": 9 })))
+            .await
+            .status,
+        404
     );
 }

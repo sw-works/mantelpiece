@@ -97,6 +97,8 @@ pub async fn delete_account(app: &App, req: &Req) -> Result<Resp, ApiError> {
         #[allow(clippy::cast_possible_truncation)]
         let days = t.days.len() as u32;
         keys.extend(mantelpiece_core::sketch::SketchKeys::new(&household, &t.id).all(days));
+        // F-714: every day film and its marker.
+        keys.extend(mantelpiece_core::film::FilmKeys::new(&household, &t.id).all(days));
         keys.push(format!("maps/{household}/{}.png", t.id));
         keys.extend((1..=days).map(|n| format!("maps/{household}/{}/day-{n}.png", t.id)));
     }
