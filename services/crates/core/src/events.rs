@@ -151,6 +151,9 @@ pub enum EventKind {
         media: Vec<MediaId>,
         reasons: Vec<String>,
     },
+    /// A day film was rendered and stored (F-714).
+    #[serde(rename = "film.ready")]
+    FilmReady { trip: TripId, day: u32, key: String },
     /// Nightly memories were computed (F-701, F-702).
     #[serde(rename = "memories.ready")]
     MemoriesReady {
@@ -198,6 +201,7 @@ impl Event {
             EventKind::AnswerCard { .. } => "answer.card",
             EventKind::ShareJoinCode { .. } => "share.join_code",
             EventKind::NarrationReady { .. } => "narration.ready",
+            EventKind::FilmReady { .. } => "film.ready",
             EventKind::MemoriesReady { .. } => "memories.ready",
             EventKind::CleanupCandidates { .. } => "cleanup.candidates",
         }
@@ -211,6 +215,7 @@ impl Event {
                 | EventKind::MemoryReady { .. }
                 | EventKind::ReactionReceived { .. }
                 | EventKind::MediaRemoved { .. }
+                | EventKind::FilmReady { .. }
         )
     }
 
@@ -222,7 +227,8 @@ impl Event {
             | EventKind::ReactionReceived { trip, .. }
             | EventKind::MembershipJoined { trip, .. }
             | EventKind::ShareJoinCode { trip, .. }
-            | EventKind::NarrationReady { trip, .. } => Some(trip),
+            | EventKind::NarrationReady { trip, .. }
+            | EventKind::FilmReady { trip, .. } => Some(trip),
             EventKind::DedupProposal { trip, .. }
             | EventKind::ContributionReceived { trip, .. }
             | EventKind::CleanupProposal { trip, .. }
@@ -376,6 +382,11 @@ mod tests {
                 trip: TripId::new("t"),
                 day: 1,
                 audio_key: "narration/h/t/1.mp3".into(),
+            },
+            EventKind::FilmReady {
+                trip: TripId::new("t"),
+                day: 2,
+                key: "films/h/t/day-2.mp4".into(),
             },
             EventKind::ShareJoinCode {
                 trip: TripId::new("t"),

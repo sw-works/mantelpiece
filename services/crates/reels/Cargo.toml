@@ -1,0 +1,23 @@
+[package]
+name = "mantelpiece-reels"
+description = "Trip reels and day films (F-713, F-714): a deterministic plan cut to a music track's bars, and the frames of a film drawn from it. No AWS, no network"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+mantelpiece-core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+hex.workspace = true
+image.workspace = true
+tiny-skia = { version = "0.12", default-features = false, features = ["std", "simd", "png-format"] }
+ttf-parser = "0.25"
+time.workspace = true
+
+[dev-dependencies]
+
+[lints]
+workspace = true

@@ -10,6 +10,7 @@ pub mod contributor;
 pub mod device_code;
 pub mod events;
 pub mod field_note;
+pub mod film;
 pub mod geo;
 pub mod household;
 pub mod ids;
