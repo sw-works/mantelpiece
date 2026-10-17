@@ -1,23 +1,57 @@
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { App } from "aws-cdk-lib";
 import { Match, Template } from "aws-cdk-lib/assertions";
-import { describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it } from "vitest";
 import { MantelpieceStack } from "../lib/mantelpiece-stack.js";
 import { irreversibleTools, toolDefinitions } from "../lib/tools.js";
 
+// Every App stages its assets (Lambda bundles, the ffmpeg layer, music) into its own output
+// directory. Without an outdir CDK makes a new one under $TMPDIR per App and never removes it,
+// which filled the disk; keep them all under one root and delete it when the file is done.
+const outRoot = mkdtempSync(path.join(tmpdir(), "mantelpiece-cdk-test-"));
+afterAll(() => rmSync(outRoot, { recursive: true, force: true }));
+const freshApp = () => new App({ outdir: mkdtempSync(path.join(outRoot, "out-")) });
+
+/** The film Lambda (F-714), as [logical id, resource]. */
+function filmFunction(t: Template) {
+  const found = Object.entries(t.findResources("AWS::Lambda::Function")).filter(([id]) => id.startsWith("FilmFn"));
+  if (found.length !== 1) throw new Error(`${found.length} film functions`);
+  return found[0]!;
+}
+
 function synth(extra: Partial<ConstructorParameters<typeof MantelpieceStack>[2]> = {}) {
-  const app = new App();
+  const app = freshApp();
   const stack = new MantelpieceStack(app, "Test", {
     env: { account: "123456789012", region: "us-east-1" },
     linkBase: "https://link.example.com",
     uploadBase: "https://upload.example.com",
-    // Hermetic: never pick up a locally built agent package by accident.
+    // Hermetic: never pick up a locally built agent package or music library by accident.
     agentPackageDir: path.join(tmpdir(), "mantelpiece-no-agent-package"),
+    musicDir: path.join(tmpdir(), "mantelpiece-no-music"),
     ...extra,
   });
   return Template.fromStack(stack);
+}
+
+type Statement = { Action: string | string[]; Resource: unknown; Condition?: unknown };
+const actionsOf = (st: Statement) => ([] as string[]).concat(st.Action);
+
+/** Every statement of the inline policies attached to a role, by the role's logical id. */
+function roleStatements(t: Template, roleId: string): Statement[] {
+  return Object.values(t.findResources("AWS::IAM::Policy"))
+    .filter((p) => JSON.stringify(p.Properties.Roles) === JSON.stringify([{ Ref: roleId }]))
+    .flatMap((p) => p.Properties.PolicyDocument.Statement as Statement[]);
+}
+
+/** The Rust function whose environment has `variable`, as [logical id, resource]. */
+function rustFunctionWith(t: Template, variable: string) {
+  const found = Object.entries(t.findResources("AWS::Lambda::Function", { Properties: { Handler: "bootstrap" } })).filter(
+    ([, f]) => f.Properties.Environment?.Variables?.[variable] !== undefined,
+  );
+  if (found.length !== 1) throw new Error(`${found.length} functions with ${variable}`);
+  return found[0]!;
 }
 
 describe("Mantelpiece stack", () => {
@@ -28,7 +62,7 @@ describe("Mantelpiece stack", () => {
     template.hasResourceProperties("AWS::CloudFront::Distribution", { DistributionConfig: Match.objectLike({ DefaultRootObject: "link.html" }) });
     template.hasResourceProperties("AWS::CloudFront::Distribution", { DistributionConfig: Match.objectLike({ DefaultRootObject: "index.html" }) });
     template.resourceCountIs("Custom::CDKBucketDeployment", 1);
-    const app = new App();
+    const app = freshApp();
     const stack = new MantelpieceStack(app, "NoDomain", { env: { account: "123456789012", region: "us-east-1" } });
     const t = Template.fromStack(stack);
     const fns = Object.values(t.findResources("AWS::Lambda::Function", { Properties: { Handler: "bootstrap" } }));
@@ -82,12 +116,12 @@ describe("Mantelpiece stack", () => {
     });
   });
 
-  it("runs five Rust Lambdas on arm64 with the placeholder asset", () => {
+  it("runs six Rust Lambdas on arm64 with the placeholder asset", () => {
     const rust = template.findResources("AWS::Lambda::Function", {
       Properties: { Runtime: "provided.al2023" },
     });
-    // api, ingest, poster, recording, and the api binary again as the Gateway's interceptor.
-    expect(Object.keys(rust)).toHaveLength(5);
+    // api, ingest, poster, recording, film, and the api binary again as the Gateway's interceptor.
+    expect(Object.keys(rust)).toHaveLength(6);
     template.hasResourceProperties("AWS::Lambda::Function", {
       Runtime: "provided.al2023",
       Architectures: ["arm64"],
@@ -101,7 +135,8 @@ describe("Mantelpiece stack", () => {
   });
 
   it("gives videos a poster frame from an ffmpeg layer after signal", () => {
-    // One arm64 layer of ours; the web deployment brings its own AWS CLI layer.
+    // One arm64 layer of ours (ffmpeg, shared by poster, recording and film); each bucket
+    // deployment brings its own AWS CLI layer, which names no architecture.
     expect(Object.keys(template.findResources("AWS::Lambda::LayerVersion", { Properties: { CompatibleArchitectures: ["arm64"] } }))).toHaveLength(1);
     template.hasResourceProperties("AWS::Lambda::Function", {
       EphemeralStorage: { Size: 2048 },
@@ -304,6 +339,110 @@ describe("Mantelpiece stack", () => {
         Statement: Match.arrayWith([Match.objectLike({ Action: Match.arrayWith(["bedrock-agentcore:GetPolicyEngine", "bedrock-agentcore:AuthorizeAction", "bedrock-agentcore:PartiallyAuthorizeActions"]) })]),
       },
     });
+  });
+
+  it("renders day films on a large ffmpeg Lambda that reads and writes media and emits film.ready", () => {
+    const [filmId, film] = filmFunction(template);
+    expect(film.Properties).toMatchObject({ Runtime: "provided.al2023", Architectures: ["arm64"], Handler: "bootstrap", MemorySize: 3008, Timeout: 900, EphemeralStorage: { Size: 4096 } });
+    template.hasResourceProperties("AWS::Lambda::EventInvokeConfig", { FunctionName: { Ref: filmId }, MaximumRetryAttempts: 1 });
+    const ffmpeg = Object.keys(template.findResources("AWS::Lambda::LayerVersion", { Properties: { CompatibleArchitectures: ["arm64"] } }));
+    expect(film.Properties.Layers).toEqual([{ Ref: ffmpeg[0] }]);
+    const tableId = Object.keys(template.findResources("AWS::DynamoDB::Table"))[0];
+    const mediaId = Object.entries(template.findResources("AWS::S3::Bucket")).find(([, b]) => b.Properties.CorsConfiguration)?.[0];
+    const busId = Object.keys(template.findResources("AWS::Events::EventBus"))[0];
+    expect(film.Properties.Environment.Variables).toMatchObject({
+      TABLE_NAME: { Ref: tableId },
+      MEDIA_BUCKET: { Ref: mediaId },
+      EVENT_BUS: { Ref: busId },
+      FFMPEG: "/opt/bin/ffmpeg",
+    });
+    const granted = roleStatements(template, film.Properties.Role["Fn::GetAtt"][0]).flatMap(actionsOf);
+    expect(granted).toEqual(expect.arrayContaining(["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:Query", "s3:GetObject*", "s3:PutObject", "events:PutEvents"]));
+  });
+
+  it("lets ingest schedule end-of-day films that run as a role which may only invoke the film Lambda", () => {
+    const [filmId] = filmFunction(template);
+    const [, ingest] = rustFunctionWith(template, "PLACES_PROVIDER");
+    const env = ingest.Properties.Environment.Variables;
+    expect(env.FILM_FUNCTION_ARN).toEqual({ "Fn::GetAtt": [filmId, "Arn"] });
+    expect(env.FILM_SCHEDULE_GROUP).toBe("default");
+    const roleId = env.FILM_SCHEDULER_ROLE_ARN["Fn::GetAtt"][0] as string;
+    const role = template.findResources("AWS::IAM::Role")[roleId];
+    if (!role) throw new Error("no film scheduler role");
+    // Only Scheduler, in this account and the default group, may assume it.
+    expect(role.Properties.AssumeRolePolicyDocument.Statement).toEqual([
+      {
+        Action: "sts:AssumeRole",
+        Effect: "Allow",
+        Principal: { Service: "scheduler.amazonaws.com" },
+        Condition: {
+          StringEquals: {
+            "aws:SourceAccount": "123456789012",
+            "aws:SourceArn": "arn:aws:scheduler:us-east-1:123456789012:schedule-group/default",
+          },
+        },
+      },
+    ]);
+    // ...and it may invoke the film Lambda and nothing else.
+    const roleGrants = roleStatements(template, roleId);
+    expect(roleGrants).toHaveLength(1);
+    expect(roleGrants[0]!.Action).toBe("lambda:InvokeFunction");
+    expect(roleGrants[0]!.Resource).toEqual(expect.arrayContaining([{ "Fn::GetAtt": [filmId, "Arn"] }]));
+    // Ingest manages only film-* schedules in that group and passes only that role, only to Scheduler.
+    const ingestGrants = roleStatements(template, ingest.Properties.Role["Fn::GetAtt"][0]);
+    const schedules = ingestGrants.filter((st) => actionsOf(st).some((a) => a.startsWith("scheduler:")));
+    expect(schedules).toHaveLength(1);
+    expect(actionsOf(schedules[0]!).sort()).toEqual(["scheduler:CreateSchedule", "scheduler:DeleteSchedule", "scheduler:GetSchedule", "scheduler:UpdateSchedule"]);
+    expect(schedules[0]!.Resource).toBe("arn:aws:scheduler:us-east-1:123456789012:schedule/default/film-*");
+    const passRole = ingestGrants.filter((st) => actionsOf(st).includes("iam:PassRole"));
+    expect(passRole).toEqual([
+      { Action: "iam:PassRole", Effect: "Allow", Resource: { "Fn::GetAtt": [roleId, "Arn"] }, Condition: { StringEquals: { "iam:PassedToService": "scheduler.amazonaws.com" } } },
+    ]);
+  });
+
+  it("lets the API queue a film render, and not the Gateway's interceptor", () => {
+    const [filmId] = filmFunction(template);
+    const [, api] = rustFunctionWith(template, "FILM_FUNCTION_NAME");
+    expect(api.Properties.Environment.Variables.FILM_FUNCTION_NAME).toEqual({ Ref: filmId });
+    // The API is the function with the Gateway URL; the interceptor shares the rest of its environment.
+    expect(api.Properties.Environment.Variables.GATEWAY_URL).toBeDefined();
+    const invoke = roleStatements(template, api.Properties.Role["Fn::GetAtt"][0]).filter((st) => actionsOf(st).includes("lambda:InvokeFunction"));
+    expect(invoke).toHaveLength(1);
+    expect(invoke[0]!.Resource).toEqual(expect.arrayContaining([{ "Fn::GetAtt": [filmId, "Arn"] }]));
+  });
+
+  it("deploys the music library's .m4a files to music/ in the media bucket, and nothing without them", () => {
+    const music = (t: Template) => Object.values(t.findResources("Custom::CDKBucketDeployment")).filter((d) => d.Properties.DestinationBucketKeyPrefix === "music/");
+    expect(music(template)).toHaveLength(0);
+    const empty = mkdtempSync(path.join(tmpdir(), "music-"));
+    writeFileSync(path.join(empty, ".gitignore"), "*\n!.gitignore\n");
+    expect(music(synth({ musicDir: empty }))).toHaveLength(0);
+
+    const dir = mkdtempSync(path.join(tmpdir(), "music-"));
+    for (const file of [".gitignore", ".DS_Store", "notes.txt", "carefree.m4a"]) writeFileSync(path.join(dir, file), file);
+    const app = freshApp();
+    const stack = new MantelpieceStack(app, "Music", {
+      env: { account: "123456789012", region: "us-east-1" },
+      agentPackageDir: path.join(tmpdir(), "mantelpiece-no-agent-package"),
+      musicDir: dir,
+    });
+    const withMusic = Template.fromStack(stack);
+    const mediaId = Object.entries(withMusic.findResources("AWS::S3::Bucket")).find(([, b]) => b.Properties.CorsConfiguration)?.[0];
+    const deployments = music(withMusic);
+    expect(deployments).toHaveLength(1);
+    expect(deployments[0]!.Properties).toMatchObject({
+      DestinationBucketName: { Ref: mediaId },
+      DestinationBucketKeyPrefix: "music/",
+      Prune: false,
+      SystemMetadata: { "content-type": "audio/mp4" },
+    });
+    // Only the tracks are packaged: no .gitignore, no Finder litter.
+    const key = (deployments[0]!.Properties.SourceObjectKeys as string[])[0]!;
+    expect(readdirSync(path.join(app.synth().directory, `asset.${key.replace(/\.zip$/, "")}`))).toEqual(["carefree.m4a"]);
+    // The deployment's own handler (Python) and AWS CLI layer (no architecture) leave the
+    // Rust function and ffmpeg layer counts as they were.
+    expect(Object.keys(withMusic.findResources("AWS::Lambda::Function", { Properties: { Runtime: "provided.al2023" } }))).toHaveLength(6);
+    expect(Object.keys(withMusic.findResources("AWS::Lambda::LayerVersion", { Properties: { CompatibleArchitectures: ["arm64"] } }))).toHaveLength(1);
   });
 
   it("emits nightly.tick on the bus from a schedule, with no timer on any Lambda", () => {

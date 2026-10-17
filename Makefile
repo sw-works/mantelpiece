@@ -1,4 +1,4 @@
-.PHONY: test lint fmt test-rust lint-rust test-node lint-node test-py lint-py build-lambdas build-agent deploy deploy-web up down tv-vvd-start tv-vvd-install tv-vvd-logs tv-vvd-shot tv-vvd-stop tv-walkthrough
+.PHONY: test lint fmt test-rust lint-rust test-node lint-node test-py lint-py build-lambdas build-agent music deploy deploy-web up down tv-vvd-start tv-vvd-install tv-vvd-logs tv-vvd-shot tv-vvd-stop tv-walkthrough
 
 test: test-rust test-node test-py
 lint: lint-rust lint-node lint-py
@@ -28,12 +28,17 @@ fmt:
 # Rust Lambdas for arm64 via cargo-lambda (`cargo install cargo-lambda`). Output lands in
 # services/target/lambda/<name>/bootstrap, which the CDK stack packages.
 build-lambdas:
-	cd services && cargo lambda build --release --arm64 --bin api --bin ingest --bin poster --bin recording
+	cd services && cargo lambda build --release --arm64 --bin api --bin ingest --bin poster --bin recording --bin film
 
 # The Concierge agent for AgentCore Runtime: its code plus arm64 wheels in
 # agents/build/runtime, which the CDK stack zips. Needs uv.
 build-agent:
 	scripts/build-agent.sh
+
+# Music for trip reels and day films into infra/assets/music (gitignored). The next deploy
+# uploads the .m4a files to music/ in the media bucket; without them it deploys no music.
+music:
+	scripts/music-library.sh
 
 deploy: build-lambdas build-agent
 	cd infra && pnpm cdk deploy --require-approval never $(CDK_ARGS)
@@ -52,6 +57,7 @@ up: deploy deploy-web
 
 down:
 	scripts/ivs-sweep.sh
+	scripts/film-sweep.sh
 	cd infra && pnpm cdk destroy --force $(CDK_ARGS)
 	@echo "Stack gone. Retained stores: aws dynamodb list-tables; aws cognito-idp list-user-pools --max-results 20; aws s3 ls"
 

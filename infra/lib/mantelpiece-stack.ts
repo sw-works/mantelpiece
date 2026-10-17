@@ -62,6 +62,12 @@ export interface MantelpieceStackProps extends StackProps {
   /** Directory built by `scripts/build-agent.sh`; the Runtime is left out when it is absent. */
   agentPackageDir?: string;
   /**
+   * Music library for trip reels and day films (F-713, F-714), filled by
+   * `scripts/music-library.sh`. Its `.m4a` files go to `music/` in the media bucket; with
+   * none there, nothing is deployed and the reels have no track to fetch.
+   */
+  musicDir?: string;
+  /**
    * Bedrock model (or inference profile) id the Concierge writes with. Defaults to Amazon
    * Nova Pro, which needs no sign-up; an Anthropic model first needs the account's use-case
    * form (`-c agent-model-id=us.anthropic.claude-sonnet-4-20250514-v1:0`).
@@ -89,6 +95,9 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const placeholderDir = path.resolve(here, "..", "assets", "placeholder");
 const cedarPolicyDir = path.resolve(here, "..", "policy");
 const ffmpegLayerDir = path.resolve(here, "..", "assets", "ffmpeg-layer");
+const musicDefault = path.resolve(here, "..", "assets", "music");
+/** The Scheduler group the ingest Lambda puts end-of-day film schedules in. */
+const filmScheduleGroup = "default";
 const skillAssetDir = path.resolve(here, "..", "..", "agents", "src");
 /** `scripts/build-agent.sh` output: the Concierge with its arm64 dependencies. */
 const agentPackageDefault = path.resolve(here, "..", "..", "agents", "build", "runtime");
@@ -540,6 +549,80 @@ export class MantelpieceStack extends Stack {
       ],
     });
 
+    // Day films (F-714): the film Lambda plans a day's reel, renders it to MP4 with the
+    // ffmpeg layer under films/, and emits film.ready. The API invokes it asynchronously for
+    // POST /trips/{trip}/film; one-time Scheduler schedules that ingest upserts after
+    // organize invoke it at the end of each recent day.
+    // 3008 MB: the largest size a new account allows before a quota increase (RecordingFn
+    // uses the same); a 60 s film still renders in a few minutes.
+    const filmFn = rustFunction("FilmFn", "film", {
+      memorySize: 3008,
+      timeout: Duration.minutes(15),
+      ephemeralStorageSize: Size.gibibytes(4),
+      layers: [ffmpegLayer],
+      environment: {
+        TABLE_NAME: this.table.tableName,
+        MEDIA_BUCKET: this.bucket.bucketName,
+        EVENT_BUS: this.bus.eventBusName,
+        FFMPEG: "/opt/bin/ffmpeg",
+        RUST_LOG: "info",
+      },
+    });
+    // One retry: a failing render (a missing layer, a broken picture) should not run for
+    // three quarters of an hour.
+    filmFn.configureAsyncInvoke({ retryAttempts: 1 });
+    this.table.grantReadWriteData(filmFn);
+    this.bucket.grantReadWrite(filmFn);
+    this.bus.grantPutEventsTo(filmFn);
+
+    // The role the end-of-day schedules run as: it may invoke the film Lambda and nothing
+    // else, and only Scheduler in this account and group may assume it.
+    const filmSchedulerRole = new iam.Role(this, "FilmSchedulerRole", {
+      assumedBy: new iam.ServicePrincipal("scheduler.amazonaws.com", {
+        conditions: {
+          StringEquals: {
+            "aws:SourceAccount": this.account,
+            "aws:SourceArn": `arn:aws:scheduler:${this.region}:${this.account}:schedule-group/${filmScheduleGroup}`,
+          },
+        },
+      }),
+      description: "Lets the end-of-day film schedules invoke the film Lambda",
+    });
+    filmFn.grantInvoke(filmSchedulerRole);
+    ingestFn.addEnvironment("FILM_FUNCTION_ARN", filmFn.functionArn);
+    ingestFn.addEnvironment("FILM_SCHEDULER_ROLE_ARN", filmSchedulerRole.roleArn);
+    ingestFn.addEnvironment("FILM_SCHEDULE_GROUP", filmScheduleGroup);
+    // Ingest manages only its own `film-*` schedules, and hands them only the role above.
+    ingestFn.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["scheduler:CreateSchedule", "scheduler:UpdateSchedule", "scheduler:GetSchedule", "scheduler:DeleteSchedule"],
+        resources: [`arn:aws:scheduler:${this.region}:${this.account}:schedule/${filmScheduleGroup}/film-*`],
+      }),
+    );
+    ingestFn.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["iam:PassRole"],
+        resources: [filmSchedulerRole.roleArn],
+        conditions: { StringEquals: { "iam:PassedToService": "scheduler.amazonaws.com" } },
+      }),
+    );
+
+    // Music for trip reels and day films (F-713, F-714): the TV fetches music/{track}.m4a
+    // presigned and the film Lambda reads it. The tracks come from scripts/music-library.sh
+    // and are not in git; without any, nothing is deployed and the stack still synthesises.
+    // Tracks already in the bucket stay: no pruning, and a deploy from a machine without the
+    // library drops only the deployment (BucketDeployment retains its files on delete).
+    const musicDir = props.musicDir ?? musicDefault;
+    if (existsSync(musicDir) && readdirSync(musicDir).some((f) => f.endsWith(".m4a"))) {
+      new s3deploy.BucketDeployment(this, "MusicDeploy", {
+        destinationBucket: this.bucket,
+        destinationKeyPrefix: "music/",
+        sources: [s3deploy.Source.asset(musicDir, { exclude: ["*", ".*", "!*.m4a"] })],
+        contentType: "audio/mp4",
+        prune: false,
+      });
+    }
+
     const apiEnvironment = {
         TABLE_NAME: this.table.tableName,
         MEDIA_BUCKET: this.bucket.bucketName,
@@ -566,6 +649,9 @@ export class MantelpieceStack extends Stack {
     organizeMachine.grantStartExecution(apiFn);
     // Narrative regeneration re-triggers the Concierge through the bus (US4).
     this.bus.grantPutEventsTo(apiFn);
+    // POST /trips/{trip}/film queues a render (F-714). The interceptor gets neither.
+    apiFn.addEnvironment("FILM_FUNCTION_NAME", filmFn.functionName);
+    filmFn.grantInvoke(apiFn);
     // People opt-in (Faces), describe_photo fallback (Vision), narration (Speech).
     apiFn.addToRolePolicy(
       new iam.PolicyStatement({
