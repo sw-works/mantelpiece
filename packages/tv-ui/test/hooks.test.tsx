@@ -66,7 +66,17 @@ describe("events feed", () => {
     expect(describeEvent({ seq: 1, at: "", type: "reaction.received", actor_name: "Grandma Ruth", kind: "like", target: "day:3" })).toBe("Grandma Ruth loved day 3");
     expect(describeEvent({ seq: 1, at: "", type: "reaction.received", actor_name: "Maya", kind: "like", target: "media:m1" })).toBe("Maya loved a photo");
     expect(describeEvent({ seq: 1, at: "", type: "reaction.received", actor_name: "Grandma Ruth", kind: "comment", target: "media:m1", text: "That ramen!" })).toBe("Grandma Ruth: That ramen!");
+    expect(describeEvent({ seq: 1, at: "", type: "film.ready", trip: "t1", day: 2, key: "films/h1/t1/day-2.mp4" })).toBe("Day 2 film is ready");
     expect(describeEvent({ seq: 1, at: "", type: "unknown.thing" })).toBeNull();
+  });
+
+  it("bumps the films version when a day film is ready (F-714)", () => {
+    const s0 = { since: 0, recent: [], ticker: null, tripsVersion: 0, play: null };
+    const s1 = reduce(s0, [{ seq: 1, at: "", type: "film.ready", trip: "t1", day: 2, key: "films/h1/t1/day-2.mp4" }], 1);
+    expect(s1.filmsVersion).toBe(1);
+    expect(s1.ticker).toBe("Day 2 film is ready");
+    const s2 = reduce(s1, [{ seq: 2, at: "", type: "memory.ready", trip: "t1" }], 2);
+    expect(s2.filmsVersion).toBe(1);
   });
 
   it("reduces pages into recent, ticker and trips version", () => {

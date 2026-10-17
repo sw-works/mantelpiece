@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
-import { clockHints, creditFor, dayFacts, dayLabel, longDate, type ReactionsView, storyOf, type Trip, type TvApi, withPeople } from "../api/client";
+import { clockHints, creditFor, dayFacts, dayLabel, type FilmInfo, longDate, type ReactionsView, storyOf, type Trip, type TvApi, withPeople } from "../api/client";
 import { Backdrop } from "../components/Backdrop";
 import { FocusButton } from "../components/FocusButton";
 import { LandmarkCard } from "../components/LandmarkCard";
@@ -20,11 +20,15 @@ export function dayCredits(trip: Trip, media: string[]): string[] {
   return names;
 }
 
+/** A reel or film needs this many photos on the day (contracts/api.md: fewer answers 422). */
+export const MIN_REEL_PHOTOS = 3;
+
 /**
  * F-403: one trip. Its photo behind the title, the days as a row of chips, the chosen
  * day's photos with credits and reactions, its route, what its landmarks are (F-210) and
  * its story beside them. With face grouping on, a row of people narrows the days, the
- * photos and Play to the photos they are in (F-704).
+ * photos and Play to the photos they are in (F-704). The trip and each day play as a reel
+ * (F-713); a day with a film plays it, and the owner can have one made now (F-714).
  */
 export function TripView({
   api,
@@ -34,8 +38,11 @@ export function TripView({
   onInvite,
   onHighlights,
   onPlay,
+  onReel,
+  onFilm,
   canManage = true,
   reactionsVersion = 0,
+  filmsVersion = 0,
   nav,
 }: {
   api: TvApi;
@@ -45,10 +52,16 @@ export function TripView({
   onInvite: (tripId: string) => void;
   onHighlights?: (tripId: string) => void;
   onPlay?: (trip: Trip) => void;
-  /** False on a joined trip: no promote, no rewrite (F-165). */
+  /** The whole trip's reel, or one day's (F-713). */
+  onReel?: (trip: Trip, day?: number) => void;
+  /** A day's film (F-714); without it the TV offers no films. */
+  onFilm?: (trip: Trip, day: number) => void;
+  /** False on a joined trip: no promote, no rewrite, no film making (F-165). */
   canManage?: boolean;
   /** Bumped by the feed on every reaction so counts refresh (F-710). */
   reactionsVersion?: number;
+  /** Bumped by the feed when a day film is ready, so the film button appears. */
+  filmsVersion?: number;
   nav?: Nav;
 }) {
   const [reactions, setReactions] = useState<ReactionsView | null>(null);
@@ -85,6 +98,39 @@ export function TripView({
     };
   }, [api, token, tripId]);
 
+  // F-714: which days have a film, asked for the chosen day and again when one is ready.
+  const [films, setFilms] = useState<Record<number, FilmInfo | null>>({});
+  const [filmAsks, setFilmAsks] = useState<Record<number, "queued" | "failed">>({});
+  const filmsOn = Boolean(onFilm);
+  const chosen = useMemo(() => {
+    if (!full) return null;
+    const days = withPeople(full, only).days;
+    const d = days[Math.min(day, days.length - 1)];
+    // The reel and the film are of the whole day, whoever is picked above.
+    const photos = d ? (full.days.find((x) => x.index === d.index)?.media.length ?? 0) : 0;
+    return d ? { index: d.index, reelable: photos >= MIN_REEL_PHOTOS } : null;
+  }, [full, only, day]);
+  const filmDay = chosen?.reelable ? chosen.index : null;
+  useEffect(() => {
+    if (!filmsOn || filmDay === null) return;
+    let alive = true;
+    api
+      .film(token, tripId, filmDay)
+      .then((f) => alive && setFilms((s) => ({ ...s, [filmDay]: f })))
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [api, token, tripId, filmDay, filmsOn, filmsVersion]);
+  // A film landed: "will be ready" lines give way to the film button.
+  useEffect(() => setFilmAsks({}), [filmsVersion]);
+  const makeFilm = (index: number) => {
+    api
+      .makeFilm(token, tripId, index)
+      .then(() => setFilmAsks((s) => ({ ...s, [index]: "queued" })))
+      .catch(() => setFilmAsks((s) => ({ ...s, [index]: "failed" })));
+  };
+
   if (!full) return <Screen nav={nav} active="home" />;
   const trip = withPeople(full, only);
   const named = (full.people ?? []).filter((p) => p.name);
@@ -111,6 +157,7 @@ export function TripView({
         </View>
         <View style={{ flexDirection: "row", gap: 12, marginTop: 8 }}>
           {onPlay && <FocusButton label="Play" onPress={() => onPlay(trip)} testID="play" />}
+          {onReel && <FocusButton label="Play reel" variant="ghost" onPress={() => onReel(full)} testID="play-reel" />}
           {onHighlights && <FocusButton label="Highlights" variant="ghost" onPress={() => onHighlights(trip.id)} testID="highlights" />}
           <FocusButton label="Invite" variant="ghost" onPress={() => onInvite(trip.id)} testID="invite" />
           <FocusButton label="Back" variant="ghost" onPress={onBack} testID="back" />
@@ -140,6 +187,15 @@ export function TripView({
                 {`${longDate(current.date)} · ${current.media.length} photo${current.media.length === 1 ? "" : "s"}${credits.length ? ` from ${credits.join(", ")}` : ""}${current.route.inferred ? " · route inferred" : ""}${current.undated?.length ? ` · ${current.undated.length} undated` : ""}`}
               </Meta>
             </View>
+            {chosen?.reelable && (onReel || onFilm) && (
+              <View testID="day-actions" style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
+                {onReel && <FocusButton variant="chip" label="Day reel" testID={`day-reel-${current.index}`} onPress={() => onReel(full, current.index)} />}
+                {onFilm && films[current.index] && <FocusButton variant="chip" label="Day film" testID={`day-film-${current.index}`} onPress={() => onFilm(full, current.index)} />}
+                {onFilm && canManage && filmAsks[current.index] !== "queued" && <FocusButton variant="chip" label="Make day film" testID={`make-film-${current.index}`} onPress={() => makeFilm(current.index)} />}
+                {filmAsks[current.index] === "queued" && <Meta testID="film-queued">Your film will be ready in a few minutes</Meta>}
+                {filmAsks[current.index] === "failed" && <Meta testID="film-failed">The film could not be started. Try again later.</Meta>}
+              </View>
+            )}
             <ScrollView horizontal style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 18, padding: 6, paddingBottom: 12 }}>
               {current.media.slice(0, 12).map((m) => (
                 <View key={m} style={{ gap: 6, width: 250 }}>

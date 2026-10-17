@@ -315,6 +315,73 @@ export interface CodeView {
   member_households?: number;
 }
 
+/**
+ * A crop window over a picture (F-713, contracts/api.md "Crop windows"): the centre in
+ * normalised source coordinates, and the zoom over a cover fit of the frame.
+ */
+export interface CropWindow {
+  cx: number;
+  cy: number;
+  z: number;
+}
+
+/** A line shown over the reel from `start_ms` to `end_ms`. */
+export interface ReelText {
+  text: string;
+  start_ms: number;
+  end_ms: number;
+}
+
+/** One picture of a reel: on screen from `start_ms` to `end_ms`, moving from `from` to `to`. */
+export interface ReelSlide {
+  media: string;
+  /** Width over height, in display orientation. */
+  aspect: number;
+  start_ms: number;
+  end_ms: number;
+  from: CropWindow;
+  to: CropWindow;
+  /** A landmark grounded in the metadata, when the slide is long enough to read it. */
+  label: ReelText | null;
+}
+
+export interface ReelTrack {
+  id: string;
+  title: string;
+  artist: string;
+  licence: string;
+  credit: string;
+  /** Presigned URL of the music file. */
+  url: string;
+  bpm: number;
+}
+
+/**
+ * F-713: a trip or one of its days as a music-synced slideshow, planned by the API. Times
+ * are milliseconds from the start of the reel; the music starts at its own 0 with the first
+ * slide and every later cut lands on a bar line.
+ */
+export interface Reel {
+  trip: string;
+  /** The day for a day reel; absent or null for the whole trip. */
+  day?: number | null;
+  title: ReelText & { sub: string | null };
+  track: ReelTrack;
+  duration_ms: number;
+  fade_out_ms: number;
+  slides: ReelSlide[];
+  credit: ReelText;
+}
+
+/** F-714: the rendered film of one trip day. */
+export interface FilmInfo {
+  day: number;
+  /** Presigned URL of the MP4 (H.264 + AAC). */
+  url: string;
+  duration_ms: number;
+  made_at: string;
+}
+
 export class ApiError extends Error {
   constructor(
     readonly status: number,
@@ -491,7 +558,28 @@ export class TvApi {
     return this.call<{ url: string; day: number }>("GET", `/trips/${tripId}/narration?day=${day}`, undefined, token);
   }
 
-  putPresence(token: string, presence: { device_id: string; media: string; trip?: string | null; day?: number | null; paused: boolean }) {
+  /** F-713: the reel of a trip, or of one day. 422 "too few photos" under three usable photos. */
+  reel(token: string, tripId: string, day?: number) {
+    const q = day === undefined ? "" : `?day=${day}`;
+    return this.call<Reel>("GET", `/trips/${encodeURIComponent(tripId)}/reel${q}`, undefined, token);
+  }
+
+  /** F-714: the day's film, or null while there is none yet. */
+  async film(token: string, tripId: string, day: number): Promise<FilmInfo | null> {
+    try {
+      return await this.call<FilmInfo>("GET", `/trips/${encodeURIComponent(tripId)}/film?day=${day}`, undefined, token);
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 404) return null;
+      throw e;
+    }
+  }
+
+  /** F-714: render the day's film now (owner or co-editor); it lands with a `film.ready` event. */
+  makeFilm(token: string, tripId: string, day: number) {
+    return this.call<{ queued: boolean }>("POST", `/trips/${encodeURIComponent(tripId)}/film`, { day }, token);
+  }
+
+  putPresence(token: string, presence:{ device_id: string; media: string; trip?: string | null; day?: number | null; paused: boolean }) {
     return this.call<void>("PUT", "/presence", presence, token);
   }
 

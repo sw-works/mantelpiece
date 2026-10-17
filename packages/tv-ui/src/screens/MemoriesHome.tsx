@@ -40,6 +40,7 @@ export function MemoriesHome({
   onLeave,
   onMap,
   onPlay,
+  onReel,
   onPeople,
   arriving = null,
   tvName,
@@ -58,6 +59,8 @@ export function MemoriesHome({
   onLeave?: (trip: TripSummary) => Promise<void> | void;
   onMap?: () => void;
   onPlay?: (trip: Trip) => void;
+  /** The trip's music reel (F-713). */
+  onReel?: (trip: Trip) => void;
   onPeople?: () => void;
   arriving?: Arriving | null;
   tvName?: string;
@@ -124,7 +127,7 @@ export function MemoriesHome({
             <FocusButton label="Add photos" onPress={onInvite} preferred />
           </View>
         )}
-        {arriving ? <ArrivingHero arriving={arriving} onInvite={onInvite} /> : hero ? <TripHero api={api} token={token} trip={hero} isNew={!seen.has(hero.id)} onOpen={() => open(hero)} onPlay={onPlay} onLeave={onLeave ? () => leave(hero) : undefined} /> : null}
+        {arriving ? <ArrivingHero arriving={arriving} onInvite={onInvite} /> : hero ? <TripHero api={api} token={token} trip={hero} isNew={!seen.has(hero.id)} onOpen={() => open(hero)} onPlay={onPlay} onReel={onReel} onLeave={onLeave ? () => leave(hero) : undefined} /> : null}
 
         {memories && memories.on_this_day.length > 0 && (
           <View testID="on-this-day" style={{ gap: 14 }}>
@@ -208,11 +211,11 @@ const HERO_W = 1480;
 const HERO_H = 470;
 
 /**
- * The newest trip as one bounded card: its photo, its name and its own two buttons inside
+ * The newest trip as one bounded card: its photo, its name and its own buttons inside
  * the frame, so nothing on it reads as a control for the whole screen. Adding photos lives
  * in the rail.
  */
-function TripHero({ api, token, trip, isNew, onOpen, onPlay, onLeave }: { api: TvApi; token: string; trip: TripSummary; isNew: boolean; onOpen: () => void; onPlay?: (trip: Trip) => void; onLeave?: () => void }) {
+function TripHero({ api, token, trip, isNew, onOpen, onPlay, onReel, onLeave }: { api: TvApi; token: string; trip: TripSummary; isNew: boolean; onOpen: () => void; onPlay?: (trip: Trip) => void; onReel?: (trip: Trip) => void; onLeave?: () => void }) {
   const label = trip.shared_by ? `Shared by ${trip.shared_by}` : isNew ? "New memory" : "Latest trip";
   return (
     <View style={{ gap: 14 }}>
@@ -233,6 +236,7 @@ function TripHero({ api, token, trip, isNew, onOpen, onPlay, onLeave }: { api: T
           <View style={{ flexDirection: "row", gap: 14, marginTop: 8 }}>
             <FocusButton label="Open trip" testID={`open-${trip.id}`} preferred onPress={onOpen} />
             {onPlay && <FocusButton label="Play slideshow" variant="ghost" testID={`play-${trip.id}`} onPress={() => void api.trip(token, trip.id).then(onPlay).catch(() => undefined)} />}
+            {onReel && <FocusButton label="Play reel" variant="ghost" testID={`reel-${trip.id}`} onPress={() => void api.trip(token, trip.id).then(onReel).catch(() => undefined)} />}
             {trip.shared_by && onLeave && <FocusButton label="Leave trip" variant="ghost" testID={`leave-${trip.id}`} onPress={onLeave} />}
           </View>
         </View>

@@ -7,10 +7,13 @@ import { Ticker } from "./components/Ticker";
 import { useEvents } from "./hooks/useEvents";
 import { useRemoteKeys } from "./hooks/useRemoteKeys";
 import { type AudioPlayer } from "./audio";
+import { type FilmPlayer } from "./film";
 import { type LivePlayer } from "./live";
+import { type MusicPlayer } from "./music";
 import { Ambient } from "./screens/Ambient";
 import { Arrived } from "./screens/Arrived";
 import { Ask } from "./screens/Ask";
+import { Film } from "./screens/Film";
 import { Highlights } from "./screens/Highlights";
 import { Invite } from "./screens/Invite";
 import { JoinTrip } from "./screens/JoinTrip";
@@ -20,6 +23,7 @@ import { MapView } from "./screens/MapView";
 import { MemoriesHome } from "./screens/MemoriesHome";
 import { People } from "./screens/People";
 import { Phones } from "./screens/Phones";
+import { Reel } from "./screens/Reel";
 import { ReviewChanges } from "./screens/ReviewChanges";
 import { ThisPlace } from "./screens/ThisPlace";
 import { Slideshow } from "./screens/Slideshow";
@@ -45,7 +49,11 @@ export type Route =
   /** A phone's photos just landed; `back` is where the TV was (family channel). */
   | { name: "arrived"; back: Route }
   /** A phone is broadcasting; `back` is where the TV was (live from the event). */
-  | { name: "live"; back: Route; from: string };
+  | { name: "live"; back: Route; from: string }
+  /** A trip's or a day's music reel (F-713); `back` is where it was opened from, else the trip. */
+  | { name: "reel"; trip: Trip; day?: number; back?: Route }
+  /** A day's film (F-714); `back` as for the reel. */
+  | { name: "film"; trip: Trip; day: number; back?: Route };
 
 /** Shows made on the spot rather than a stored trip: no presence trip, no trip to go back to. */
 function isAdHoc(tripId: string): boolean {
@@ -71,12 +79,16 @@ export interface AppProps {
   idleMs?: number;
   /** Plays a phone's live broadcast; the platform shell supplies it. */
   livePlayer?: LivePlayer;
+  /** Plays a reel's music and is its clock (F-713); absent means silent reels. */
+  music?: MusicPlayer | null;
+  /** Plays a day film (F-714); absent means the TV says it cannot play films yet. */
+  filmPlayer?: FilmPlayer;
 }
 
 const DEFAULT_API = "https://api.mantelpiece.test";
 
 /** State-based router: no navigation library, no native screens module. */
-export function App({ apiBase, api: injectedApi, sessionStore, tvName, audio = null, narration = false, idleMs = 5 * 60 * 1000, livePlayer }: AppProps) {
+export function App({ apiBase, api: injectedApi, sessionStore, tvName, audio = null, narration = false, idleMs = 5 * 60 * 1000, livePlayer, music = null, filmPlayer }: AppProps) {
   const api = useMemo(() => injectedApi ?? new TvApi(apiBase ?? DEFAULT_API), [injectedApi, apiBase]);
   const store = useMemo(() => sessionStore ?? new MemorySessionStore(), [sessionStore]);
   const [deviceId] = useState(() => newDeviceId());
@@ -101,6 +113,7 @@ export function App({ apiBase, api: injectedApi, sessionStore, tvName, audio = n
       if (r.name === "highlights") return { name: "trip", id: r.id };
       if (r.name === "slideshow") return r.trip.id.startsWith("playlist:") ? { name: "ask" } : r.trip.id.startsWith("arrival:") ? { name: "home" } : { name: "trip", id: r.trip.id };
       if (r.name === "arrived" || r.name === "live") return r.back;
+      if (r.name === "reel" || r.name === "film") return r.back ?? { name: "trip", id: r.trip.id };
       if (r.name === "place") return { name: "slideshow", trip: r.trip, start: r.media, resume: true };
       if (r.name === "ask" || r.name === "review" || r.name === "phones" || r.name === "join" || r.name === "map" || r.name === "people" || r.name === "ambient")
         return { name: "home" };
@@ -108,8 +121,9 @@ export function App({ apiBase, api: injectedApi, sessionStore, tvName, audio = n
       return r;
     });
   }, []);
-  // The slideshow owns the remote while it is up.
-  useRemoteKeys({ onBack: route.name === "home" || route.name === "slideshow" || route.name === "place" || route.name === "ambient" || route.name === "arrived" || route.name === "live" ? undefined : goBack });
+  // The slideshow, reel and film own the remote while they are up.
+  const ownsRemote = ["home", "slideshow", "place", "ambient", "arrived", "live", "reel", "film"].includes(route.name);
+  useRemoteKeys({ onBack: ownsRemote ? undefined : goBack });
 
   useEffect(() => {
     store.load().then((s) => {
@@ -198,7 +212,7 @@ export function App({ apiBase, api: injectedApi, sessionStore, tvName, audio = n
       .then((q) => {
         if (!alive) return;
         setWaitingPhones(q.pending.length);
-        if (q.pending.length > 0 && phonesVersion > 0) setRoute((r) => (r.name === "slideshow" || r.name === "ambient" || r.name === "phones" ? r : { name: "phones" }));
+        if (q.pending.length > 0 && phonesVersion > 0) setRoute((r) => (r.name === "slideshow" || r.name === "ambient" || r.name === "phones" || r.name === "reel" || r.name === "film" ? r : { name: "phones" }));
       })
       .catch(() => undefined);
     return () => {
@@ -261,6 +275,7 @@ export function App({ apiBase, api: injectedApi, sessionStore, tvName, audio = n
           onMap={() => setRoute({ name: "map" })}
           onPeople={() => setRoute({ name: "people" })}
           onPlay={(trip) => setRoute({ name: "slideshow", trip })}
+          onReel={(trip) => setRoute({ name: "reel", trip, back: { name: "home" } })}
           onLeave={(t) => api.leaveTrip(session.token, t.id).catch(() => undefined)}
           onInvite={() => setRoute({ name: "phones" })}
           onAsk={() => setRoute({ name: "ask" })}
@@ -295,8 +310,11 @@ export function App({ apiBase, api: injectedApi, sessionStore, tvName, audio = n
           onInvite={(tripId) => setRoute({ name: "invite", tripId })}
           onHighlights={(id) => setRoute({ name: "highlights", id })}
           onPlay={(trip) => setRoute({ name: "slideshow", trip })}
+          onReel={(trip, day) => setRoute({ name: "reel", trip, ...(day === undefined ? {} : { day }), back: route })}
+          onFilm={(trip, day) => setRoute({ name: "film", trip, day, back: route })}
           canManage={!route.shared}
           reactionsVersion={reactionsVersion}
+          filmsVersion={feed.filmsVersion ?? 0}
           nav={nav}
         />
       );
@@ -329,6 +347,12 @@ export function App({ apiBase, api: injectedApi, sessionStore, tvName, audio = n
           focusMap={route.resume === true}
         />
       );
+      break;
+    case "reel":
+      screen = <Reel key={`${route.trip.id}:${route.day ?? "trip"}`} api={api} token={session.token} tripId={route.trip.id} day={route.day} music={music} onBack={goBack} />;
+      break;
+    case "film":
+      screen = <Film api={api} token={session.token} tripId={route.trip.id} tripName={route.trip.name} day={route.day} player={filmPlayer} onBack={goBack} />;
       break;
     case "place":
       screen = <ThisPlace api={api} token={session.token} tripId={route.trip.id} mediaId={route.media} onBack={goBack} />;

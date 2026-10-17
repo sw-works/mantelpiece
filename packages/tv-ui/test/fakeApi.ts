@@ -1,4 +1,4 @@
-import { type DevicePoll, type FeedEvent, type Trip, type TripSummary, TvApi } from "../src/api/client";
+import { ApiError, type DevicePoll, type FeedEvent, type FilmInfo, type Reel, type Trip, type TripSummary, TvApi } from "../src/api/client";
 
 /** Scripted backend for hook and screen tests. */
 export class FakeApi extends TvApi {
@@ -188,5 +188,24 @@ export class FakeApi extends TvApi {
   }
   override async declineLive(_token: string, request: string) {
     this.calls.push(`decline ${request}`);
+  }
+  /** The reel the API plans; an ApiError is thrown as the API would answer it. */
+  reelResult: Reel | ApiError = new ApiError(404, "not found");
+  override async reel(_token: string, tripId: string, day?: number) {
+    this.calls.push(`reel ${tripId}${day === undefined ? "" : ` day ${day}`}`);
+    if (this.reelResult instanceof ApiError) throw this.reelResult;
+    return this.reelResult;
+  }
+  /** Day films that exist, by day. */
+  films: Record<number, FilmInfo> = {};
+  override async film(_token: string, tripId: string, day: number) {
+    this.calls.push(`film ${tripId} day ${day}`);
+    return this.films[day] ?? null;
+  }
+  makeFilmError: ApiError | null = null;
+  override async makeFilm(_token: string, tripId: string, day: number) {
+    this.calls.push(`make film ${tripId} day ${day}`);
+    if (this.makeFilmError) throw this.makeFilmError;
+    return { queued: true };
   }
 }

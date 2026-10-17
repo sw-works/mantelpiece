@@ -23,6 +23,8 @@ export interface FeedState {
   live?: LiveNow | null;
   /** Phones asking to go live, oldest first; the TV grants or declines each. */
   liveRequests?: LiveAsk[];
+  /** Bumped when a day film is stored (F-714); Trip view refetches its film buttons. */
+  filmsVersion?: number;
 }
 
 export interface LiveAsk {
@@ -111,6 +113,8 @@ export function describe(event: FeedEvent): string | null {
       return "New memories for today";
     case "answer.card":
       return `Answer: ${String(event.answer)}`;
+    case "film.ready":
+      return `Day ${String(event.day)} film is ready`;
     case "reaction.received": {
       const who = String(event.actor_name);
       const target = String(event.target);
@@ -149,6 +153,7 @@ export function reduce(state: FeedState, events: FeedEvent[], next: number): Fee
     upload,
     play,
     phonesVersion: (state.phonesVersion ?? 0) + (events.some((e) => e.type === "phone.requested") ? 1 : 0),
+    filmsVersion: (state.filmsVersion ?? 0) + (events.some((e) => e.type === "film.ready") ? 1 : 0),
   };
 }
 

@@ -4,7 +4,9 @@ import { App } from "@mantelpiece/tv-ui";
 import { apiBase, name } from "./app.json";
 import { audioPlayer } from "./src/audio";
 import { deviceName } from "./src/deviceName";
+import { filmPlayer } from "./src/filmPlayer";
 import { livePlayer } from "./src/livePlayer";
+import { musicPlayer } from "./src/musicPlayer";
 import { sessionStore } from "./src/sessionStore";
 
 // The component name must equal the main interactive component id in manifest.toml.
@@ -13,6 +15,8 @@ import { sessionStore } from "./src/sessionStore";
 // Narration (F-709) plays through the system media port when the platform has one and
 // falls back to captions when it does not; the flag itself lives on the household. Live
 // video from a phone plays through the W3C media port when scripts/vega-hls.sh has run.
+// Reel music (F-713) and day films (F-714) use the same port's AudioPlayer and VideoPlayer
+// in URL mode; without the port, reels play silently and films say they cannot play.
 // Debug builds only: the system media bundle trips two React warnings of its own the
 // moment the live player loads, and their full-screen LogBox sits over the TV. Neither
 // comes from this app: a forwardRef component inside the video surface, and hls.js asking
@@ -22,6 +26,8 @@ LogBox?.ignoreLogs?.(["forwardRef render functions accept exactly two parameters
 const store = sessionStore();
 const audio = audioPlayer();
 const player = livePlayer();
+const music = musicPlayer();
+const film = filmPlayer();
 
 // The TV's own name is the household name offered on first launch; wait for it (it
 // answers or times out within a second or two) so the name step never flickers.
@@ -35,7 +41,7 @@ function Root() {
     };
   }, []);
   if (tvName === null) return null;
-  return createElement(App, { apiBase: apiBase || undefined, sessionStore: store, tvName, audio, narration: true, livePlayer: player });
+  return createElement(App, { apiBase: apiBase || undefined, sessionStore: store, tvName, audio, narration: true, livePlayer: player, music, filmPlayer: film });
 }
 
 AppRegistry.registerComponent(name, () => Root);
