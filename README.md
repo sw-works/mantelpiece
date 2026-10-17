@@ -148,6 +148,16 @@ carries the credit. Amazon Location is not used for them: its service terms do n
 keeping map content. Sketch maps are lettered in Patrick Hand by Patrick Wagesreiter, under
 the SIL Open Font Licence (`services/crates/fieldnotes/assets/OFL-PatrickHand.txt`).
 
+### Music
+
+Trip reels and day films (spec 004) play three tracks by Kevin MacLeod, "Carefree", "Early
+Riser" and "Living Voyage", licensed CC BY 3.0 (https://creativecommons.org/licenses/by/3.0/)
+and taken from Wikimedia Commons (sources in `services/crates/reels/assets/music.json`).
+Every reel and film credits its track on screen. `make music` fetches them into
+`infra/assets/music/` (not committed); the stack deploys them to the media bucket. Film text
+is set in Instrument Serif under the SIL Open Font Licence
+(`services/crates/fieldnotes/assets/OFL.txt`).
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).

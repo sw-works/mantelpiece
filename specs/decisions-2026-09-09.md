@@ -970,3 +970,40 @@ compile-checked only.
   part PUT failed once on a dropped connection (it now retries three times). Each `make up`
   leaves another retained table behind: three `Mantelpiece-Table…` tables exist now.
 - `make down` after the run.
+
+## 39. Trip reels and day films (2026-10-16)
+
+- Spec 004 (F-713, F-714) on branch `004-trip-reels`. **Amends F-708**: video is encoded, but
+  only for day films, from the TV renditions; originals are still never transcoded (F-105)
+  and the TV still has no editing or video stack beyond playing a file.
+- Planner: a new crate `crates/reels`, deterministic, no model call. Ingest's metadata does
+  what a vision model did in the Editbay travel POC this was taken from (order, scores,
+  subject boxes, landmarks). W1 has no tool-calling path or per-photo data, so it is not used.
+- Music: three CC BY 3.0 tracks by Kevin MacLeod from Wikimedia Commons, transcoded to
+  AAC-LC `.m4a` (Vega and HE-AAC, decision 34) by `scripts/music-library.sh` (`make music`),
+  beat grids from librosa embedded as `assets/music.json`. A reel uses only tracks whose
+  first bar falls within 4 s, so the TV never seeks (decision 34's wedged seeks). The credit
+  is on screen at the end of every reel and film.
+- Films are drawn frame by frame in Rust (tiny-skia, the same crop formula as the TV) and
+  piped to the ffmpeg layer as raw RGBA: ffmpeg's `crop` cannot change size per frame, and
+  the layer's 7.0.2 build has no `drawtext` (no harfbuzz). Text is set in Instrument Serif.
+- Audio: loudnorm alone at TP -2 measured -0.9 dBTP after AAC; loudnorm at TP -3 plus a
+  -3 dBFS limiter measured -14.9 LUFS and -2.1 dBTP. Local render of a 31 s film from 7
+  photos: 8.3 s on an M2 (release build).
+- MP4 with `+faststart`, not HLS: the TV only gets presigned single objects, and a presigned
+  playlist does not sign its segments.
+- End of day: households have no time zone and the nightly tick reaches nothing, so ingest
+  upserts a one-time Scheduler schedule per day of a touched trip no more than two days old,
+  at 21:00 in the day's most common photo offset (ten minutes from now for a finished day),
+  named `film-<hash>-day-<n>` within the IAM prefix, deleted after it runs.
+- Film Lambda at 3008 MB (the new-account cap RecordingFn also sits at), 15 min, 4 GB `/tmp`,
+  one async retry.
+- The infra stack test wrote a `cdk.out*` directory per synth into `$TMPDIR` and never
+  removed it; with the ffmpeg layer and music present locally each synth copied about 70 MB.
+  It filled the disk on 2026-10-16. The tests now synth under one temporary root that is
+  deleted when the file finishes.
+- **Unverified**: anything on AWS (the session was expired), the Vega `AudioPlayer` playing
+  the `.m4a` and its `currentTime` granularity, the Vega `VideoPlayer` playing an MP4 in URL
+  mode, `Image.prefetch` on Vega, Scheduler deleting a completed schedule with no extra
+  permission, and the render time on the 3008 MB Lambda.
+
