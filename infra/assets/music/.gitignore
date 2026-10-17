@@ -1,0 +1,3 @@
+# Tracks fetched by scripts/music-library.sh (make music); not in git.
+*
+!.gitignore
