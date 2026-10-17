@@ -1,0 +1,37 @@
+[package]
+name = "mantelpiece-film"
+description = "Day films (F-714): draw a day's reel into frames and encode an MP4 with ffmpeg from a Lambda layer"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[lib]
+name = "mantelpiece_film"
+path = "src/lib.rs"
+
+[[bin]]
+name = "film"
+path = "src/main.rs"
+
+[dependencies]
+mantelpiece-core.workspace = true
+mantelpiece-reels.workspace = true
+mantelpiece-store.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+time.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+lambda_runtime.workspace = true
+aws-config.workspace = true
+tiny-skia = { version = "0.12", default-features = false, features = ["std", "simd", "png-format"] }
+
+[dev-dependencies]
+image.workspace = true
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+
+[lints]
+workspace = true
