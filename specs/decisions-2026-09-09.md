@@ -1007,3 +1007,42 @@ compile-checked only.
   mode, `Image.prefetch` on Vega, Scheduler deleting a completed schedule with no extra
   permission, and the render time on the 3008 MB Lambda.
 
+## 40. Trip reels and day films on the deployed stack (2026-10-17)
+
+- `make up` failed at asset upload: eight parallel S3 uploads on a slow, lossy uplink ended
+  in `write EPIPE` before CloudFormation started. `make up CDK_ARGS="--asset-parallelism=false"`
+  (one upload at a time) went through. The film Lambda's assets (14 MB code, 14 MB music)
+  were among those that failed.
+- Test album: 15 Iceland photos plus 12 copies re-dated to 15 and 16 October 2026 at -07:00,
+  so both days counted as recent and finished. Organize made "Iceland, October 2026" with
+  two days, plus a 2015 trip.
+- **End of day verified**: organize logged "day films scheduled, films: 2" (twice, the second
+  run moving the same schedules); Scheduler invoked the film Lambda about ten minutes later;
+  both films were stored (35 s, 6 slides each, 8.1 and 7.2 MB) and both schedules were gone
+  afterwards, deleted by Scheduler with the permissions the stack already grants. Render time
+  on the 3008 MB Lambda: 70 s and 88 s for a 35 s film, 808 MB peak memory. The stored film
+  measures -14.9 LUFS and -2.5 dBFS sample peak; title, "Day 1", Goðafoss and Dettifoss
+  labels and the music credit all render.
+- Virtual Device, reel: Play reel opens on the title over the first slide and the slides
+  advance. The `AudioPlayer` loads the presigned `.m4a` in URL mode (`canplay` fires) and
+  reports Playing, but `currentTime` stops near 0.5 s ("No Time update even in Playing
+  state"), with the device's AudioSystemService refusing IPC at the same time. The reel's
+  stall fallback took over and carried on silently. Whether the music plays on a real Fire TV
+  stays open.
+- Virtual Device, day film: Trip view shows Day reel, Day film and Make day film. Day film
+  plays through the `VideoPlayer` in URL mode: the pipeline links the H.264 decoder and the
+  film's first frame is on screen, but playback crawls (late frames). The emulator ran at
+  about a sixth of real time all session (its clock gained 5 minutes in 30), so this says
+  nothing about speed on a stick.
+- Make day film from the TV: not verified. The Virtual Device's network dropped (curl errors
+  7 and 55, no API requests from the TV after 10:45 UTC), and API Gateway logged no 4xx or
+  5xx while the button said "The film could not be started". The same `LambdaFilms` invoke,
+  run from the host, reached the film Lambda, which skipped the already current film in
+  108 ms.
+- Seen, not chased: Back on the reel left the app for the launcher (as in decision 38);
+  Home stayed on "6 of 12 photos in" until the app was relaunched; "Then and now" paired the
+  re-dated copies with their 2015 originals (an artefact of the test album); a film's first
+  landmark label shows under the title. The API does not log the cause of a 503.
+- `make down` now also deletes `film-*` schedules (`scripts/film-sweep.sh`): ingest creates
+  them outside the stack, and one still waiting for 21:00 would fire at a deleted Lambda.
+

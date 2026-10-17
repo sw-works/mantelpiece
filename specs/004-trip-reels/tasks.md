@@ -24,7 +24,7 @@
 - [x] T022 API: `GET /trips/{trip}/reel`, `GET` and `POST /trips/{trip}/film`; films deleted
   with the account (`handlers/reels.rs`, `films.rs`, API test)
 - [x] T023 Ingest: upsert end-of-day schedules after organize (`lambdas/ingest/src/films.rs`)
-- [~] T024 EventBridge Scheduler create/update and self-delete on the stack
+- [x] T024 EventBridge Scheduler create/update and self-delete on the stack (decision 40)
 
 ## TV
 
@@ -34,16 +34,20 @@
 - [x] T032 Film screen; Trip view (Play reel, Day reel, Day film, Make day film) and Memories
   home (Play reel)
 - [~] T033 Vega `AudioPlayer` plays the `.m4a` and reports `currentTime`
-  (`musicPlayer.kepler.ts`)
-- [~] T034 Vega `VideoPlayer` plays the MP4 in URL mode (`filmPlayer.kepler.tsx`)
+  (`musicPlayer.kepler.ts`). Virtual Device: loads, then the clock stalls near 0.5 s and the
+  reel goes silent; needs a real Fire TV
+- [~] T034 Vega `VideoPlayer` plays the MP4 in URL mode (`filmPlayer.kepler.tsx`). Virtual
+  Device: decodes and shows frames, playback crawls; needs a real Fire TV
 
 ## Infra
 
 - [x] T040 Film Lambda (3008 MB, 15 min, 4 GB, ffmpeg layer, one retry), scheduler role,
   ingest scheduler permissions, API invoke grant, music deployment; stack tests
 - [x] T041 Stack tests synth under one temporary root removed afterwards (the `cdk.out*` leak)
-- [~] T042 `make deploy`, then: a reel on the Virtual Device, a film made from Trip view, a
-  schedule created by an upload
+- [~] T042 `make deploy`, then: a reel on the Virtual Device (done), a schedule created by an
+  upload (done, films made and schedules deleted), a film made from Trip view (open: the
+  Virtual Device lost its network)
+- [x] T043 `make down` deletes leftover `film-*` schedules (`scripts/film-sweep.sh`)
 
 ## Docs
 
