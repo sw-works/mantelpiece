@@ -3,5 +3,5 @@
   "name": "com.hanyu.mantelpiece.main",
   "displayName": "Mantelpiece",
   "//api": "Deployed API base URL (stack output ApiUrl); scripts/tv-config.sh fills it. Empty falls back to the tv-ui placeholder",
-  "apiBase": "https://reotncu9va.execute-api.us-west-2.amazonaws.com"
+  "apiBase": "https://tlqo3r6fqc.execute-api.us-west-2.amazonaws.com"
 }
