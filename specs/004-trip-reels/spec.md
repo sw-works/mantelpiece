@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-16
 
-**Status**: Draft
+**Status**: Implemented; open tasks and unverified items are in `tasks.md`
 
 **Input**: User description: "Do both A and B for the hackathon: (A) a music-synced slideshow on
 the TV, planned from the trip; (B) a rendered film of each day, made at the end of the day."

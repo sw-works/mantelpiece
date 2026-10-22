@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-09
 
-**Status**: Draft
+**Status**: Implemented; open tasks and unverified items are in `tasks.md`
 
 **Input**: User description: "Field notes: editorial map overlays on trip highlights. Inspired by the 'travel zine' idea (a travel photo with a restrained, real map of where it was taken laid over its empty space), but built for Mantelpiece and without an image model." Reference look: the sixteen examples in the original post (Barcelona, Gran Paradiso, Pisa, Budapest, Florence, Turin, Tre Cime, Hemu), reviewed 2026-10-10.
 

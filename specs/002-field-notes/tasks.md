@@ -105,7 +105,7 @@
 - [x] T035 [US4] `POST /media/{id}/fieldnote/full` in `services/lambdas/api/src/handlers/media.rs`: owner or co-editor only; decode the original, rasterise the stored drawing at its size, `compose`, write `fieldnote-full.jpg` (reused while the fingerprint is unchanged), return `{url, expires_in}`; 404 without a note, 403 for others; route in `services/lambdas/api/src/app.rs`; tests in `services/lambdas/api/tests/api.rs`
 - [x] T036 [US4] Purge and account deletion remove `fieldnote.json`, `fieldnote.png`, `fieldnote-public.png`, `fieldnote-full.jpg` in `services/lambdas/api/src/handlers/media.rs` and `services/lambdas/api/src/handlers/session.rs`; tests
 - [x] T037 [P] [US4] Phone viewer in `apps/web/src/pages/trips.ts`: highlights with a note open a full-width view with a Plain / Field note switch and Share (Web Share API with the file, else a download link), credit line under it; vitest for the pure parts in `apps/web/test/trips.test.ts`
-- [x] T038 [P] [US4] Read-only view and shared links show the public form with the credit, in `apps/web/src/pages/trip.ts` and `apps/web/src/pages/shared.ts`
+- [ ] T038 [P] [US4] (partial: the read-only view in `apps/web/src/pages/trip.ts` shows the public form with the credit; shared album links in `apps/web/src/pages/share.ts` show no field notes yet) Read-only view and shared links show the public form with the credit
 
 ---
 

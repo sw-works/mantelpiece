@@ -1,6 +1,6 @@
 # Feasibility: FaceTime-style multi-TV video calling on Fire TV
 
-Status: Research note, no code
+Status: Research note. One-way live from a phone to the TV was built afterwards (`decisions-2026-09-09.md` sections 32 and 34); multi-party calling was not
 Created: 2026-09-15
 Question: can a Fire TV app let people at several TVs / locations join one live video call?
 Method: Amazon Devices Builder Tools doc search (Vega 0.21 to 0.24), Amazon developer

@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-10
 
-**Status**: Draft
+**Status**: Implemented; open tasks and unverified items are in `tasks.md`
 
 **Input**: User description: "Trip sketch maps (F-712): hand-drawn style maps for a whole multi-day trip and for each day, replacing the F-207 static route map. Built in code from real geography, no image model."
 

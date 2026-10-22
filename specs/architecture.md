@@ -1,6 +1,6 @@
 # Mantelpiece: Architecture and Requirements
 
-Status: Draft for hackathon execution
+Status: as submitted to the hackathon, 2026-10-21; open items in section 9
 App name: Mantelpiece (mantelpiece.tv)
 Companion: `hackathon.md` (entry strategy, rules, timeline, demo plan), `decisions-2026-09-09.md` (Fire TV research log)
 Goal: zero infrastructure for the user. Install one Fire TV app, upload from phone, done.
@@ -340,18 +340,18 @@ EventBridge, Lambda (Rust), API Gateway, AppSync Events, Cognito, Amazon Locatio
 Rekognition labels ~$10, Titan embeddings ~$1, thumbnails/Lambda ~$1, S3 ~$0.25/month at
 avg 5 MB, Bedrock Claude narrative per trip cents. Demo account well under $100 total.
 
-## 9. Open Questions (verify week 1)
+## 9. Open Questions
 
-Documentation findings of 2026-09-09 are in `decisions-2026-09-09.md` section 6; items marked
-"docs say" still need a device check.
+Raised in week 1; where each stands on 2026-10-21. Evidence is in `decisions-2026-09-09.md`
+(section numbers below).
 
-1. Native LWA sign-in from Vega RN app. Docs say `@amazon-devices/keplerscript-identity-lwa-lib` supports the auth-code grant with PKCE. Default is device code; this only decides whether the upgrade ships.
-2. WebSocket / AppSync Events from Vega RN runtime. Docs say WebSocket is supported on React Native for Vega 0.83. Default is long-poll; same decision shape.
-3. Gateway MCP spec version vs Alexa+ 2025-11-25, plus Alexa+ inbound auth: OAuth 2.1 with PKCE and a protected resource metadata document on the MCP endpoint, and a 500 ms round-trip budget per tool call.
-4. AgentCore Policy and S3 Vectors availability in the chosen region (us-east-1 or us-west-2).
-5. cargo-lambda arm64 static build of libheif and turbojpeg on Amazon Linux 2023; ffmpeg layer size under the 250 MB unzipped limit.
-6. Guest identity without an Amazon account: Cognito unauthenticated identities vs signed short-lived upload tokens bound to the trip code.
+1. Native LWA sign-in from the Vega app. Docs say `@amazon-devices/keplerscript-identity-lwa-lib` supports the auth-code grant with PKCE (section 6). Not built: the device-code flow ships.
+2. WebSocket / AppSync Events from the Vega runtime. Docs say WebSocket works on React Native for Vega 0.83 (section 6). Not built: the long-poll feed ships.
+3. Gateway MCP spec version vs Alexa+, and Alexa+ inbound auth. The stack serves the OAuth 2.1 PKCE client and the protected resource metadata (`docs/alexa-plus.md`). Open: the add-on is not registered, since the Alexa+ preview was not granted to this account; the 500 ms per-call budget is unmeasured.
+4. Region. Closed: us-west-2, where AgentCore Policy deploys once its Cedar rules follow the shape in section 31. Vectors live in DynamoDB (`DynamoVectors`); the `S3Vectors` store exists behind the same trait and is not deployed.
+5. Lambda builds. Closed for the deployed path: cargo-lambda with a zig linker, and ffmpeg as a static arm64 binary layer (section 31). HEIC decode is not built: `services/crates/ingest/src/decode.rs` reports HEIC as unsupported until libheif is added.
+6. Guest identity without an Amazon account. Closed: HMAC-signed upload tokens from the API (`services/lambdas/api/src/tokens.rs`), not Cognito unauthenticated identities; bound to the trip code and to a browser install's device id, and expiring with the code (section 14).
 7. Closed: no microphone API for Vega apps. Voice goes through Alexa+ or the phone page (section 5).
-8. React Native version for `apps/tv-vega`: 0.83 (SDK 0.24 early access) if the install grants it, else 0.72. Either way `apps/tv` at 0.87 splits into `packages/tv-ui` plus per-platform shells.
-9. Session persistence: docs say `@amazon-devices/react-native-async-storage__async-storage` is system-deployed. Confirm on VVD, then replace `MemorySessionStore`.
-10. Audio playback from the Vega app for F-709 narration without bundling a native module. The reference sample used the `@amazon-devices/react-native-w3cmedia` port; check whether it is system-deployed.
+8. React Native version. Closed: `apps/tv-vega` runs 0.83 (SDK 0.24); shared UI is `packages/tv-ui` (section 2).
+9. Session persistence. Closed: the system-deployed `@amazon-devices/react-native-async-storage__async-storage` port; terminate and relaunch stays signed in on the Virtual Device (section 31).
+10. Audio playback without a bundled native module. Partly open: the `AudioPlayer` loads and reports Playing on the Virtual Device, but time stops near 0.5 s there, so reels fall back to silent playback (section 40). A real Fire TV is untested. Narration stays captions-first.

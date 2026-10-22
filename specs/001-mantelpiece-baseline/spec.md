@@ -4,7 +4,7 @@
 
 **Created**: 2026-09-09
 
-**Status**: Draft
+**Status**: Implemented; open tasks and unverified items are in `tasks.md`
 
 **Input**: User description: "all the features"
 

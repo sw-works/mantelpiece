@@ -1,6 +1,6 @@
 # Mantelpiece: Hackathon Plan
 
-Status: Draft for hackathon execution
+Status: Plan written 2026-09-08; what shipped is in `architecture.md` and `decisions-2026-09-09.md`
 Target: Build, Ship, Shape: Amazon Developer Hackathon (Devpost)
 Submission deadline: 2026-10-23 12:00 PT
 Judging: 2026-11-09 to 2026-11-20

@@ -85,7 +85,7 @@ policy that every story builds on.
 - [X] T022 [P] Add `Maps` trait (static route map, pins map) with `MemoryMaps` and an Amazon Location implementation in `services/crates/store/src/maps.rs`
 - [X] T023 [P] Add `Speech` trait (synthesize to S3 key) with `MemorySpeech` and a Polly implementation in `services/crates/store/src/speech.rs` (research R10)
 - [X] T024 Extend `caller()` in `services/lambdas/api/src/app.rs` to resolve `Caller::Member { household, trip }` from memberships and `Caller::CoEditor` from contributor role; add `owner_or_co_editor(trip)` and `member_or_owner(trip)` guards
-- [X] T025 [P] Write the Cedar policy set in `infra/policy/tools.cedar` requiring a confirmation token for `apply_dedup`, `apply_cleanup`, `delete_media`, `share_album`, `remove_contributor`, and role `co_editor` or owner for `RemoveMedia`; load it in `infra/lib/mantelpiece-stack.ts`
+- [X] T025 [P] Write the Cedar policy set in `infra/policy/` (one file per rule since the first deploy, decision 31) requiring a confirmation token for `apply_dedup`, `apply_cleanup`, `delete_media`, `share_album`, `remove_contributor`, and role `co_editor` or owner for `RemoveMedia`; load it in `infra/lib/mantelpiece-stack.ts`
 - [X] T026 [P] Add `pytest` fakes for the new tools (`get_now_showing`, `describe_photo`, `list_cleanup_candidates`, `memories_for`, `apply_cleanup`) to `InMemoryTools` and the `Tools` protocol in `agents/src/mantelpiece_agents/tools.py`
 - [X] T027 Wire new Gateway tool targets and the nightly `events.Rule` (`nightly.tick`) in `infra/lib/mantelpiece-stack.ts`; extend `infra/test/stack.test.ts`
 - [X] T028 Extend `services/lambdas/api/tests/api.rs` with role and membership fixtures (owner, co-editor, guest, member household) used by every later story
