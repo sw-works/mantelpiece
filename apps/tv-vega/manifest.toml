@@ -7,6 +7,8 @@ schema-version = 1
 title = "Mantelpiece"
 version = "0.1.0"
 id = "com.hanyu.mantelpiece"
+# 512 x 512 PNG rendered from docs/brand/icon.svg; a missing file makes the package invalid.
+icon = "@image/app_icon.png"
 
 # Required since Vega SDK 0.24: the OS line the package is built for and the oldest it runs on.
 [os.version]
