@@ -49,9 +49,9 @@ Then it makes something to watch:
 
 Grandma's Fire TV joins the same trip with its code and gets everyone's photos the evening
 they are taken; her reactions come back to the ticker on yours. Ask the TV for "beach days
-with the kids" and a playlist plays. An agent keeps the archive tidy, and nothing
-irreversible happens until someone confirms on the remote: only the Review Changes screen
-on the TV can mint the token that lets a delete or a share run. Places near home are never
+with the kids" and a playlist plays. Nothing irreversible happens without a person:
+only the owner or a co-editor can mint the token that lets a delete or a share run, on
+the TV's Review Changes screen, and an agent cannot mint one. Places near home are never
 drawn precisely, and anything shared outside the household gets the maps without the home
 end of the route.
 
@@ -78,10 +78,11 @@ end of the route.
   layer, scheduled per day with EventBridge Scheduler.
 - **Live** through Amazon IVS low-latency channels: the phone broadcasts from the browser,
   the TV plays HLS through Vega's W3C media port with a patched hls.js.
-- **Agents on Bedrock AgentCore**: a Strands Concierge on Runtime with Memory (Amazon Nova
-  Pro by default), six workflows (Trip Curator, Ask Your Archive, Household Patterns,
-  Dedup Steward, Share, Trip Merge), tools through AgentCore Gateway with Lambda targets,
-  and Cedar policies that deny irreversible tools without the TV's confirmation token.
+- **Agents on Bedrock AgentCore**: a Strands Concierge on Runtime (Amazon Nova Pro by
+  default) writes each new trip's story when EventBridge reports it. Its tools go through
+  AgentCore Gateway with the API Lambda as the target and an interceptor that seals the
+  caller's household into every call; Cedar policies deny irreversible tools without a
+  confirmation token.
 - **Observability and audit**: every agent run and tool call is a span tagged with the
   household; every pairing, share, deletion and gated tool leaves an audit entry with the
   confirmation it carried.
@@ -118,7 +119,7 @@ unverified is listed in `docs/friction-log.md` and `specs/decisions-2026-09-09.m
 
 Rust, React Native, TypeScript, AWS Lambda, API Gateway, Step Functions, DynamoDB, S3,
 CloudFront, EventBridge, EventBridge Scheduler, Cognito, Login with Amazon, Rekognition,
-Amazon Bedrock (Amazon Nova), Bedrock AgentCore (Gateway, Runtime, Memory, Policy), Strands
+Amazon Bedrock (Amazon Nova), Bedrock AgentCore (Gateway, Runtime, Policy), Strands
 Agents, Amazon IVS, AWS CDK, Vega OS, OpenStreetMap (OpenFreeMap), tiny-skia, ffmpeg.
 
 ## Links

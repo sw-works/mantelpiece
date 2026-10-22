@@ -65,7 +65,7 @@ DynamoDB (media, trips, albums, playlists,   S3 Vectors (embeddings, durable)
    ▲
    │ Lambda targets (no OpenAPI, no tunnel)
 AgentCore Gateway + Identity (Cognito) + Policy (Cedar)
-   ├─ AgentCore Runtime: Strands "Mantelpiece Concierge", Claude on Bedrock, AgentCore Memory
+   ├─ AgentCore Runtime: Strands "Mantelpiece Concierge", Amazon Nova Pro on Bedrock
    └─ Alexa+ MCP add-on (same endpoint)
 ```
 
@@ -331,9 +331,13 @@ Same "confirm before irreversible" pattern throughout. Cedar policy on `apply_de
 
 ## 7. AWS Services Used (AWS Builder mini-challenge)
 
-Bedrock (Claude, Titan Multimodal Embeddings, Nova), AgentCore Gateway, Runtime, Identity,
-Memory, Policy, Observability, Rekognition, S3, S3 Vectors, DynamoDB, Step Functions,
-EventBridge, Lambda (Rust), API Gateway, AppSync Events, Cognito, Amazon Location, SES, CDK.
+Deployed (2026-10-21): Bedrock (Amazon Nova Lite for photo descriptions and subject boxes,
+Nova Pro for the Concierge), AgentCore Gateway (Cognito inbound auth, Lambda target, request
+interceptor), Runtime (traces to X-Ray) and Policy (Cedar), Rekognition, Amazon Location
+(place names, the all-trips map), Amazon IVS, Polly (narration, off by default), SES, S3,
+DynamoDB, Step Functions with Distributed Map, EventBridge and EventBridge Scheduler, Lambda
+(Rust, arm64), API Gateway, CloudFront, Cognito, CDK. In the design, not deployed: AgentCore
+Memory, S3 Vectors, AppSync Events.
 
 ## 8. Cost Envelope (rough, per 10k photos, unverified)
 

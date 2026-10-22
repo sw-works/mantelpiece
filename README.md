@@ -5,9 +5,10 @@ The family TV, shared with everyone's phones: photos the moment they land, the t
 Mantelpiece is a Fire TV app plus a hosted backend. Install the app, scan the QR on the TV,
 pick photos on your phone. Everyone on the trip scans the same QR and adds theirs; after
 that the phone remembers the trip, and on Android the page sits in the share sheet. The
-backend groups bursts, scores highlights, reconstructs the route, writes a day-by-day story,
-and an agent keeps the archive tidy. Ask about any trip from the TV or from Alexa+, or play
-one as a slideshow on an Echo Show. Photos from a phone take over the TV as they land, and
+backend groups bursts, scores highlights, reconstructs the route and writes a day-by-day
+story, and nothing irreversible runs without a person's confirmation. Ask about any trip from
+the TV; an Alexa+ add-on and an Echo Show slideshow skill are built but not yet registered
+with Alexa. Photos from a phone take over the TV as they land, and
 one button on the remote tells the sender they were loved; a phone can ask to go live, and
 once someone on the TV says yes its camera plays on the big screen a few seconds behind.
 Each highlight gets a quiet map of where it was taken, each trip and day a hand-drawn
