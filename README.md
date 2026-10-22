@@ -10,6 +10,8 @@ and an agent keeps the archive tidy. Ask about any trip from the TV or from Alex
 one as a slideshow on an Echo Show. Photos from a phone take over the TV as they land, and
 one button on the remote tells the sender they were loved; a phone can ask to go live, and
 once someone on the TV says yes its camera plays on the big screen a few seconds behind.
+Each highlight gets a quiet map of where it was taken, each trip and day a hand-drawn
+sketch map, and each trip or day plays as a music reel; every day becomes a film at 21:00.
 
 Entry for Build, Ship, Shape: Amazon Developer Hackathon 2026.
 Tracks: Fire TV (primary), Alexa+ (secondary). Mini-challenges: AWS Builder, Open Source.
@@ -34,8 +36,11 @@ services/        Rust workspace
   crates/ingest  checksum, EXIF, pHash, quality signals, burst grouping, renditions
   crates/trips   event and trip clustering, clock alignment, routes, naming, highlights
   crates/store   Storage and Blobs traits: DynamoDB, S3, in-memory
+  crates/fieldnotes field notes and sketch maps drawn from OpenStreetMap and terrain tiles
+  crates/reels   reel plans and day-film frames
   lambdas/api    backend API Lambda behind API Gateway
-  lambdas/ingest Step Functions tasks: signal, enrich, organize
+  lambdas/ingest Step Functions tasks: signal, enrich, organize, field notes, sketch maps
+  lambdas/film   day films: frames from crates/reels, encoded by the ffmpeg layer
   lambdas/poster poster frames for videos (ffmpeg from a Lambda layer)
   lambdas/recording saved broadcasts: IVS recording remuxed to MP4 into originals/ (same layer)
 agents/          Concierge workflows W1 to W6 for AgentCore Runtime, and the Echo Show skill (Python, uv)
