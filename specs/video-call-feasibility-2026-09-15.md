@@ -128,8 +128,7 @@ precision (`apps/tv-vega/spike/`, feed scripts kept out of the repo). The Vega a
 played the channel's standard HLS playback URL through hls.js 1.5.11 with Amazon's Vega
 patches on `@amazon-devices/react-native-w3cmedia` 2.3.4-rn-83 (MSE mode) and overlaid the
 device's own UTC clock; the Virtual Device clock matched the host to the second. Lag is the
-difference between the two clocks in one screenshot. Screenshots:
-`docs/screens/live-spike-ivs-3s.png`, `docs/screens/live-spike-ivs-stock.png`.
+difference between the two clocks in one screenshot.
 
 | hls.js live-sync setting | Glass-to-glass lag | hls.js's own `latency` | Notes |
 |---|---|---|---|

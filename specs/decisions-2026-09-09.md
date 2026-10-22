@@ -715,8 +715,7 @@ compile-checked only.
   "Trip, October 25 to 26, 2025" from six photos on two consecutive days (the seven
   single-day photos stay unorganised: `min_trip_days` is 2). The Virtual Device build with
   the API base from `scripts/tv-config.sh` showed the code and QR, landed on Memories home
-  with the trip poster and the "6 photos organised" ticker after approval
-  (`docs/screens/vvd-*-deployed-2026-09-14.png`).
+  with the trip poster and the "6 photos organised" ticker after approval.
 - Two surprises. (1) Bedrock on a fresh account answered "Your account is currently being
   verified" for about an hour; the failed Organize run was redriven
   (`aws stepfunctions redrive-execution`) once the hold lifted and succeeded. (2) The TV
@@ -725,7 +724,7 @@ compile-checked only.
   The shell now uses the system-deployed port
   `@amazon-devices/react-native-async-storage__async-storage` 2.1.9000000001 (the
   `-rn-83` prerelease fails the SDK's kepler-compatibility check); verified: terminate
-  and relaunch comes back signed in (`docs/screens/vvd-relaunch-signed-in-2026-09-14.png`).
+  and relaunch comes back signed in.
 - Open, seen on the Virtual Device and not chased: after sign-in the TV moved from Home to
   the slideshow on its own, and after relaunch from Home to Trip view, with no
   `play.requested` on the feed (possibly key events injected by the CLI launch, possibly a
@@ -754,8 +753,7 @@ compile-checked only.
   Phone side is the IVS web broadcast SDK (WebRTC ingest, lazy 649 kB chunk on
   `live.html`). TV side is hls.js with Amazon's Vega patches on the system W3C media port
   (`scripts/vega-hls.sh` builds it into the gitignored `apps/tv-vega/vendor/`).
-- Verified on the deployed stack and the Virtual Device (screens
-  `docs/screens/vvd-arrived*-2026-09-21.png`, `vvd-live-*-2026-09-21.png`): six photos
+- Verified on the deployed stack and the Virtual Device: six photos
   took over the TV as they landed, each `photos.arrived` 0.9 to 3.0 s after its upload
   completed (server event time against this Mac's clock; the TV's own poll adds up to one
   interval, not measured). Love it wrote the inbox note and a real Chrome profile received
@@ -795,8 +793,7 @@ compile-checked only.
   phone switched away from says "<TV> switched to <name>" from its `GET /live` check.
   Requests lapse after 60 s; a phone can withdraw its own. Verified on the Virtual Device
   with Chrome as Maya and a scripted second phone as Sam: Watch, a switch to Sam (his
-  ffmpeg clock then played), and Not now leaving Sam on screen
-  (`docs/screens/vvd-live-request-2026-09-21.png`). After the prompt closes, focus returns
+  ffmpeg clock then played), and Not now leaving Sam on screen. After the prompt closes, focus returns
   on the first arrow press, not by itself.
 
 ## 33. The app is called Mantelpiece (2026-09-22)

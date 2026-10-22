@@ -105,9 +105,9 @@
 <text x="1084" y="651.4" text-anchor="middle" font-size="7.2" fill="#57606a" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">+ describe_photo · quick_cleanup</text>
 <text x="1084" y="660.0" text-anchor="middle" font-size="7.2" fill="#57606a" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">+ memories_nightly · spans per run and tool</text>
 <rect x="1220" y="610" width="200" height="64" rx="6" fill="#f3f4f6" stroke="#8c959f" stroke-width="1.5" stroke-dasharray="2 3"/>
-<text x="1320" y="634.9" text-anchor="middle" font-size="12.0" font-weight="600" fill="#24292f">Alexa+</text>
-<text x="1320" y="648.9" text-anchor="middle" font-size="9.2" fill="#57606a" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">OAuth 2.1 PKCE · mantelpiece/tools</text>
-<text x="1320" y="660.0" text-anchor="middle" font-size="9.2" fill="#57606a" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">get_now_showing → describe_photo</text>
+<text x="1320" y="635.2" text-anchor="middle" font-size="12.0" font-weight="600" fill="#24292f">Alexa+</text>
+<text x="1320" y="649.2" text-anchor="middle" font-size="9.0" fill="#57606a" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">OAuth 2.1 PKCE · mantelpiece/tools</text>
+<text x="1320" y="660.0" text-anchor="middle" font-size="9.0" fill="#57606a" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">get_now_showing → describe_photo</text>
 <rect x="24" y="865" width="18" height="12" rx="3" fill="#f6f8fa" stroke="#57606a" />
 <text x="48" y="875" font-size="11" fill="#57606a">deterministic code</text>
 <rect x="191.2" y="865" width="18" height="12" rx="3" fill="#eef2ff" stroke="#4c5fd5" />
