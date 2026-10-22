@@ -102,9 +102,14 @@ what would have helped. Dates are when we hit it.
   screenshots, and every shell command failed with "Invalid component id:
   com.amazon.dev.shell.service". On 2026-10-09 it died again, with "failed to get running
   components for com.amazon.dev.shell.service". Only `vega virtual-device stop` then
-  `start` recovers it, and that wipes the app's stored session, so the household is
-  abandoned and its phone has to pair again. Relaunching with `vega run-app` wiped the TV
-  session too, whereas a terminate and relaunch keeps it. Live has never failed this way on
+  `start` recovers it, and that wiped the app's stored session on 2026-09-22 and
+  2026-10-09, so the household was abandoned and its phone had to pair again. On 2026-10-21
+  the shell died twice more in one recording session (once with "Invalid component id:
+  com.amazon.dev.shell.service" while pressing keys); after one stop and start the release
+  build came back signed in, so the wipe is not certain. Key events sent through the emulator
+  console (`event send`) did not reach the app, so the shell is the only way to drive it.
+  Relaunching with `vega run-app` wiped the TV session too, whereas a terminate and relaunch
+  keeps it. Live has never failed this way on
   anything but the Virtual Device; a real Fire TV is untested. A restart that keeps app
   data, or a command that restarts the shell service alone, would keep a test household
   across a crash.

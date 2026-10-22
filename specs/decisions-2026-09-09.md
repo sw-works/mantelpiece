@@ -1043,3 +1043,32 @@ compile-checked only.
 - `make down` now also deletes `film-*` schedules (`scripts/film-sweep.sh`): ingest creates
   them outside the stack, and one still waiting for 21:00 would fire at a deleted Lambda.
 
+## 41. Recording the demo on the deployed stack (2026-10-21)
+
+- `make up CDK_ARGS="--asset-parallelism=false -c retain-data=false"` in us-west-2; the release
+  `.vpkg` (now with the launcher icon, `apps/tv-vega/assets/image/app_icon.png`) installed and
+  launched on the Virtual Device with no debug banners. `make down` with the same `-c` flag
+  removed everything afterwards.
+- Footage: the emulator console records the screen (`screenrecord start --fps 30`, 1080p VP9
+  with the device's audio); phone pages recorded in headless Chromium at a phone viewport and
+  device scale 2 from a CDP screencast. Two pairing phones (Maya, Sam) sent the 48-photo Iceland
+  album; organize made "Dettifoss, June 2015" (June 27 to July 4, 8 days, 2 contributors), 6 field
+  notes, a trip map and 8 day maps. Day films for days 3 and 4 were queued by invoking the film
+  Lambda directly (30 s each, 1080p, music in).
+- Verified on the Virtual Device in this run: QR pairing with Allow; the "Just arrived · From
+  Maya" takeover and Love it ("Loved · Maya will see it"); Trip view with the trip sketch map,
+  credits and the story naming both contributors; the slideshow opening a day on its map;
+  Field notes mode; a live broadcast from a phone (Chrome with a fake camera playing a CC BY-SA
+  fireworks clip) after Watch, and End broadcast from the TV.
+- Seen, not chased:
+  - Sam's 42-photo takeover cycled through black frames: each photo is announced before the
+    TV can load its rendition on the slow emulator.
+  - In headless Chromium with a persistent profile, every upload failed with "Internal error
+    opening backing store for indexedDB.open." The upload page needs IndexedDB for resumable
+    uploads and has no fallback, so a browser without IndexedDB (some private modes) cannot
+    send at all. A plain context worked.
+  - The developer shell died again (see the friction log); a stop and start kept the TV session
+    this time.
+  - Day 1's story mentions Frankfurt (the first photo is from the plane) and calls both
+    contributors to a day only Sam photographed.
+
