@@ -1,9 +1,8 @@
 # Testing Mantelpiece
 
-For hackathon judges. The hosted backend is up from **2026-11-09 to 2026-11-20**. Nothing
-needs an account: a Fire TV names its household on first launch and phones pair by QR.
-
-> Values marked ⟨set on 2026-11-09⟩ are filled in when the judging stack is deployed.
+For hackathon judges. The hosted backend is up through **2026-11-20**, the end of judging.
+Nothing needs an account: a Fire TV names its household on first launch and phones pair by
+QR.
 
 ## What you need
 
@@ -13,13 +12,15 @@ needs an account: a Fire TV names its household on first launch and phones pair 
 
 ## 1. Install the TV app
 
-Download `mantelpiece.vpkg` from the
-[judging release](https://github.com/sw-works/mantelpiece/releases/tag/judging) ⟨set on
-2026-11-09⟩. It is a release build that talks to the judging backend.
+Download the `.vpkg` for your device from the
+[judging release](https://github.com/sw-works/mantelpiece/releases/tag/judging):
+`tv-vega_aarch64.vpkg` for the Virtual Device on an Apple silicon Mac, `tv-vega_x86_64.vpkg`
+on an Intel machine, and on a Fire TV the one that matches its CPU (`armv7` or `aarch64`).
+Each is a release build that talks to the judging backend.
 
 ```sh
 vega virtual-device start                       # skip on a Fire TV
-vega run-app mantelpiece.vpkg com.hanyu.mantelpiece.main -d VirtualDevice
+vega run-app tv-vega_aarch64.vpkg com.hanyu.mantelpiece.main -d VirtualDevice
 ```
 
 On a Fire TV use its device id from `vega device list` in place of `VirtualDevice`.
@@ -33,10 +34,10 @@ On a Fire TV use its device id from `vega device list` in place of `VirtualDevic
 
 ## 3. See a finished trip right away
 
-A demo household holds a six-day trip around Iceland (photos by Sergei Gussev, CC BY 2.0,
-from Wikimedia Commons).
+A demo household holds an eight-day trip around Iceland, June 27 to July 4, 2015 (photos by
+Sergei Gussev, CC BY 2.0, from Wikimedia Commons).
 
-1. On Memories home select **Join a trip** and enter the code ⟨set on 2026-11-09⟩.
+1. On Memories home select **Join a trip** and enter the code **GJSB8X**.
 2. Open the trip. Trip view shows the sketch map of the whole trip, each day with its own
    map, the day-by-day story and the highlights.
 3. Select **Play**. Each new day opens on its map for a few seconds. Select **Field notes**
