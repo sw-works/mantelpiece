@@ -134,7 +134,7 @@ impl Wikipedia {
     pub fn new(endpoint: impl Into<String>) -> Self {
         Self {
             endpoint: endpoint.into(),
-            user_agent: "Mantelpiece/0.1 (https://github.com/hanyuxiao/mantelpiece)".into(),
+            user_agent: "Mantelpiece/0.1 (https://github.com/sw-works/mantelpiece)".into(),
             last_call: Mutex::default(),
         }
     }

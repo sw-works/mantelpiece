@@ -91,6 +91,6 @@ EventBridge, Cognito, Login with Amazon, Rekognition, Amazon Bedrock, Bedrock Ag
 
 ## Links
 
-- Repository: https://github.com/hanyuxiao/mantelpiece (public before submission)
+- Repository: https://github.com/sw-works/mantelpiece (public before submission)
 - Architecture: `specs/architecture.md`, diagrams in `docs/diagrams/`
 - Friction log: `docs/friction-log.md`; Alexa+ add-on: `docs/alexa-plus.md`

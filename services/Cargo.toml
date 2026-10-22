@@ -6,7 +6,7 @@ members = ["crates/*", "lambdas/*", "tools/*"]
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
-repository = "https://github.com/hanyuxiao/mantelpiece"
+repository = "https://github.com/sw-works/mantelpiece"
 rust-version = "1.93"
 
 [workspace.dependencies]

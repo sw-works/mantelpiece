@@ -60,7 +60,7 @@ impl Default for OpenGeography {
         Self {
             tilejson: "https://tiles.openfreemap.org/planet".into(),
             terrain: "https://s3.amazonaws.com/elevation-tiles-prod/terrarium".into(),
-            user_agent: "Mantelpiece field notes (https://github.com/hanyuxiao/mantelpiece)".into(),
+            user_agent: "Mantelpiece field notes (https://github.com/sw-works/mantelpiece)".into(),
             template: OnceLock::new(),
         }
     }
