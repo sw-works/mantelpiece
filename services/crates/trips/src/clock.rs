@@ -148,14 +148,20 @@ mod tests {
             maya("m2", 1.01, spot),
             maya("m3", 2.01, spot),
         ];
-        assert!(estimate(&samples, &ContributorId::new("owner"), Params::default()).is_empty());
+        assert_eq!(
+            estimate(&samples, &ContributorId::new("owner"), Params::default()),
+            Vec::<ClockOffset>::new()
+        );
 
         let few = vec![
             sample("o1", 0.0, Some(spot)),
             maya("m1", 2.0, spot),
             maya("m2", 2.0, spot),
         ];
-        assert!(estimate(&few, &ContributorId::new("owner"), Params::default()).is_empty());
+        assert_eq!(
+            estimate(&few, &ContributorId::new("owner"), Params::default()),
+            Vec::<ClockOffset>::new()
+        );
     }
 
     #[test]

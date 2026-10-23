@@ -396,7 +396,10 @@ async fn organize_names_places_along_the_route_and_positions_camera_shots() {
         vec!["Kinkaku-ji", "Fushimi Inari-taisha", "Kyoto Station"],
         "{names:?}"
     );
-    assert!(day1.landmarks[2].media.is_empty());
+    assert_eq!(
+        day1.landmarks[2].media,
+        Vec::<mantelpiece_core::ids::MediaId>::new()
+    );
     assert_eq!(day1.landmarks[0].media, vec![MediaId::new("p1")]);
     assert_eq!(day1.title.as_deref(), Some("Day 1: Kinkaku-ji"));
     assert!(trip.name.starts_with("Kinkaku-ji,"), "{}", trip.name);
@@ -470,7 +473,10 @@ async fn organize_groups_bursts_builds_trip_and_is_idempotent() {
         "{}",
         trip.name
     );
-    assert!(!trip.route.points.is_empty());
+    assert_ne!(
+        trip.route.points,
+        Vec::<mantelpiece_core::trip::RoutePoint>::new()
+    );
     // F-712: route maps are no longer drawn by organize; sketch maps are, after it.
     assert!(trip.route.map_key.is_none());
     assert!(h.maps.log.lock().unwrap().is_empty());
@@ -750,7 +756,10 @@ async fn people_are_grouped_only_when_enabled_and_faces_are_matched() {
         })
         .await
         .unwrap();
-    assert!(h.storage.list_people(&house).await.unwrap().is_empty());
+    assert_eq!(
+        h.storage.list_people(&house).await.unwrap(),
+        Vec::<mantelpiece_core::person::Person>::new()
+    );
     assert!(h.faces.log.lock().unwrap().is_empty());
 
     // On: the first face opens a person, a match on the second photo joins them.

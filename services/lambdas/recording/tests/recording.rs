@@ -125,7 +125,7 @@ async fn recorded(r: &Rig, status: &str, size: usize) {
         b"#EXTM3U\n#EXT-X-TARGETDURATION:10\n#EXTINF:10.0,\n0.ts\n#EXTINF:10.0,\n1.ts\n#EXTINF:10.0,\n2.ts\n#EXT-X-ENDLIST\n".to_vec(),
     )
     .await;
-    for (i, fill) in [b'a', b'b', b'c'].into_iter().enumerate() {
+    for (i, fill) in b"abc".iter().copied().enumerate() {
         put(
             format!("{PREFIX}/media/hls/720p30/{i}.ts"),
             vec![fill; size],
@@ -207,12 +207,13 @@ async fn recordings_nobody_asked_to_keep_are_left_alone() {
     recorded(&r, "RECORDING_ENDED", 4).await;
     let out = run(&r.rec, input()).await.unwrap();
     assert_eq!(out.skipped.as_deref(), Some("not a saved broadcast"));
-    assert!(r
-        .storage
-        .list_media(&HouseholdId::new("house"))
-        .await
-        .unwrap()
-        .is_empty());
+    assert_eq!(
+        r.storage
+            .list_media(&HouseholdId::new("house"))
+            .await
+            .unwrap(),
+        Vec::<mantelpiece_core::media::MediaItem>::new()
+    );
     assert!(r.organizer.started.lock().unwrap().is_empty());
 
     // Failed recordings and keys that are not a recording's end are not videos either.

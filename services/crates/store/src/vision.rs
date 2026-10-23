@@ -399,8 +399,11 @@ mod tests {
             (s[1].bbox.left - 0.8).abs() < 1e-6,
             "corners given in reverse still read"
         );
-        assert!(parse_subjects("I cannot see anything.").is_empty());
-        assert!(parse_subjects("[not json]").is_empty());
+        assert_eq!(
+            parse_subjects("I cannot see anything."),
+            Vec::<Subject>::new()
+        );
+        assert_eq!(parse_subjects("[not json]"), Vec::<Subject>::new());
     }
 
     #[test]

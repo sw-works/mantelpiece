@@ -494,7 +494,7 @@ impl Storage for MemoryStorage {
         // Newest first; a stable sort keeps insertion order among equal timestamps once
         // the list is reversed, which matters under a frozen test clock.
         v.reverse();
-        v.sort_by(|a, b| b.at.cmp(&a.at));
+        v.sort_by_key(|a| std::cmp::Reverse(a.at));
         Ok(v)
     }
 

@@ -219,7 +219,7 @@ mod tests {
     #[test]
     fn stays_within_the_facts() {
         let text = "Hanyu started at Kinkaku-ji. Maya arrived for Fushimi Inari on Saturday. The last day was quiet.";
-        assert!(check(text, &kyoto()).is_empty());
+        assert_eq!(check(text, &kyoto()), Vec::<String>::new());
     }
 
     #[test]
@@ -231,7 +231,10 @@ mod tests {
             "{problems:?}"
         );
         assert!(problems.iter().any(|p| p.contains("Osaka")), "{problems:?}");
-        assert!(check("Kyoto in April 2026 was gentle.", &kyoto()).is_empty());
+        assert_eq!(
+            check("Kyoto in April 2026 was gentle.", &kyoto()),
+            Vec::<String>::new()
+        );
     }
 
     #[test]
@@ -239,7 +242,10 @@ mod tests {
         let mut allowed = Allowed::default();
         allowed.name("Iceland");
         allowed.date(2015, 6);
-        assert!(check("They loved the Icelandic light.", &allowed).is_empty());
+        assert_eq!(
+            check("They loved the Icelandic light.", &allowed),
+            Vec::<String>::new()
+        );
         assert_eq!(
             check("They loved the Irish light.", &allowed),
             vec!["unlisted name 'Irish'"]

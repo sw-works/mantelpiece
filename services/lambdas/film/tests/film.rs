@@ -159,7 +159,7 @@ fn a_day_is_rendered_stored_and_announced_then_skipped_when_unchanged() {
         let (fingerprint, duration_ms, made_at) =
             FilmKeys::read_marker(&blobs.get(&keys.marker(1)).await.unwrap());
         assert_eq!(made_at, "2026-03-25T21:00:00Z");
-        assert!(!fingerprint.is_empty());
+        assert_ne!(fingerprint, "");
         assert_eq!(*encoder.frames.lock().unwrap(), duration_ms * 10 / 1000);
         // The first frame is black: the film fades in.
         let first = encoder.first.lock().unwrap().clone().unwrap();

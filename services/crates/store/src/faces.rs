@@ -227,7 +227,10 @@ mod tests {
             }],
         );
         assert_eq!(f.search(&h, "face-2").await.unwrap().len(), 1);
-        assert!(f.search(&h, "face-1").await.unwrap().is_empty());
+        assert_eq!(
+            f.search(&h, "face-1").await.unwrap(),
+            Vec::<FaceMatch>::new()
+        );
         assert_eq!(
             RekognitionFaces::collection_id(&HouseholdId::new("a.b|c")),
             "mantelpiece-a_b_c"

@@ -526,7 +526,7 @@ impl Storage for DynamoStorage {
         let mut v: Vec<AuditEntry> = self
             .query(household_pk(household), "AU#", None, None)
             .await?;
-        v.sort_by(|a, b| b.at.cmp(&a.at));
+        v.sort_by_key(|a| std::cmp::Reverse(a.at));
         Ok(v)
     }
 

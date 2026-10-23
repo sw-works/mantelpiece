@@ -178,6 +178,6 @@ mod tests {
 
     #[test]
     fn empty_input() {
-        assert!(group(&[], Params::default()).is_empty());
+        assert_eq!(group(&[], Params::default()), Vec::<BurstGroup>::new());
     }
 }

@@ -190,7 +190,7 @@ mod tests {
             "Boboli and Piazzale Michelangelo rise above it: {hi}"
         );
         let c = t.contours(&view, interval(hi - lo));
-        assert!(!c.is_empty());
+        assert_ne!(c, Vec::<Shape>::new());
     }
 
     #[test]

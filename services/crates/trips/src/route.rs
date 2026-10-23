@@ -235,7 +235,10 @@ mod tests {
         assert!((p[3].lat - 35.81).abs() < 1e-9, "{p:?}");
         assert!(p[1].lat > 35.2 && p[2].lat > p[1].lat + 0.2, "{p:?}");
         assert_eq!(probes(&r, 1, 1_000.0).len(), 1);
-        assert!(probes(&Route::default(), 4, 1_000.0).is_empty());
+        assert_eq!(
+            probes(&Route::default(), 4, 1_000.0),
+            Vec::<GeoPoint>::new()
+        );
     }
 
     #[test]
@@ -287,7 +290,7 @@ mod tests {
     #[test]
     fn empty_route() {
         let r = from_gps(&[sample("a", 0.0, None)], Params::default());
-        assert!(r.points.is_empty());
+        assert_eq!(r.points, Vec::<RoutePoint>::new());
         assert!(length_m(&r).abs() < f64::EPSILON);
     }
 }

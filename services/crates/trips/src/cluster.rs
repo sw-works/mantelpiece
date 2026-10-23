@@ -226,7 +226,10 @@ mod tests {
 
     #[test]
     fn empty() {
-        assert!(cluster(&[], Params::default()).clusters.is_empty());
+        assert_eq!(
+            cluster(&[], Params::default()).clusters,
+            Vec::<Cluster>::new()
+        );
     }
 
     #[test]
@@ -249,7 +252,7 @@ mod tests {
         assert_eq!(c.clusters[0].undated, vec![MediaId::new("scan")]);
         assert_eq!(c.clusters[0].days.len(), 2, "an undated photo adds no day");
         assert_eq!(c.clusters[1].undated, vec![MediaId::new("old")]);
-        assert!(c.unplaced.is_empty());
+        assert_eq!(c.unplaced, Vec::<MediaId>::new());
         let mut lonely = sample("lonely", 0.0, None);
         lonely.dated = false;
         assert_eq!(

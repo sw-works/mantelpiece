@@ -250,13 +250,10 @@ async fn proposals_wait_for_the_remote_and_tokens_close_them() {
         )
         .await;
     assert_eq!(late.status, 409);
-    assert!(h
-        .owner(Method::Get, "/proposals", None)
-        .await
-        .body
-        .as_array()
-        .unwrap()
-        .is_empty());
+    assert_eq!(
+        h.owner(Method::Get, "/proposals", None).await.body,
+        json!([])
+    );
 
     // A second proposal, confirmed on the remote, applied by the tool, then closed.
     let opened = h
@@ -427,13 +424,10 @@ async fn cleanup_and_delete_tools_need_tokens_and_open_proposals() {
         )
         .await;
     assert_eq!(applied.body["removed"], 1, "{}", applied.body);
-    assert!(h
-        .owner(Method::Get, "/media/cleanup", None)
-        .await
-        .body
-        .as_array()
-        .unwrap()
-        .is_empty());
+    assert_eq!(
+        h.owner(Method::Get, "/media/cleanup", None).await.body,
+        json!([])
+    );
 
     // delete_media by the owner needs its own token; a guest cannot use the tool at all.
     let init = h
@@ -697,13 +691,10 @@ async fn a_second_household_joins_by_code_sees_the_trip_and_pins_privately() {
             .status,
         204
     );
-    assert!(h
-        .bearer(Method::Get, "/trips", None, &ruth)
-        .await
-        .body
-        .as_array()
-        .unwrap()
-        .is_empty());
+    assert_eq!(
+        h.bearer(Method::Get, "/trips", None, &ruth).await.body,
+        json!([])
+    );
     assert_eq!(
         h.bearer(Method::Get, "/trips/kyoto", None, &ruth)
             .await
@@ -1118,18 +1109,19 @@ async fn people_opt_in_naming_merging_search_and_deletion() {
         h.owner(Method::Post, "/people/disable", None).await.body["people_enabled"],
         false
     );
-    assert!(h.owner(Method::Get, "/people", None).await.body["people"]
-        .as_array()
-        .unwrap()
-        .is_empty());
-    assert!(h
-        .storage
-        .get_media(&house, &beach)
-        .await
-        .unwrap()
-        .unwrap()
-        .people
-        .is_empty());
+    assert_eq!(
+        h.owner(Method::Get, "/people", None).await.body["people"],
+        json!([])
+    );
+    assert_eq!(
+        h.storage
+            .get_media(&house, &beach)
+            .await
+            .unwrap()
+            .unwrap()
+            .people,
+        Vec::<mantelpiece_core::ids::PersonId>::new()
+    );
 
     // Account deletion: uploads answer 410 while it runs, and everything is gone after.
     let had_trips = !h.storage.list_trips(&house).await.unwrap().is_empty();
@@ -1146,8 +1138,14 @@ async fn people_opt_in_naming_merging_search_and_deletion() {
         .status,
         410
     );
-    assert!(h.storage.list_media(&house).await.unwrap().is_empty());
-    assert!(h.storage.list_trips(&house).await.unwrap().is_empty());
+    assert_eq!(
+        h.storage.list_media(&house).await.unwrap(),
+        Vec::<mantelpiece_core::media::MediaItem>::new()
+    );
+    assert_eq!(
+        h.storage.list_trips(&house).await.unwrap(),
+        Vec::<Trip>::new()
+    );
     assert!(h
         .blobs
         .log
@@ -1785,7 +1783,7 @@ async fn search_ranks_by_meaning_and_falls_back_to_keywords() {
             Some(json!({ "query": "snowmobile" })),
         )
         .await;
-    assert!(none.body["results"].as_array().unwrap().is_empty());
+    assert_eq!(none.body["results"], json!([]));
     assert_eq!(
         h.owner(Method::Post, "/search", Some(json!({ "query": " " })))
             .await
@@ -1916,13 +1914,10 @@ async fn ask_describes_the_photo_on_screen_or_searches_or_admits_nothing() {
         .owner(Method::Post, "/ask", Some(json!({ "question": "ramen" })))
         .await;
     assert_eq!(stale.body["mode"], "search");
-    assert!(h
-        .owner(Method::Get, "/presence", None)
-        .await
-        .body
-        .as_array()
-        .unwrap()
-        .is_empty());
+    assert_eq!(
+        h.owner(Method::Get, "/presence", None).await.body,
+        json!([])
+    );
 
     // Playlists are created explicitly too (the create_playlist tool).
     let created = h
@@ -2992,7 +2987,7 @@ async fn upload_flow_with_progress_events_and_dedup() {
     assert_eq!(events.body["events"][0]["total"], 42);
     assert_eq!(events.body["next"], 1);
     let none = h.owner(Method::Get, "/events?since=1", None).await;
-    assert!(none.body["events"].as_array().unwrap().is_empty());
+    assert_eq!(none.body["events"], json!([]));
     assert_eq!(
         h.bearer(Method::Get, "/events", None, &token).await.status,
         403
@@ -3008,13 +3003,12 @@ async fn upload_flow_with_progress_events_and_dedup() {
 
     // Another guest cannot touch Maya's upload; Maya can remove her own.
     let (other, _) = h.guest("Ken").await;
-    assert!(h
-        .bearer(Method::Get, "/uploads/mine", None, &other)
-        .await
-        .body
-        .as_array()
-        .unwrap()
-        .is_empty());
+    assert_eq!(
+        h.bearer(Method::Get, "/uploads/mine", None, &other)
+            .await
+            .body,
+        json!([])
+    );
     assert_eq!(
         h.bearer(Method::Delete, &format!("/media/{media_id}"), None, &other)
             .await

@@ -192,6 +192,6 @@ mod tests {
             problems.iter().any(|p| p.contains("Vikings")),
             "{problems:?}"
         );
-        assert!(f.trivia.is_empty());
+        assert_eq!(f.trivia, Vec::<String>::new());
     }
 }
