@@ -31,7 +31,7 @@ Then it makes things to watch:
 - **Sketch maps.** A hand-drawn map of the whole trip and of each day: ink coastlines, watercolour sea and glaciers, pencil shading on the hills, and the route as a dashed ink line with circled day numbers. The slideshow starts each new day on its map.
 - **Reels and day films.** The whole trip, or one day, as a music video on the TV. Every cut falls at the start of a bar of music, and each photo moves slowly toward its subject. At 21:00 each day, that day of the trip becomes a film the family can play from the sofa.
 
-Grandma's Fire TV can join the same trip with its code. She gets everyone's photos the evening they are taken, and her reactions show up in the ticker on your TV. Type "waterfall" on the TV and it finds the matching photos to play as a slideshow.
+Grandma's Fire TV can join the same trip with its code. She gets everyone's photos the evening they are taken, and her reactions show up in the ticker on your TV.
 
 Deleting or sharing photos always needs a person. Only the owner or a co-editor can approve it, on the TV's Review Changes screen, and an AI agent cannot approve it on its own. Maps never show places near home precisely, and anything shared outside the household gets its maps without the part of the route near home.
 
@@ -58,7 +58,7 @@ Deleting or sharing photos always needs a person. Only the owner or a co-editor 
 
 ### What's next
 
-Register the Alexa+ add-on when the preview opens; its OAuth 2.1 metadata, PKCE client and scope are already served. Then try the Echo Show slideshow skill with Alexa. Run Mantelpiece on a Fire TV Stick: so far everything has run on the Vega Virtual Device, where reel music stops after half a second and the reel plays on silently. After that: decoding HEIC photos on the server, native Login with Amazon on the TV, and S3 Vectors for search once it is available in our region. What we have not yet verified is listed in `docs/friction-log.md` and `specs/decisions-2026-09-09.md`.
+Register the Alexa+ add-on when the preview opens; its OAuth 2.1 metadata, PKCE client and scope are already served. Then try the Echo Show slideshow skill with Alexa. Run Mantelpiece on a Fire TV Stick: so far everything has run on the Vega Virtual Device, where reel music stops after half a second and the reel plays on silently. After that: decoding HEIC photos on the server and native Login with Amazon on the TV. What we have not yet verified is listed in `docs/friction-log.md` and `specs/decisions-2026-09-09.md`.
 
 ## Built with
 
