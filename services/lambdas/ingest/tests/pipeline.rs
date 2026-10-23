@@ -571,6 +571,7 @@ async fn organize_groups_bursts_builds_trip_and_is_idempotent() {
             role: mantelpiece_core::contributor::Role::Contributor,
             push: None,
             inbox: Vec::new(),
+            approval: None,
         })
         .await
         .unwrap();

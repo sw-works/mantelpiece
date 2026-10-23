@@ -7,7 +7,8 @@ use mantelpiece_api::films::MemoryFilms;
 use mantelpiece_api::req::{Jwt, Method, Req, Resp};
 use mantelpiece_api::starter::MemoryStarter;
 use mantelpiece_api::tokens::Signer;
-use mantelpiece_core::ids::{HouseholdId, MediaId, TripId};
+use mantelpiece_core::contributor::PairStatus;
+use mantelpiece_core::ids::{ContributorId, HouseholdId, MediaId, TripId};
 use mantelpiece_core::trip::{Route, Trip};
 use mantelpiece_store::bus::MemoryBus;
 use mantelpiece_store::faces::MemoryFaces;
@@ -1242,6 +1243,7 @@ async fn reactions_from_contributors_viewers_and_members_reach_the_ticker() {
             None,
         )
         .await;
+    h.let_in(&joined).await;
     let maya = joined.body["token"].as_str().unwrap().to_owned();
     assert_eq!(
         h.bearer(
@@ -2203,7 +2205,22 @@ impl Harness {
             )
             .await;
         assert_eq!(joined.status, 200, "{}", joined.body);
+        self.let_in(&joined).await;
         (joined.body["token"].as_str().unwrap().to_owned(), code)
+    }
+
+    /// The TV approves someone who joined by code, so their uploads are accepted.
+    async fn let_in(&self, joined: &Resp) {
+        let household = HouseholdId::new(joined.body["household"].as_str().unwrap());
+        let id = ContributorId::new(joined.body["contributor"].as_str().unwrap());
+        let mut c = self
+            .storage
+            .get_contributor(&household, &id)
+            .await
+            .unwrap()
+            .unwrap();
+        c.approval = Some(PairStatus::Approved);
+        self.storage.put_contributor(&c).await.unwrap();
     }
 
     async fn upload(&self, token: &str, filename: &str, bytes: u64, sha: &str) -> Resp {
@@ -2693,6 +2710,7 @@ async fn trip_scoped_code_limits_visibility() {
         .await;
     let token = joined.body["token"].as_str().unwrap().to_owned();
     assert_eq!(joined.body["trip"], "kyoto");
+    h.let_in(&joined).await;
 
     let trips = h.bearer(Method::Get, "/trips", None, &token).await;
     assert_eq!(trips.body.as_array().unwrap().len(), 1);
@@ -2980,13 +2998,15 @@ async fn upload_flow_with_progress_events_and_dedup() {
         "batch not finished yet"
     );
 
-    // TV sees the progress event; the guest may not read the household feed.
+    // TV sees the join request, then the progress event; the guest may not read the
+    // household feed.
     let events = h.owner(Method::Get, "/events?since=0", None).await;
     assert_eq!(events.status, 200);
-    assert_eq!(events.body["events"][0]["type"], "upload.progress");
-    assert_eq!(events.body["events"][0]["total"], 42);
-    assert_eq!(events.body["next"], 1);
-    let none = h.owner(Method::Get, "/events?since=1", None).await;
+    assert_eq!(events.body["events"][0]["type"], "phone.requested");
+    assert_eq!(events.body["events"][1]["type"], "upload.progress");
+    assert_eq!(events.body["events"][1]["total"], 42);
+    assert_eq!(events.body["next"], 2);
+    let none = h.owner(Method::Get, "/events?since=2", None).await;
     assert_eq!(none.body["events"], json!([]));
     assert_eq!(
         h.bearer(Method::Get, "/events", None, &token).await.status,
@@ -3041,8 +3061,16 @@ async fn upload_flow_with_progress_events_and_dedup() {
             .status,
         204
     );
-    let events = h.owner(Method::Get, "/events?since=1", None).await;
-    assert_eq!(events.body["events"][0]["type"], "media.removed");
+    let events = h.owner(Method::Get, "/events?since=2", None).await;
+    assert!(
+        events.body["events"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|e| e["type"] == "media.removed"),
+        "{}",
+        events.body
+    );
     assert_eq!(
         h.bearer(Method::Get, &format!("/media/{media_id}/url"), None, &token)
             .await
@@ -3255,7 +3283,7 @@ async fn finishing_a_batch_starts_organize() {
 mod roles {
     use super::*;
     use mantelpiece_api::app::TripAccess;
-    use mantelpiece_core::contributor::Role;
+    use mantelpiece_core::contributor::{PairStatus, Role};
     use mantelpiece_core::ids::ContributorId;
     use mantelpiece_core::membership::Membership;
 
@@ -3301,6 +3329,7 @@ mod roles {
                 .unwrap()
                 .unwrap();
             c.set_role(Role::CoEditor).unwrap();
+            c.approval = Some(PairStatus::Approved);
             self.storage.put_contributor(&c).await.unwrap();
             (joined.body["token"].as_str().unwrap().to_owned(), id)
         }

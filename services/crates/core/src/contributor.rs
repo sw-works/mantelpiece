@@ -102,6 +102,10 @@ pub struct Contributor {
     /// Reactions to this contributor's photos, newest first, at most [`INBOX_LIMIT`].
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub inbox: Vec<InboxNote>,
+    /// Someone who joined by trip code waits for the TV like a paired phone does. Unset on
+    /// the owner and on records from before joins needed the TV's approval.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub approval: Option<PairStatus>,
 }
 
 impl Contributor {
@@ -121,6 +125,7 @@ impl Contributor {
             role: Role::Contributor,
             push: None,
             inbox: Vec::new(),
+            approval: None,
         }
     }
 
@@ -143,6 +148,7 @@ impl Contributor {
             role: Role::Contributor,
             push: None,
             inbox: Vec::new(),
+            approval: None,
         }
     }
 
@@ -160,10 +166,16 @@ impl Contributor {
         }
     }
 
+    /// Where this contributor stands with the TV: a paired phone's status, or a trip-code
+    /// joiner's approval.
+    pub fn approval(&self) -> Option<PairStatus> {
+        self.pair_status().or(self.approval)
+    }
+
     pub fn is_active(&self) -> bool {
         self.removed_at.is_none()
             && !matches!(
-                self.pair_status(),
+                self.approval(),
                 Some(PairStatus::Pending | PairStatus::Denied)
             )
     }
@@ -208,6 +220,7 @@ mod tests {
             role: Role::Contributor,
             push: None,
             inbox: Vec::new(),
+            approval: None,
         }
     }
 
@@ -229,6 +242,23 @@ mod tests {
             status: PairStatus::Denied,
         };
         assert!(!phone.is_active());
+    }
+
+    #[test]
+    fn a_trip_code_joiner_is_inactive_until_the_tv_approves() {
+        let mut guest = contributor(ContributorKind::Guest);
+        guest.approval = Some(PairStatus::Pending);
+        assert!(!guest.is_active());
+        guest.approval = Some(PairStatus::Approved);
+        assert!(guest.is_active());
+        assert!(
+            !guest.can_edit(),
+            "approval lets a guest upload, never edit"
+        );
+        guest.approval = Some(PairStatus::Denied);
+        assert!(!guest.is_active());
+        guest.approval = None;
+        assert!(guest.is_active(), "records from before approval stay in");
     }
 
     #[test]

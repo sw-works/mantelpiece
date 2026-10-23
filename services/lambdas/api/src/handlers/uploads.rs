@@ -1,5 +1,6 @@
 //! Resumable multipart uploads from the phone browser (F-101, F-103, F-106).
 
+use mantelpiece_core::contributor::PairStatus;
 use mantelpiece_core::events::EventKind;
 use mantelpiece_core::ids::{BatchId, ContributorId, MediaId};
 use mantelpiece_core::media::{Enrichment, MediaItem, MediaKind, ProcessingState, Signals};
@@ -65,7 +66,12 @@ pub async fn init(app: &App, req: &Req) -> Result<Resp, ApiError> {
         .await?
     {
         if !c.is_active() {
-            return Err(ApiError::forbidden("removed from this household"));
+            let waiting = c.removed_at.is_none() && c.approval() == Some(PairStatus::Pending);
+            return Err(ApiError::forbidden(if waiting {
+                "waiting for the TV to let you in"
+            } else {
+                "removed from this household"
+            }));
         }
     }
     if let Caller::Contributor(Session::Upload { code, .. }) = &caller {

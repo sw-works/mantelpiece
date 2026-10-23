@@ -145,18 +145,17 @@ struct RequestBody {
     name: String,
 }
 
-/// `POST /pair/requests`: a phone asks to be let in. It gets a token good only for asking
-/// how the request stands.
-pub async fn request(app: &App, req: &Req) -> Result<Resp, ApiError> {
-    let body: RequestBody = req.json()?;
-    let household = household_for(app, &body.code).await?;
-    let name = clean_name(&body.name, "your name")?;
+/// Phones and trip-code joiners share one approval queue on the TV.
+pub(crate) async fn refuse_when_queue_full(
+    app: &App,
+    household: &HouseholdId,
+) -> Result<(), ApiError> {
     let waiting = app
         .storage
-        .list_contributors(&household.id)
+        .list_contributors(household)
         .await?
         .iter()
-        .filter(|c| c.pair_status() == Some(PairStatus::Pending))
+        .filter(|c| c.removed_at.is_none() && c.approval() == Some(PairStatus::Pending))
         .count();
     if waiting >= MAX_PENDING {
         return Err(ApiError::new(
@@ -164,6 +163,16 @@ pub async fn request(app: &App, req: &Req) -> Result<Resp, ApiError> {
             "too many phones are waiting; approve some on the TV",
         ));
     }
+    Ok(())
+}
+
+/// `POST /pair/requests`: a phone asks to be let in. It gets a token good only for asking
+/// how the request stands.
+pub async fn request(app: &App, req: &Req) -> Result<Resp, ApiError> {
+    let body: RequestBody = req.json()?;
+    let household = household_for(app, &body.code).await?;
+    let name = clean_name(&body.name, "your name")?;
+    refuse_when_queue_full(app, &household.id).await?;
     let now = app.now();
     let phone = Contributor::phone(household.id.clone(), name.clone(), now);
     app.storage.put_contributor(&phone).await?;
@@ -260,14 +269,18 @@ pub async fn list(app: &App, req: &Req) -> Result<Resp, ApiError> {
         .filter(|c| c.removed_at.is_none())
         .collect();
     phones.sort_by_key(|c| c.joined_at);
-    let with = |status| -> Vec<serde_json::Value> {
-        phones
-            .iter()
-            .filter(|c| c.pair_status() == Some(status))
-            .map(row)
-            .collect()
-    };
-    Resp::ok(json!({ "pending": with(PairStatus::Pending), "phones": with(PairStatus::Approved) }))
+    // The queue holds trip-code joiners too; only paired phones are listed as let in.
+    let pending: Vec<serde_json::Value> = phones
+        .iter()
+        .filter(|c| c.approval() == Some(PairStatus::Pending))
+        .map(row)
+        .collect();
+    let paired: Vec<serde_json::Value> = phones
+        .iter()
+        .filter(|c| c.pair_status() == Some(PairStatus::Approved))
+        .map(row)
+        .collect();
+    Resp::ok(json!({ "pending": pending, "phones": paired }))
 }
 
 /// `POST /pair/requests/{id}/approve|deny`: the TV lets a phone in, turns it away, or
@@ -278,14 +291,19 @@ pub async fn decide(app: &App, req: &Req, id: &str, approve: bool) -> Result<Res
         .storage
         .get_contributor(&household, &ContributorId::new(id))
         .await?
-        .filter(|c| c.pair_status().is_some())
+        .filter(|c| c.approval().is_some())
         .ok_or_else(|| ApiError::not_found("no such phone"))?;
     let status = if approve {
         PairStatus::Approved
     } else {
         PairStatus::Denied
     };
-    phone.kind = ContributorKind::Phone { status };
+    // A trip-code joiner stays a guest or friend when let in: uploads, never edits.
+    if matches!(phone.kind, ContributorKind::Phone { .. }) {
+        phone.kind = ContributorKind::Phone { status };
+    } else {
+        phone.approval = Some(status);
+    }
     app.storage.put_contributor(&phone).await?;
     Resp::ok(json!({ "id": phone.id, "name": phone.display_name, "approved": approve }))
 }

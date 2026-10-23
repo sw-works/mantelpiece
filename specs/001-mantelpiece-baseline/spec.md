@@ -74,7 +74,7 @@ ticker announces each arrival.
 **Acceptance Scenarios**:
 
 1. **Given** a trip is open, **When** the owner chooses Invite, **Then** the TV shows a full-screen QR and code for that trip with the live contributor count (F-151, F-409).
-2. **Given** the trip QR, **When** a guest joins with only a display name, **Then** their uploads are accepted and credited to that name, and their session works only for that trip and that phone (F-152).
+2. **Given** the trip QR, **When** a guest joins with only a display name and the TV approves them, **Then** their uploads are accepted and credited to that name, and their session works only for that trip and that phone (F-152).
 3. **Given** contributions from three phones, **When** the trip is viewed, **Then** every photo shows who took it and the timeline is ordered by capture time, not upload time (F-154, F-155).
 4. **Given** a contributor's phone clock was 3 minutes off, **When** their photos overlap others' GPS, **Then** the offset is corrected and shown as a hint (F-155).
 5. **Given** five phones shot the same landmark, **When** organised, **Then** they form one group with a keeper and every contributor credited (F-156).
@@ -400,7 +400,7 @@ Memories (F-701 to F-710)
 - Photos come from the phone's camera roll or cloud picker through the browser; there is no direct import from Amazon Photos because it has no public API.
 - Videos are stored and represented by poster frames; the TV does not play video in this baseline.
 - One TV per household is the common case; multi-TV households are supported for now-showing but not optimised.
-- Guests are identified by display name only and trusted at the level of the trip code; abuse is bounded by code rotation and owner removal.
+- Guests are identified by display name only. A trip code lets them ask to join; uploads are accepted only after the TV approves them, the same queue paired phones wait in. Abuse is further bounded by code rotation and owner removal.
 - People is off by default and must be turned on per household; face data is matched only within that household's archive.
 - Narration and Alexa+ voice depend on platform capabilities marked unverified in the decision log; text paths are the default and always available.
 - Fire OS support is a stretch goal; acceptance is on Vega OS and the Vega Virtual Device.

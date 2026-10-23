@@ -1,6 +1,7 @@
 //! Trip and household codes (F-151 to F-153) and joining by code (F-152).
 
-use mantelpiece_core::contributor::{Contributor, ContributorKind, Role};
+use mantelpiece_core::contributor::{Contributor, ContributorKind, PairStatus, Role};
+use mantelpiece_core::events::EventKind;
 use mantelpiece_core::ids::{ContributorId, HouseholdId, TripId};
 use mantelpiece_core::trip_code::{CodeScope, TripCode};
 use serde::{Deserialize, Serialize};
@@ -176,6 +177,7 @@ struct JoinBody {
 
 /// Join a trip by code. With a JWT the contributor is the Amazon account; without one
 /// they are a named guest. Either way the answer is an upload session token.
+#[allow(clippy::too_many_lines)]
 pub async fn join(app: &App, req: &Req) -> Result<Resp, ApiError> {
     let body: JoinBody = req.json()?;
     let code_str = mantelpiece_core::codes::normalize(&body.code)
@@ -229,6 +231,14 @@ pub async fn join(app: &App, req: &Req) -> Result<Resp, ApiError> {
         }
         Some(existing) => existing,
         None => {
+            // A code alone does not let anyone in: like a paired phone, a newcomer waits
+            // for the TV to approve before any upload is accepted.
+            let approval = if kind == ContributorKind::Owner {
+                None
+            } else {
+                crate::handlers::pair::refuse_when_queue_full(app, &household).await?;
+                Some(PairStatus::Pending)
+            };
             let c = Contributor {
                 id,
                 household: household.clone(),
@@ -240,8 +250,19 @@ pub async fn join(app: &App, req: &Req) -> Result<Resp, ApiError> {
                 role: Role::Contributor,
                 push: None,
                 inbox: Vec::new(),
+                approval,
             };
             app.storage.put_contributor(&c).await?;
+            if approval.is_some() {
+                app.emit(
+                    &household,
+                    EventKind::PhoneRequested {
+                        contributor: c.id.clone(),
+                        display_name: c.display_name.clone(),
+                    },
+                )
+                .await?;
+            }
             c
         }
     };
@@ -275,5 +296,6 @@ pub async fn join(app: &App, req: &Req) -> Result<Resp, ApiError> {
         "contributor": contributor.id,
         "display_name": contributor.display_name,
         "trip": trip,
+        "approved": contributor.is_active(),
     }))
 }
