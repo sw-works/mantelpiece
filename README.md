@@ -51,6 +51,9 @@ scripts/         tv-walkthrough.sh: Virtual Device key presses and screenshots
 
 ## Build and test
 
+Rust is pinned in `rust-toolchain.toml` (1.99.1, with the arm64 Linux target for the Lambdas);
+rustup installs it on first use, here and in CI.
+
 ```
 make test        # cargo test, vitest/jest, pytest
 make lint        # rustfmt + clippy, eslint + tsc, ruff
