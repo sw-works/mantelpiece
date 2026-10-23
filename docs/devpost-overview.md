@@ -8,7 +8,7 @@ Mantelpiece
 
 ## Tagline
 
-Everyone's phone photos, on the family TV. Each trip becomes an AI-written story, with a hand-drawn map set right into its best photos, short films, and live video from any phone.
+Everyone's phone photos and live video, on the family TV. Each trip becomes an AI-written story and short films, with a hand-drawn map set right into its best photos.
 
 ## Track
 
