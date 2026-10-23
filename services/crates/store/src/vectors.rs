@@ -151,6 +151,17 @@ fn backend<E: std::fmt::Debug>(e: E) -> StorageError {
     StorageError::Backend(format!("{e:?}"))
 }
 
+/// The key condition for one household's vectors. DynamoDB rejects an empty string in
+/// `begins_with`, so a household-wide read (search across trips, delete) is the partition
+/// alone.
+fn key_condition(prefix: &str) -> &'static str {
+    if prefix.is_empty() {
+        "pk = :pk"
+    } else {
+        "pk = :pk AND begins_with(sk, :prefix)"
+    }
+}
+
 /// Per-trip cache in the main table: `pk = V#<household>`, `sk = <trip>#<media>`. Every
 /// query reads one partition prefix and ranks in memory, which is fine for a trip of a few
 /// hundred keepers. Compile-checked only.
@@ -191,16 +202,17 @@ impl DynamoVectors {
     }
 
     async fn scan_prefix(&self, household: &HouseholdId, prefix: &str) -> Result<Vec<Stored>> {
-        let out = self
+        let mut query = self
             .client
             .query()
             .table_name(&self.table)
-            .key_condition_expression("pk = :pk AND begins_with(sk, :prefix)")
-            .expression_attribute_values(":pk", AttributeValue::S(Self::pk(household)))
-            .expression_attribute_values(":prefix", AttributeValue::S(prefix.to_owned()))
-            .send()
-            .await
-            .map_err(backend)?;
+            .key_condition_expression(key_condition(prefix))
+            .expression_attribute_values(":pk", AttributeValue::S(Self::pk(household)));
+        if !prefix.is_empty() {
+            query =
+                query.expression_attribute_values(":prefix", AttributeValue::S(prefix.to_owned()));
+        }
+        let out = query.send().await.map_err(backend)?;
         out.items
             .unwrap_or_default()
             .into_iter()
@@ -476,5 +488,14 @@ mod tests {
             1
         );
         assert!(cosine(&[0.0, 0.0], &[1.0, 0.0]).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn dynamo_household_read_has_no_empty_prefix() {
+        assert_eq!(key_condition(""), "pk = :pk");
+        assert_eq!(
+            key_condition("kyoto#"),
+            "pk = :pk AND begins_with(sk, :prefix)"
+        );
     }
 }
