@@ -62,10 +62,11 @@ Register the Alexa+ add-on when the preview opens; its OAuth 2.1 metadata, PKCE 
 
 ## Built with
 
-Rust, React Native, TypeScript, AWS Lambda, API Gateway, Step Functions, DynamoDB, S3,
-CloudFront, EventBridge, EventBridge Scheduler, Cognito, Login with Amazon, Rekognition,
-Amazon Bedrock (Amazon Nova), Bedrock AgentCore (Gateway, Runtime, Policy), Strands
-Agents, Amazon IVS, AWS CDK, Vega OS, OpenStreetMap (OpenFreeMap), tiny-skia, ffmpeg.
+Rust, React Native, TypeScript, Vega OS, AWS Lambda, Amazon API Gateway, AWS Step Functions,
+Amazon DynamoDB, Amazon S3, Amazon CloudFront, Amazon EventBridge, EventBridge Scheduler,
+Amazon Cognito, Login with Amazon, Amazon Rekognition, Amazon Bedrock, Amazon Nova, Amazon
+Bedrock AgentCore, Strands Agents, Amazon IVS, AWS CDK, OpenStreetMap, OpenFreeMap, tiny-skia,
+ffmpeg.
 
 ## Links
 
