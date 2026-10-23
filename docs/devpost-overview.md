@@ -65,7 +65,7 @@ Deleting or sharing photos always needs a person. Only the owner or a co-editor 
 
 Register the Alexa+ add-on when the preview opens; its OAuth 2.1 metadata, PKCE client and scope are already served. Then try the Echo Show slideshow skill with Alexa. Run Mantelpiece on a Fire TV Stick: so far everything has run on the Vega Virtual Device, where reel music stops after half a second and the reel plays on silently. Then publish it on the Fire TV Appstore. After that: decoding HEIC photos on the server and native Login with Amazon on the TV. What we have not yet verified is listed in the [friction log](https://github.com/sw-works/mantelpiece/blob/main/docs/friction-log.md) and the [decision log](https://github.com/sw-works/mantelpiece/blob/main/specs/decisions-2026-09-09.md); judges can try it with the [testing guide](https://github.com/sw-works/mantelpiece/blob/main/docs/testing.md).
 
-Mantelpiece builds a trip from each photo's original date and location, so the demo uses a real 2015 trip around Iceland whose photos are openly licensed: Sergei Gussev, CC BY 2.0, via Wikimedia Commons. Maps © OpenStreetMap contributors and Terrain Tiles (AWS Open Data).
+Mantelpiece builds a trip from each photo's original date and location, so the demo uses a real 2015 trip around Iceland whose photos are openly licensed: Sergei Gussev, CC BY 2.0, via Wikimedia Commons. Maps © OpenStreetMap contributors and Terrain Tiles (AWS Open Data). Music: "Carefree", "Living Voyage" and "Early Riser" by Kevin MacLeod, CC BY 3.0, via Wikimedia Commons.
 
 ## Built with
 
